@@ -1,0 +1,67 @@
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+
+# Local environments and IDE state
+.venv/
+.venv*/
+.idea/
+.history/
+.vscode/
+.agent/
+
+# Runtime artifacts (training/eval outputs)
+runs/
+runs*/
+runs_*/
+runs-*/
+central_memory/
+central_memory*/
+tmp_moe/
+data/memory_smoke/
+data/memory/
+artifacts/
+
+# Generated reports/benchmarks
+models/benchmarks_smoke/
+models/benchmarks/
+models/benchmarks/fixed_seed_smoke/
+models/benchmarks/fixed_seed_cycle_smoke/
+models/benchmarks/fixed_seed_autotune_smoke/
+models/benchmarks/fixed_seed_bridge_health_smoke/
+models/benchmarks/bridge_search2_*/
+models/benchmarks/bridge_tune_*/
+models/tuning/
+models/validation/
+models/memory_health/
+models/quarantine/
+models/universal_model/
+models/expert_datasets/
+models/distilled*/
+models/default_policy_set.json.bak
+models/emergent_transfer_results.json
+models/emergent_default_policy_set.json
+models/last_benchmark_report.json
+models/adt_promotion_eval*.json
+theory/*_check.txt
+theory/gap_report*.txt
+
+# Large local binaries/checkpoints
+*.pt
+*.pth
+*.onnx
+*.sqlite
+*.prof
+
+# Frontend/generated deps
+command_center/node_modules/
+command_center/.next/
+command_center/out/
+
+# OS junk
+.DS_Store
+Thumbs.db
