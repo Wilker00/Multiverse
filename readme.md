@@ -4,12 +4,24 @@ Multiverse is a local reinforcement-learning codebase with custom environments (
 
 ## Verified Status
 
-As of 2026-02-17, this repository was validated with:
+As of 2026-02-20, this repository was validated with:
 
 - `python -m pytest -q`
-- Result: `206 passed`
+- Result: `237 passed, 1 failed`
+- Failing test: `tests/test_multiverse_cli.py::TestMultiverseCli::test_discover_and_resolve_runs`
+
+Paper-readiness artifacts were generated at `2026-02-20T03:21:01Z` under `models/paper/paper_readiness/latest/`.
 
 This README is intentionally strict. It only describes what is present in code and currently exercised by the active pytest suite.
+
+## Key Quantitative Results
+
+- Retrieval speedup (ANN vs exact): `75.20x` (`109.0455s` exact vs `1.4502s` ANN).
+  - Artifact: `models/validation/retrieval_ann_benchmark_v1.json`
+- Safety certificate (Hoeffding, 95% confidence): `0/200` observed violations, upper bound `0.0960`.
+  - Artifact: `models/paper/paper_readiness/latest/phase3_theory_validation.json`
+- Cliff-world return penalty reduction (candidate vs baseline): `8.45x` (`-2030.5` to `-240.25`).
+  - Artifact: `models/paper/paper_readiness/latest/benchmark_gate.json`
 
 ## Active Runtime Surface
 
