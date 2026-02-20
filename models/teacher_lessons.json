@@ -1,0 +1,5514 @@
+{
+  "version": "v1",
+  "updated_at_ms": 1770939284890,
+  "lessons": [
+    {
+      "t_ms": 1770918266821,
+      "tutorial_run_id": "run_85103cf5c5ae4d2b91c9c5ffa33719a8",
+      "graduation_run_id": "run_b07f01d1467b4986a4c3bf28f004e54b",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 585,
+          "events": 58500,
+          "high_risk_events": 37664,
+          "high_risk_failures": 37664,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -983.5538461538462
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 3,
+            "gust_probability": 0.3,
+            "edge_penalty": -3.2,
+            "margin_reward_scale": 0.09
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770918231624,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 585,
+              "events": 58500,
+              "high_risk_events": 37664,
+              "high_risk_failures": 37664,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -983.5538461538462
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770918231624,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "unstable_mastery_windows",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": false,
+          "history_points": 0,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770919366308,
+      "tutorial_run_id": "run_38306b843ec64dd59b268da8d5fadce8",
+      "graduation_run_id": "run_0de492bf2cd541058f46ab926397b414",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 685,
+          "events": 68500,
+          "high_risk_events": 43042,
+          "high_risk_failures": 43042,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -974.6686131386862
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 3,
+            "gust_probability": 0.3,
+            "edge_penalty": -3.2,
+            "margin_reward_scale": 0.09
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770919341396,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 685,
+              "events": 68500,
+              "high_risk_events": 43042,
+              "high_risk_failures": 43042,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -974.6686131386862
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770919341396,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "unstable_mastery_windows",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": false,
+          "history_points": 1,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770919425393,
+      "tutorial_run_id": "run_7067d44cddee4e79bf69f85af7e98dcd",
+      "graduation_run_id": "run_5d7058b763c04e87909c62a8ea4cfa2f",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 760,
+          "events": 76000,
+          "high_risk_events": 45933,
+          "high_risk_failures": 45933,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -917.271052631579
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 3,
+            "gust_probability": 0.3,
+            "edge_penalty": -3.2,
+            "margin_reward_scale": 0.09
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770919422218,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 760,
+              "events": 76000,
+              "high_risk_events": 45933,
+              "high_risk_failures": 45933,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -917.271052631579
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770919422218,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "unstable_mastery_windows",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": false,
+          "history_points": 2,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770920453582,
+      "tutorial_run_id": "run_56ce679f73934ff6a362ee82743a8597",
+      "graduation_run_id": "run_c992abeee5b64cff9e4019cd27a7b4b1",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 712,
+          "events": 71200,
+          "high_risk_events": 42742,
+          "high_risk_failures": 42742,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -942.8904494382023
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.3,
+            "edge_penalty": -4.5,
+            "margin_reward_scale": 0.16
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770920432231,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 712,
+              "events": 71200,
+              "high_risk_events": 42742,
+              "high_risk_failures": 42742,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -942.8904494382023
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.3,
+              "edge_penalty": -4.5,
+              "margin_reward_scale": 0.16
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770920432231,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "unstable_mastery_windows",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": false,
+          "history_points": 3,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770925241790,
+      "tutorial_run_id": "run_5ea5eab7b8d6499883750c26c8dba5bb",
+      "graduation_run_id": "run_c93ec8ba0d0e485eab62b349f1e8e7dd",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 252,
+          "events": 25200,
+          "high_risk_events": 8804,
+          "high_risk_failures": 8804,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -481.4642857142857
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.25,
+            "edge_penalty": -5.0,
+            "margin_reward_scale": 0.18
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770925088028,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 252,
+              "events": 25200,
+              "high_risk_events": 8804,
+              "high_risk_failures": 8804,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -481.4642857142857
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.25,
+              "edge_penalty": -5.0,
+              "margin_reward_scale": 0.18
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770925088028,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "unstable_mastery_windows",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": false,
+          "history_points": 4,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770925620637,
+      "tutorial_run_id": "run_e7375663d3624ea988fe8cdf5d1f71ae",
+      "graduation_run_id": "run_2a3ccd0295b2440fb5ba73a055daa442",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 700,
+          "events": 70000,
+          "high_risk_events": 42100,
+          "high_risk_failures": 42100,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -747.1771428571428
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.25,
+            "edge_penalty": -5.0,
+            "margin_reward_scale": 0.18
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770925422352,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 700,
+              "events": 70000,
+              "high_risk_events": 42100,
+              "high_risk_failures": 42100,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -747.1771428571428
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.25,
+              "edge_penalty": -5.0,
+              "margin_reward_scale": 0.18
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770925422352,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": true,
+          "history_points": 5,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770926030500,
+      "tutorial_run_id": "run_7a018ceb6f6c4638ba446d6c9683afc2",
+      "graduation_run_id": "run_2e743edc1bf94dc181a27d2da8eb5b4c",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1420,
+          "events": 128757,
+          "high_risk_events": 80515,
+          "high_risk_failures": 80515,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -695.8943661971831
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770925763225,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1420,
+              "events": 128757,
+              "high_risk_events": 80515,
+              "high_risk_failures": 80515,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -695.8943661971831
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770925763225,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": true,
+          "history_points": 6,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770926192377,
+      "tutorial_run_id": "run_9dfe7fd8a4fe42a4b36901c10ac78019",
+      "graduation_run_id": "run_1c43adf6c5e64d85a666570a684335c3",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2300,
+          "events": 197648,
+          "high_risk_events": 116999,
+          "high_risk_failures": 116999,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -669.7621739130435
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926120940,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2300,
+              "events": 197648,
+              "high_risk_events": 116999,
+              "high_risk_failures": 116999,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -669.7621739130435
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926120940,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": true,
+          "history_points": 7,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770926422970,
+      "tutorial_run_id": "run_85a8ad15e6c446c9a4413616e18e5ee8",
+      "graduation_run_id": "run_f02ebf42da8945ec83ed0e9c12e588bf",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2680,
+          "events": 233614,
+          "high_risk_events": 111670,
+          "high_risk_failures": 111670,
+          "high_risk_failure_rate": 1.0,
+          "mean_episode_return": -568.1529850746268
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926323823,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2680,
+              "events": 233614,
+              "high_risk_events": 111670,
+              "high_risk_failures": 111670,
+              "high_risk_failure_rate": 1.0,
+              "mean_episode_return": -568.1529850746268
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926323823,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 1.0,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2,
+          "lesson_quality": 1.0,
+          "mastery_current": 0.0,
+          "mastery_recent_mean": 0.0,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0,
+          "stable_windows": true,
+          "history_points": 8,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770926929737,
+      "tutorial_run_id": "run_bf86541cc6604944b0ad245d602bb790",
+      "graduation_run_id": "run_7159029b7bdf440d9e5b0d90db863749",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2820,
+          "events": 254371,
+          "high_risk_events": 77658,
+          "high_risk_failures": 77583,
+          "high_risk_failure_rate": 0.999034226995287,
+          "mean_episode_return": -375.30248226950357
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 124,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926842155,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2820,
+              "events": 254371,
+              "high_risk_events": 77658,
+              "high_risk_failures": 77583,
+              "high_risk_failure_rate": 0.999034226995287,
+              "mean_episode_return": -375.30248226950357
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 124,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926842155,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9998068453990574,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2005408328826393,
+          "lesson_quality": 0.9998068453990574,
+          "mastery_current": 0.0009657730047130109,
+          "mastery_recent_mean": 0.00032192433490433697,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.00032192433490433697,
+          "stable_windows": true,
+          "history_points": 9,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927016891,
+      "tutorial_run_id": "run_f68036f1bc024d6a918607b0bdd39d49",
+      "graduation_run_id": "run_86bdaba2b2dc4d869aae5a956a453b13",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2480,
+          "events": 223537,
+          "high_risk_events": 48182,
+          "high_risk_failures": 48067,
+          "high_risk_failure_rate": 0.9976132165538998,
+          "mean_episode_return": -234.65524193548387
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 125,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926950311,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2480,
+              "events": 223537,
+              "high_risk_events": 48182,
+              "high_risk_failures": 48067,
+              "high_risk_failure_rate": 0.9976132165538998,
+              "mean_episode_return": -234.65524193548387
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 125,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770926950311,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.99952264331078,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20143317603028746,
+          "lesson_quality": 0.99952264331078,
+          "mastery_current": 0.0023867834461002158,
+          "mastery_recent_mean": 0.0011175188169377421,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0011175188169377421,
+          "stable_windows": true,
+          "history_points": 10,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927122659,
+      "tutorial_run_id": "run_b2573e171f2f4c1a85b9639f1caffe1e",
+      "graduation_run_id": "run_71887ae9dfc14d14856966f3992bdced",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2060,
+          "events": 189383,
+          "high_risk_events": 35890,
+          "high_risk_failures": 35800,
+          "high_risk_failure_rate": 0.9974923376985233,
+          "mean_episode_return": -207.95048543689322
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 126,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927036389,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2060,
+              "events": 189383,
+              "high_risk_events": 35890,
+              "high_risk_failures": 35800,
+              "high_risk_failure_rate": 0.9974923376985233,
+              "mean_episode_return": -207.95048543689322
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 126,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927036389,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994984675397047,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2017395465339083,
+          "lesson_quality": 0.9994984675397047,
+          "mastery_current": 0.0025076623014766986,
+          "mastery_recent_mean": 0.0019534062507633085,
+          "mastery_prev_mean": 0.0,
+          "mastery_delta": 0.0019534062507633085,
+          "stable_windows": true,
+          "history_points": 11,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927231425,
+      "tutorial_run_id": "run_63fd75df65ee4df089c03d73bea0114c",
+      "graduation_run_id": "run_507cc510be52424b9a75d0d49e8c05b3",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 176563,
+          "high_risk_events": 32703,
+          "high_risk_failures": 32624,
+          "high_risk_failure_rate": 0.9975843194813931,
+          "mean_episode_return": -203.94744897959183
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 127,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927142484,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 176563,
+              "high_risk_events": 32703,
+              "high_risk_failures": 32624,
+              "high_risk_failure_rate": 0.9975843194813931,
+              "mean_episode_return": -203.94744897959183
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 127,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927142484,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995168638962787,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20184222566517754,
+          "lesson_quality": 0.9995168638962787,
+          "mastery_current": 0.0024156805186068553,
+          "mastery_recent_mean": 0.00243670875539459,
+          "mastery_prev_mean": 0.00032192433490433697,
+          "mastery_delta": 0.002114784420490253,
+          "stable_windows": true,
+          "history_points": 12,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927344924,
+      "tutorial_run_id": "run_8bd0aa78b77c44d8a8484a728b07bbc0",
+      "graduation_run_id": "run_806fb3151917401b91af041184a3ab48",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 184662,
+          "high_risk_events": 39196,
+          "high_risk_failures": 39122,
+          "high_risk_failure_rate": 0.9981120522502296,
+          "mean_episode_return": -227.93039215686275
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 128,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927245633,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 184662,
+              "high_risk_events": 39196,
+              "high_risk_failures": 39122,
+              "high_risk_failure_rate": 0.9981120522502296,
+              "mean_episode_return": -227.93039215686275
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 128,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927245633,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.999622410450046,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2015495850218798,
+          "lesson_quality": 0.999622410450046,
+          "mastery_current": 0.0018879477497704134,
+          "mastery_recent_mean": 0.0022704301899513224,
+          "mastery_prev_mean": 0.0011175188169377421,
+          "mastery_delta": 0.0011529113730135803,
+          "stable_windows": true,
+          "history_points": 13,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927448941,
+      "tutorial_run_id": "run_b89c39fe965443cba0695fd948673d58",
+      "graduation_run_id": "run_e252ef6366844a45a8dfc9add1436565",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 184888,
+          "high_risk_events": 39136,
+          "high_risk_failures": 39062,
+          "high_risk_failure_rate": 0.9981091578086672,
+          "mean_episode_return": -227.31225490196078
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 129,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927360433,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 184888,
+              "high_risk_events": 39136,
+              "high_risk_failures": 39062,
+              "high_risk_failure_rate": 0.9981091578086672,
+              "mean_episode_return": -227.31225490196078
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 129,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927360433,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996218315617335,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20148923445398412,
+          "lesson_quality": 0.9996218315617335,
+          "mastery_current": 0.0018908421913328421,
+          "mastery_recent_mean": 0.002064823486570037,
+          "mastery_prev_mean": 0.0019534062507633085,
+          "mastery_delta": 0.00011141723580672825,
+          "stable_windows": true,
+          "history_points": 14,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927563865,
+      "tutorial_run_id": "run_aa2c8ec4563541b2b559a6223402e021",
+      "graduation_run_id": "run_1559d29b444240569e5751f21ccb774b",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 184808,
+          "high_risk_events": 38865,
+          "high_risk_failures": 38785,
+          "high_risk_failure_rate": 0.997941592692654,
+          "mean_episode_return": -228.1936274509804
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 100123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927460459,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 184808,
+              "high_risk_events": 38865,
+              "high_risk_failures": 38785,
+              "high_risk_failure_rate": 0.997941592692654,
+              "mean_episode_return": -228.1936274509804
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 100123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927460459,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995883185385308,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20153058708622407,
+          "lesson_quality": 0.9995883185385308,
+          "mastery_current": 0.0020584073073459663,
+          "mastery_recent_mean": 0.0019457324161497407,
+          "mastery_prev_mean": 0.00243670875539459,
+          "mastery_delta": -0.0004909763392448492,
+          "stable_windows": true,
+          "history_points": 15,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927699585,
+      "tutorial_run_id": "run_c549b5fab61442b189c735026cc6c3b5",
+      "graduation_run_id": "run_b82e2d7201d44b118f81b15605221ab4",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2480,
+          "events": 226659,
+          "high_risk_events": 51937,
+          "high_risk_failures": 51845,
+          "high_risk_failure_rate": 0.998228623139573,
+          "mean_episode_return": -260.00685483870967
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 124,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927618615,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2480,
+              "events": 226659,
+              "high_risk_events": 51937,
+              "high_risk_failures": 51845,
+              "high_risk_failure_rate": 0.998228623139573,
+              "mean_episode_return": -260.00685483870967
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 124,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927618615,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996457246279147,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20138689599170706,
+          "lesson_quality": 0.9996457246279147,
+          "mastery_current": 0.0017713768604270541,
+          "mastery_recent_mean": 0.0019068754530352876,
+          "mastery_prev_mean": 0.0022704301899513224,
+          "mastery_delta": -0.0003635547369160348,
+          "stable_windows": true,
+          "history_points": 16,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927771367,
+      "tutorial_run_id": "run_9073cd29d844480ab3f9e5f45ae98b32",
+      "graduation_run_id": "run_5e7f3ea2372f4b7783b8c63e73527f6f",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2480,
+          "events": 227517,
+          "high_risk_events": 52590,
+          "high_risk_failures": 52503,
+          "high_risk_failure_rate": 0.9983456930975471,
+          "mean_episode_return": -262.5548387096774
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 125,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927718270,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2480,
+              "events": 227517,
+              "high_risk_events": 52590,
+              "high_risk_failures": 52503,
+              "high_risk_failure_rate": 0.9983456930975471,
+              "mean_episode_return": -262.5548387096774
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 125,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927718271,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996691386195095,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20130939028215095,
+          "lesson_quality": 0.9996691386195095,
+          "mastery_current": 0.00165430690245294,
+          "mastery_recent_mean": 0.0018280303567419869,
+          "mastery_prev_mean": 0.002064823486570037,
+          "mastery_delta": -0.0002367931298280499,
+          "stable_windows": true,
+          "history_points": 17,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927863128,
+      "tutorial_run_id": "run_ef2a6d7e191d4e35be6e7a135f526ec8",
+      "graduation_run_id": "run_52dae1afe1a94991b23f271b790f17f5",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2060,
+          "events": 191142,
+          "high_risk_events": 37977,
+          "high_risk_failures": 37889,
+          "high_risk_failure_rate": 0.9976828080153777,
+          "mean_episode_return": -224.5888349514563
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 126,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927785300,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2060,
+              "events": 191142,
+              "high_risk_events": 37977,
+              "high_risk_failures": 37889,
+              "high_risk_failure_rate": 0.9976828080153777,
+              "mean_episode_return": -224.5888349514563
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 126,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927785300,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995365616030756,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2016401958876765,
+          "lesson_quality": 0.9995365616030756,
+          "mastery_current": 0.0023171919846223243,
+          "mastery_recent_mean": 0.001914291915834106,
+          "mastery_prev_mean": 0.0019457324161497407,
+          "mastery_delta": -3.144050031563461e-05,
+          "stable_windows": true,
+          "history_points": 18,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770927955855,
+      "tutorial_run_id": "run_b94ca9f4e2794943b3cf898a20baa4a0",
+      "graduation_run_id": "run_7b76b7baae6e4a72ae6aff10d4341489",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 178492,
+          "high_risk_events": 34775,
+          "high_risk_failures": 34707,
+          "high_risk_failure_rate": 0.9980445722501797,
+          "mean_episode_return": -228.4918367346939
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 127,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927877739,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 178492,
+              "high_risk_events": 34775,
+              "high_risk_failures": 34707,
+              "high_risk_failure_rate": 0.9980445722501797,
+              "mean_episode_return": -228.4918367346939
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 127,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927877739,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.999608914450036,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2014921894286069,
+          "lesson_quality": 0.999608914450036,
+          "mastery_current": 0.001955427749820271,
+          "mastery_recent_mean": 0.0019756422122985118,
+          "mastery_prev_mean": 0.0019068754530352876,
+          "mastery_delta": 6.876675926322418e-05,
+          "stable_windows": true,
+          "history_points": 19,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770928042064,
+      "tutorial_run_id": "run_6388ee7651b04dffb59366b898b0c502",
+      "graduation_run_id": "run_6d4ca88019a24506b53035be73bcc660",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 186194,
+          "high_risk_events": 41166,
+          "high_risk_failures": 41095,
+          "high_risk_failure_rate": 0.998275275712967,
+          "mean_episode_return": -250.29362745098038
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 128,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927969369,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 186194,
+              "high_risk_events": 41166,
+              "high_risk_failures": 41095,
+              "high_risk_failure_rate": 0.998275275712967,
+              "mean_episode_return": -250.29362745098038
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 128,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770927969369,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996550551425935,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20139310757418274,
+          "lesson_quality": 0.9996550551425935,
+          "mastery_current": 0.0017247242870329638,
+          "mastery_recent_mean": 0.0019991146738251864,
+          "mastery_prev_mean": 0.0018280303567419869,
+          "mastery_delta": 0.0001710843170831995,
+          "stable_windows": true,
+          "history_points": 20,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770928134160,
+      "tutorial_run_id": "run_237c17f5f3ea42918622c3dd008a6050",
+      "graduation_run_id": "run_d4e1598fa00542e38dfb53c8be06c57f",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 186148,
+          "high_risk_events": 41033,
+          "high_risk_failures": 40957,
+          "high_risk_failure_rate": 0.9981478322325933,
+          "mean_episode_return": -247.40245098039216
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 129,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928056188,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 186148,
+              "high_risk_events": 41033,
+              "high_risk_failures": 40957,
+              "high_risk_failure_rate": 0.9981478322325933,
+              "mean_episode_return": -247.40245098039216
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 129,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928056188,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996295664465187,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20140522915343312,
+          "lesson_quality": 0.9996295664465187,
+          "mastery_current": 0.0018521677674067094,
+          "mastery_recent_mean": 0.0018441066014199814,
+          "mastery_prev_mean": 0.001914291915834106,
+          "mastery_delta": -7.018531441412468e-05,
+          "stable_windows": true,
+          "history_points": 21,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770928252781,
+      "tutorial_run_id": "run_aeabd9180bb94a3cb123d0c6222b510f",
+      "graduation_run_id": "run_e195fa85f2ca4d659607ce273da5a0a4",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 186068,
+          "high_risk_events": 40762,
+          "high_risk_failures": 40680,
+          "high_risk_failure_rate": 0.9979883224571905,
+          "mean_episode_return": -248.28382352941176
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 100123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928147029,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 186068,
+              "high_risk_events": 40762,
+              "high_risk_failures": 40680,
+              "high_risk_failure_rate": 0.9979883224571905,
+              "mean_episode_return": -248.28382352941176
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 100123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928147029,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995976644914382,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2014842286294173,
+          "lesson_quality": 0.9995976644914382,
+          "mastery_current": 0.002011677542809509,
+          "mastery_recent_mean": 0.0018628565324163941,
+          "mastery_prev_mean": 0.0019756422122985118,
+          "mastery_delta": -0.00011278567988211763,
+          "stable_windows": true,
+          "history_points": 22,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770928439054,
+      "tutorial_run_id": "run_dc176299ea5a464da0f79db3b8a99654",
+      "graduation_run_id": "run_99d95cc5d68b415d83d5f7c3c1ec0809",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2480,
+          "events": 226659,
+          "high_risk_events": 51937,
+          "high_risk_failures": 51845,
+          "high_risk_failure_rate": 0.998228623139573,
+          "mean_episode_return": -260.00685483870967
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928340650,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2480,
+              "events": 226659,
+              "high_risk_events": 51937,
+              "high_risk_failures": 51845,
+              "high_risk_failure_rate": 0.998228623139573,
+              "mean_episode_return": -260.00685483870967
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928340650,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996457246279147,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2013783555728608,
+          "lesson_quality": 0.9996457246279147,
+          "mastery_current": 0.0017713768604270541,
+          "mastery_recent_mean": 0.0018784073902144243,
+          "mastery_prev_mean": 0.0019991146738251864,
+          "mastery_delta": -0.00012070728361076211,
+          "stable_windows": true,
+          "history_points": 23,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770928559842,
+      "tutorial_run_id": "run_1f37059f4fb940b69740c54d36241c4c",
+      "graduation_run_id": "run_68733405484a4f53b5042a1588f1175d",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2920,
+          "events": 262058,
+          "high_risk_events": 60755,
+          "high_risk_failures": 60629,
+          "high_risk_failure_rate": 0.9979260966175624,
+          "mean_episode_return": -258.16883561643834
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928461587,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2920,
+              "events": 262058,
+              "high_risk_events": 60755,
+              "high_risk_failures": 60629,
+              "high_risk_failure_rate": 0.9979260966175624,
+              "mean_episode_return": -258.16883561643834
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928461587,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995852193235125,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20153969133448876,
+          "lesson_quality": 0.9995852193235125,
+          "mastery_current": 0.002073903382437625,
+          "mastery_recent_mean": 0.001952319261891396,
+          "mastery_prev_mean": 0.0018441066014199814,
+          "mastery_delta": 0.00010821266047141465,
+          "stable_windows": true,
+          "history_points": 24,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770928688448,
+      "tutorial_run_id": "run_507a25b0085644a39791818fafba7f2b",
+      "graduation_run_id": "run_155ee4903eab45b1be26d12b44305066",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2920,
+          "events": 260379,
+          "high_risk_events": 58916,
+          "high_risk_failures": 58772,
+          "high_risk_failure_rate": 0.9975558422160364,
+          "mean_episode_return": -250.56027397260274
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928582157,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2920,
+              "events": 260379,
+              "high_risk_events": 58916,
+              "high_risk_failures": 58772,
+              "high_risk_failure_rate": 0.9975558422160364,
+              "mean_episode_return": -250.56027397260274
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770928582157,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995111684432073,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20175325638330607,
+          "lesson_quality": 0.9995111684432073,
+          "mastery_current": 0.002444157783963563,
+          "mastery_recent_mean": 0.002096479342276081,
+          "mastery_prev_mean": 0.0018628565324163941,
+          "mastery_delta": 0.00023362280985968664,
+          "stable_windows": true,
+          "history_points": 25,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770931574706,
+      "tutorial_run_id": "run_86a125d1725e4d5e8cc85c708b03c12a",
+      "graduation_run_id": "run_ca771f16ed3245c58a554dca55b18525",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2920,
+          "events": 264806,
+          "high_risk_events": 60223,
+          "high_risk_failures": 60101,
+          "high_risk_failure_rate": 0.997974195905219,
+          "mean_episode_return": -256.45342465753424
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 124,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931486953,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2920,
+              "events": 264806,
+              "high_risk_events": 60223,
+              "high_risk_failures": 60101,
+              "high_risk_failure_rate": 0.997974195905219,
+              "mean_episode_return": -256.45342465753424
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 124,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931486953,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995948391810439,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2015862564097175,
+          "lesson_quality": 0.9995948391810439,
+          "mastery_current": 0.0020258040947810363,
+          "mastery_recent_mean": 0.002181288420394075,
+          "mastery_prev_mean": 0.0018784073902144243,
+          "mastery_delta": 0.00030288103017965073,
+          "stable_windows": true,
+          "history_points": 26,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770931661638,
+      "tutorial_run_id": "run_370144fcb7824d009d1a855f57e5c3d0",
+      "graduation_run_id": "run_15936509380a4b18ab117bea5727185f",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2480,
+          "events": 224887,
+          "high_risk_events": 49993,
+          "high_risk_failures": 49900,
+          "high_risk_failure_rate": 0.9981397395635389,
+          "mean_episode_return": -248.54032258064515
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 125,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931595852,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2480,
+              "events": 224887,
+              "high_risk_events": 49993,
+              "high_risk_failures": 49900,
+              "high_risk_failure_rate": 0.9981397395635389,
+              "mean_episode_return": -248.54032258064515
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 125,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931595852,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996279479127078,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20148874203229272,
+          "lesson_quality": 0.9996279479127078,
+          "mastery_current": 0.0018602604364611475,
+          "mastery_recent_mean": 0.0021100741050685823,
+          "mastery_prev_mean": 0.001952319261891396,
+          "mastery_delta": 0.00015775484317718624,
+          "stable_windows": true,
+          "history_points": 27,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770931772514,
+      "tutorial_run_id": "run_e23bc5a20e96468298ece7596fdbed27",
+      "graduation_run_id": "run_a6c2900022054a94b0bd3264768a5654",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2060,
+          "events": 186122,
+          "high_risk_events": 36268,
+          "high_risk_failures": 36184,
+          "high_risk_failure_rate": 0.9976839086798279,
+          "mean_episode_return": -213.62718446601943
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 126,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931678405,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2060,
+              "events": 186122,
+              "high_risk_events": 36268,
+              "high_risk_failures": 36184,
+              "high_risk_failure_rate": 0.9976839086798279,
+              "mean_episode_return": -213.62718446601943
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 126,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931678405,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995367817359656,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2016856175924206,
+          "lesson_quality": 0.9995367817359656,
+          "mastery_current": 0.0023160913201720756,
+          "mastery_recent_mean": 0.0020673852838047533,
+          "mastery_prev_mean": 0.002096479342276081,
+          "mastery_delta": -2.9094058471327514e-05,
+          "stable_windows": true,
+          "history_points": 28,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770931881668,
+      "tutorial_run_id": "run_4697fd5835a743e3957e001365db3fe6",
+      "graduation_run_id": "run_22a6fa44641542fdbaf1a19b390e0717",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 180757,
+          "high_risk_events": 33424,
+          "high_risk_failures": 33348,
+          "high_risk_failure_rate": 0.9977261847774055,
+          "mean_episode_return": -214.3811224489796
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 127,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931790695,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 180757,
+              "high_risk_events": 33424,
+              "high_risk_failures": 33348,
+              "high_risk_failure_rate": 0.9977261847774055,
+              "mean_episode_return": -214.3811224489796
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 127,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931790695,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995452369554811,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20169097170031627,
+          "lesson_quality": 0.9995452369554811,
+          "mastery_current": 0.0022738152225945107,
+          "mastery_recent_mean": 0.002150055659742578,
+          "mastery_prev_mean": 0.002181288420394075,
+          "mastery_delta": -3.1232760651497046e-05,
+          "stable_windows": true,
+          "history_points": 29,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770931984730,
+      "tutorial_run_id": "run_99ed816e9e6d47cf88741a61e1bd2222",
+      "graduation_run_id": "run_6f33c471087940f88a893022eb4acb9c",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 188610,
+          "high_risk_events": 40006,
+          "high_risk_failures": 39930,
+          "high_risk_failure_rate": 0.9981002849572564,
+          "mean_episode_return": -238.17107843137254
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 128,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931901229,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 188610,
+              "high_risk_events": 40006,
+              "high_risk_failures": 39930,
+              "high_risk_failure_rate": 0.9981002849572564,
+              "mean_episode_return": -238.17107843137254
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 128,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770931901229,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996200569914513,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20152283107821306,
+          "lesson_quality": 0.9996200569914513,
+          "mastery_current": 0.001899715042743555,
+          "mastery_recent_mean": 0.002163207195170047,
+          "mastery_prev_mean": 0.0021100741050685823,
+          "mastery_delta": 5.313309010146483e-05,
+          "stable_windows": true,
+          "history_points": 30,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932076491,
+      "tutorial_run_id": "run_30034b2d156e4fd983348db8f77ce3d0",
+      "graduation_run_id": "run_b9cc9fb75aaa450a9eac85e7e7723f69",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 185286,
+          "high_risk_events": 39921,
+          "high_risk_failures": 39844,
+          "high_risk_failure_rate": 0.9980711906014378,
+          "mean_episode_return": -234.64705882352942
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 129,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932002061,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 185286,
+              "high_risk_events": 39921,
+              "high_risk_failures": 39844,
+              "high_risk_failure_rate": 0.9980711906014378,
+              "mean_episode_return": -234.64705882352942
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 129,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932002061,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996142381202876,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2014974862897287,
+          "lesson_quality": 0.9996142381202876,
+          "mastery_current": 0.0019288093985622146,
+          "mastery_recent_mean": 0.0020341132213000934,
+          "mastery_prev_mean": 0.0020673852838047533,
+          "mastery_delta": -3.327206250465986e-05,
+          "stable_windows": true,
+          "history_points": 31,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932148788,
+      "tutorial_run_id": "run_10146698bb71422eb8e095f2edc91238",
+      "graduation_run_id": "run_5beab8be295743c48b5f95acfebf9974",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 185206,
+          "high_risk_events": 39650,
+          "high_risk_failures": 39567,
+          "high_risk_failure_rate": 0.997906683480454,
+          "mean_episode_return": -235.52843137254902
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 130,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932094082,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 185206,
+              "high_risk_events": 39650,
+              "high_risk_failures": 39567,
+              "high_risk_failure_rate": 0.997906683480454,
+              "mean_episode_return": -235.52843137254902
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 130,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932094082,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995813366960908,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2015551096950764,
+          "lesson_quality": 0.9995813366960908,
+          "mastery_current": 0.002093316519546029,
+          "mastery_recent_mean": 0.0019739469869505997,
+          "mastery_prev_mean": 0.002150055659742578,
+          "mastery_delta": -0.00017610867279197829,
+          "stable_windows": true,
+          "history_points": 32,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932238262,
+      "tutorial_run_id": "run_9eec4d3090494baa81dd46aacbc15910",
+      "graduation_run_id": "run_218f1501d4674f25b18abca20dfef2a2",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 181356,
+          "high_risk_events": 34672,
+          "high_risk_failures": 34598,
+          "high_risk_failure_rate": 0.9978657129672358,
+          "mean_episode_return": -218.48520408163265
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 131,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932164181,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 181356,
+              "high_risk_events": 34672,
+              "high_risk_failures": 34598,
+              "high_risk_failure_rate": 0.9978657129672358,
+              "mean_episode_return": -218.48520408163265
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 131,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932164181,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995731425934472,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2015974133301588,
+          "lesson_quality": 0.9995731425934472,
+          "mastery_current": 0.0021342870327641927,
+          "mastery_recent_mean": 0.002052137650290812,
+          "mastery_prev_mean": 0.002163207195170047,
+          "mastery_delta": -0.00011106954487923515,
+          "stable_windows": true,
+          "history_points": 33,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932332902,
+      "tutorial_run_id": "run_b40944ea753c47b78e4cdb2673d9c4dc",
+      "graduation_run_id": "run_6e5a5801f621461abddde6d7039c1f46",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 181437,
+          "high_risk_events": 34868,
+          "high_risk_failures": 34793,
+          "high_risk_failure_rate": 0.9978490306298038,
+          "mean_episode_return": -221.3561224489796
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 132,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932251996,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 181437,
+              "high_risk_events": 34868,
+              "high_risk_failures": 34793,
+              "high_risk_failure_rate": 0.9978490306298038,
+              "mean_episode_return": -221.3561224489796
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 132,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932251996,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995698061259608,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2016273032025409,
+          "lesson_quality": 0.9995698061259608,
+          "mastery_current": 0.0021509693701962096,
+          "mastery_recent_mean": 0.0021261909741688103,
+          "mastery_prev_mean": 0.0020341132213000934,
+          "mastery_delta": 9.207775286871689e-05,
+          "stable_windows": true,
+          "history_points": 34,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932416183,
+      "tutorial_run_id": "run_29178c8b57bc4f68846e0f82f436a92f",
+      "graduation_run_id": "run_5c2575c819dc47a49534ab5b0db46034",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 188257,
+          "high_risk_events": 39949,
+          "high_risk_failures": 39864,
+          "high_risk_failure_rate": 0.9978722871661369,
+          "mean_episode_return": -236.58774509803922
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 133,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932350147,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 188257,
+              "high_risk_events": 39949,
+              "high_risk_failures": 39864,
+              "high_risk_failure_rate": 0.9978722871661369,
+              "mean_episode_return": -236.58774509803922
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 133,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932350147,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995744574332275,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20162004482725945,
+          "lesson_quality": 0.9995744574332275,
+          "mastery_current": 0.002127712833863149,
+          "mastery_recent_mean": 0.002137656412274517,
+          "mastery_prev_mean": 0.0019739469869505997,
+          "mastery_delta": 0.0001637094253239173,
+          "stable_windows": true,
+          "history_points": 35,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932494296,
+      "tutorial_run_id": "run_e66c1c1d773c4a698a65acc3410626c7",
+      "graduation_run_id": "run_48b3604d26534c45885b1f3c869bcd4f",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 180823,
+          "high_risk_events": 34710,
+          "high_risk_failures": 34632,
+          "high_risk_failure_rate": 0.9977528089887641,
+          "mean_episode_return": -217.6984693877551
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 134,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932431524,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 180823,
+              "high_risk_events": 34710,
+              "high_risk_failures": 34632,
+              "high_risk_failure_rate": 0.9977528089887641,
+              "mean_episode_return": -217.6984693877551
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 134,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932431524,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995505617977529,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2016862951866981,
+          "lesson_quality": 0.9995505617977529,
+          "mastery_current": 0.0022471910112359383,
+          "mastery_recent_mean": 0.002175291071765099,
+          "mastery_prev_mean": 0.002052137650290812,
+          "mastery_delta": 0.00012315342147428687,
+          "stable_windows": true,
+          "history_points": 36,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932581251,
+      "tutorial_run_id": "run_bd10c07a104b457ea18ca78e218ee00a",
+      "graduation_run_id": "run_956681ceb1f740fe9e15dc56d84f6556",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 1960,
+          "events": 177552,
+          "high_risk_events": 34068,
+          "high_risk_failures": 33992,
+          "high_risk_failure_rate": 0.9977691675472584,
+          "mean_episode_return": -216.53418367346939
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 135,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932504842,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 1960,
+              "events": 177552,
+              "high_risk_events": 34068,
+              "high_risk_failures": 33992,
+              "high_risk_failure_rate": 0.9977691675472584,
+              "mean_episode_return": -216.53418367346939
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 135,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932504842,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995538335094517,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2016867565580452,
+          "lesson_quality": 0.9995538335094517,
+          "mastery_current": 0.0022308324527415824,
+          "mastery_recent_mean": 0.0022019120992802232,
+          "mastery_prev_mean": 0.0021261909741688103,
+          "mastery_delta": 7.572112511141293e-05,
+          "stable_windows": true,
+          "history_points": 37,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932674265,
+      "tutorial_run_id": "run_b443e8916bab46568023db1604b7f85d",
+      "graduation_run_id": "run_429438d236c849c297691c0fece9ffa4",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 185006,
+          "high_risk_events": 39379,
+          "high_risk_failures": 39297,
+          "high_risk_failure_rate": 0.9979176718555576,
+          "mean_episode_return": -235.3328431372549
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 136,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932596572,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 185006,
+              "high_risk_events": 39379,
+              "high_risk_failures": 39297,
+              "high_risk_failure_rate": 0.9979176718555576,
+              "mean_episode_return": -235.3328431372549
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 136,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932596572,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995835343711116,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20161390610728555,
+          "lesson_quality": 0.9995835343711116,
+          "mastery_current": 0.0020823281444424246,
+          "mastery_recent_mean": 0.0021867838694733153,
+          "mastery_prev_mean": 0.002137656412274517,
+          "mastery_delta": 4.912745719879829e-05,
+          "stable_windows": true,
+          "history_points": 38,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932769213,
+      "tutorial_run_id": "run_5c4b4a66e5854d208f65aab052f32176",
+      "graduation_run_id": "run_64ad7227fa8d41b5b7141cf8c12325d9",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 184730,
+          "high_risk_events": 39362,
+          "high_risk_failures": 39282,
+          "high_risk_failure_rate": 0.9979675829480209,
+          "mean_episode_return": -235.24460784313726
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 137,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932690293,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 184730,
+              "high_risk_events": 39362,
+              "high_risk_failures": 39282,
+              "high_risk_failure_rate": 0.9979675829480209,
+              "mean_episode_return": -235.24460784313726
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 137,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932690293,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995935165896043,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2015694696088267,
+          "lesson_quality": 0.9995935165896043,
+          "mastery_current": 0.0020324170519790963,
+          "mastery_recent_mean": 0.0021151925497210344,
+          "mastery_prev_mean": 0.002175291071765099,
+          "mastery_delta": -6.009852204406441e-05,
+          "stable_windows": true,
+          "history_points": 39,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932867989,
+      "tutorial_run_id": "run_9734ef8ebfca4e65a4cb3158b4824787",
+      "graduation_run_id": "run_17472d61c2b24891a2fa95801d5087c5",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 184628,
+          "high_risk_events": 39275,
+          "high_risk_failures": 39196,
+          "high_risk_failure_rate": 0.9979885423297263,
+          "mean_episode_return": -237.42598039215687
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 138,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932785956,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 184628,
+              "high_risk_events": 39275,
+              "high_risk_failures": 39196,
+              "high_risk_failure_rate": 0.9979885423297263,
+              "mean_episode_return": -237.42598039215687
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 138,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932785956,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995977084659453,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20153789081499543,
+          "lesson_quality": 0.9995977084659453,
+          "mastery_current": 0.002011457670273664,
+          "mastery_recent_mean": 0.0020420676222317282,
+          "mastery_prev_mean": 0.0022019120992802232,
+          "mastery_delta": -0.00015984447704849502,
+          "stable_windows": true,
+          "history_points": 40,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770932967562,
+      "tutorial_run_id": "run_7d650f7324ae4f4981b4ac58d9ea40f8",
+      "graduation_run_id": "run_21bfb4beb805439da999fd4cf69ccea4",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 185213,
+          "high_risk_events": 39199,
+          "high_risk_failures": 39119,
+          "high_risk_failure_rate": 0.9979591316105003,
+          "mean_episode_return": -237.42598039215687
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 139,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932883869,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 185213,
+              "high_risk_events": 39199,
+              "high_risk_failures": 39119,
+              "high_risk_failure_rate": 0.9979591316105003,
+              "mean_episode_return": -237.42598039215687
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 139,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932883869,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995918263221001,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20154727377034512,
+          "lesson_quality": 0.9995918263221001,
+          "mastery_current": 0.0020408683894996837,
+          "mastery_recent_mean": 0.0020282477039174815,
+          "mastery_prev_mean": 0.0021867838694733153,
+          "mastery_delta": -0.00015853616555583372,
+          "stable_windows": true,
+          "history_points": 41,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770933067467,
+      "tutorial_run_id": "run_39fea9d5563a4104973999126dae69c8",
+      "graduation_run_id": "run_6beaa3d798d041d4b405874817bab3ac",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 185380,
+          "high_risk_events": 39315,
+          "high_risk_failures": 39236,
+          "high_risk_failure_rate": 0.9979905888337784,
+          "mean_episode_return": -235.51911764705883
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 140,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932981895,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 185380,
+              "high_risk_events": 39315,
+              "high_risk_failures": 39236,
+              "high_risk_failure_rate": 0.9979905888337784,
+              "mean_episode_return": -235.51911764705883
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 140,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770932981895,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995981177667558,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20153050285906143,
+          "lesson_quality": 0.9995981177667558,
+          "mastery_current": 0.002009411166221553,
+          "mastery_recent_mean": 0.0020205790753316335,
+          "mastery_prev_mean": 0.0021151925497210344,
+          "mastery_delta": -9.461347438940093e-05,
+          "stable_windows": true,
+          "history_points": 42,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770933165667,
+      "tutorial_run_id": "run_12178be7c27b4e559baa88c02e20ad60",
+      "graduation_run_id": "run_9a16fe0e8ccb426ab6f9e489541f765d",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 188306,
+          "high_risk_events": 39435,
+          "high_risk_failures": 39354,
+          "high_risk_failure_rate": 0.997945987067326,
+          "mean_episode_return": -238.5514705882353
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 141,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770933084102,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 188306,
+              "high_risk_events": 39435,
+              "high_risk_failures": 39354,
+              "high_risk_failure_rate": 0.997945987067326,
+              "mean_episode_return": -238.5514705882353
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 141,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770933084102,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995891974134652,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2015552751978696,
+          "lesson_quality": 0.9995891974134652,
+          "mastery_current": 0.002054012932674043,
+          "mastery_recent_mean": 0.0020347641627984268,
+          "mastery_prev_mean": 0.0020420676222317282,
+          "mastery_delta": -7.303459433301469e-06,
+          "stable_windows": true,
+          "history_points": 43,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770933292918,
+      "tutorial_run_id": "run_419d2a8ea8ac4bc0946f930ecca87fd7",
+      "graduation_run_id": "run_18df46d65f76492a8058301dbe892e09",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2040,
+          "events": 188651,
+          "high_risk_events": 39091,
+          "high_risk_failures": 39010,
+          "high_risk_failure_rate": 0.997927911795554,
+          "mean_episode_return": -241.24803921568628
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 100123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770933180524,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2040,
+              "events": 188651,
+              "high_risk_events": 39091,
+              "high_risk_failures": 39010,
+              "high_risk_failure_rate": 0.997927911795554,
+              "mean_episode_return": -241.24803921568628
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 100123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770933180524,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9995855823591109,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20156671180437938,
+          "lesson_quality": 0.9995855823591109,
+          "mastery_current": 0.002072088204446043,
+          "mastery_recent_mean": 0.0020451707677805464,
+          "mastery_prev_mean": 0.0020282477039174815,
+          "mastery_delta": 1.692306386306486e-05,
+          "stable_windows": true,
+          "history_points": 44,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770934542361,
+      "tutorial_run_id": "run_d8cc3e3a9be44b6eaa254281df58ffc7",
+      "graduation_run_id": "run_afcf9318676d468bb611449745897b23",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 2480,
+          "events": 227315,
+          "high_risk_events": 51482,
+          "high_risk_failures": 51394,
+          "high_risk_failure_rate": 0.9982906646983412,
+          "mean_episode_return": -261.43387096774194
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934447712,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 2480,
+              "events": 227315,
+              "high_risk_events": 51482,
+              "high_risk_failures": 51394,
+              "high_risk_failure_rate": 0.9982906646983412,
+              "mean_episode_return": -261.43387096774194
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934447712,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9996581329396683,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20136983788264098,
+          "lesson_quality": 0.9996581329396683,
+          "mastery_current": 0.001709335301658843,
+          "mastery_recent_mean": 0.0019451454795929763,
+          "mastery_prev_mean": 0.0020205790753316335,
+          "mastery_delta": -7.543359573865716e-05,
+          "stable_windows": true,
+          "history_points": 45,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770934713000,
+      "tutorial_run_id": "run_43cf46146b94405487fbaac275c66fbc",
+      "graduation_run_id": "run_bc1e59ff95e645bfa3e792f3ccbf57a5",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3040,
+          "events": 273122,
+          "high_risk_events": 66355,
+          "high_risk_failures": 66183,
+          "high_risk_failure_rate": 0.9974078818476377,
+          "mean_episode_return": -266.0628289473684
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934592666,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3040,
+              "events": 273122,
+              "high_risk_events": 66355,
+              "high_risk_failures": 66183,
+              "high_risk_failure_rate": 0.9974078818476377,
+              "mean_episode_return": -266.0628289473684
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934592666,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994815763695276,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20182972851593337,
+          "lesson_quality": 0.9994815763695276,
+          "mastery_current": 0.002592118152362266,
+          "mastery_recent_mean": 0.0021245138861557176,
+          "mastery_prev_mean": 0.0020347641627984268,
+          "mastery_delta": 8.974972335729081e-05,
+          "stable_windows": true,
+          "history_points": 46,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770934894411,
+      "tutorial_run_id": "run_30248845d8bb4f95ad9e032fabebde3a",
+      "graduation_run_id": "run_88b26fb2b0f14a06b5c8506dc8ab62c3",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3360,
+          "events": 301014,
+          "high_risk_events": 75053,
+          "high_risk_failures": 74814,
+          "high_risk_failure_rate": 0.9968155836542177,
+          "mean_episode_return": -268.8565476190476
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934763241,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3360,
+              "events": 301014,
+              "high_risk_events": 75053,
+              "high_risk_failures": 74814,
+              "high_risk_failure_rate": 0.9968155836542177,
+              "mean_episode_return": -268.8565476190476
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934763241,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9993631167308437,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2022134184990402,
+          "lesson_quality": 0.9993631167308437,
+          "mastery_current": 0.0031844163457822594,
+          "mastery_recent_mean": 0.0024952899332677894,
+          "mastery_prev_mean": 0.0020451707677805464,
+          "mastery_delta": 0.00045011916548724296,
+          "stable_windows": true,
+          "history_points": 47,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770935054580,
+      "tutorial_run_id": "run_74b23b0def594f739a39bd1fc99ff64f",
+      "graduation_run_id": "run_bfd9ed2ee8eb4e6e8449b4d7777df354",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 323183,
+          "high_risk_events": 78821,
+          "high_risk_failures": 78568,
+          "high_risk_failure_rate": 0.9967901955062737,
+          "mean_episode_return": -259.90805555555556
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934921161,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 323183,
+              "high_risk_events": 78821,
+              "high_risk_failures": 78568,
+              "high_risk_failure_rate": 0.9967901955062737,
+              "mean_episode_return": -259.90805555555556
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770934921161,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9993580391012548,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2023751439663012,
+          "lesson_quality": 0.9993580391012548,
+          "mastery_current": 0.0032098044937263204,
+          "mastery_recent_mean": 0.0029954463306236154,
+          "mastery_prev_mean": 0.0019451454795929763,
+          "mastery_delta": 0.001050300851030639,
+          "stable_windows": true,
+          "history_points": 48,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770935201706,
+      "tutorial_run_id": "run_eaa534adbae94dd49831776e37757b05",
+      "graduation_run_id": "run_dd06239b6c9f4b57a85506159786235b",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 324182,
+          "high_risk_events": 78410,
+          "high_risk_failures": 78169,
+          "high_risk_failure_rate": 0.9969264124473919,
+          "mean_episode_return": -259.38194444444446
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935083850,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 324182,
+              "high_risk_events": 78410,
+              "high_risk_failures": 78169,
+              "high_risk_failure_rate": 0.9969264124473919,
+              "mean_episode_return": -259.38194444444446
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935083850,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9993852824894784,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20236063111341143,
+          "lesson_quality": 0.9993852824894784,
+          "mastery_current": 0.0030735875526081147,
+          "mastery_recent_mean": 0.0031559361307055647,
+          "mastery_prev_mean": 0.0021245138861557176,
+          "mastery_delta": 0.001031422244549847,
+          "stable_windows": true,
+          "history_points": 49,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770935452172,
+      "tutorial_run_id": "run_fb3397ea953e44d9a85ef64721b7841c",
+      "graduation_run_id": "run_00248998943e4761baf80fc6ddcd459f",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 331570,
+          "high_risk_events": 81200,
+          "high_risk_failures": 80982,
+          "high_risk_failure_rate": 0.9973152709359606,
+          "mean_episode_return": -268.23055555555555
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935304048,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 331570,
+              "high_risk_events": 81200,
+              "high_risk_failures": 80982,
+              "high_risk_failure_rate": 0.9973152709359606,
+              "mean_episode_return": -268.23055555555555
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935304048,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994630541871922,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2021317874804955,
+          "lesson_quality": 0.9994630541871922,
+          "mastery_current": 0.0026847290640393817,
+          "mastery_recent_mean": 0.002989373703457939,
+          "mastery_prev_mean": 0.0024952899332677894,
+          "mastery_delta": 0.0004940837701901497,
+          "stable_windows": true,
+          "history_points": 50,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770935601907,
+      "tutorial_run_id": "run_b6ac4e0db2334fbbb2344431e65fd60c",
+      "graduation_run_id": "run_3c88748da39d4e83b04a020cf90e761b",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 323872,
+          "high_risk_events": 80456,
+          "high_risk_failures": 80224,
+          "high_risk_failure_rate": 0.9971164363130158,
+          "mean_episode_return": -264.3361111111111
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935475228,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 323872,
+              "high_risk_events": 80456,
+              "high_risk_failures": 80224,
+              "high_risk_failure_rate": 0.9971164363130158,
+              "mean_episode_return": -264.3361111111111
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935475228,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994232872626032,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2021906273263759,
+          "lesson_quality": 0.9994232872626032,
+          "mastery_current": 0.0028835636869841696,
+          "mastery_recent_mean": 0.002880626767877222,
+          "mastery_prev_mean": 0.0029954463306236154,
+          "mastery_delta": -0.00011481956274639327,
+          "stable_windows": true,
+          "history_points": 51,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770935740628,
+      "tutorial_run_id": "run_ba5f11c7b4894e97894a4659c2dad720",
+      "graduation_run_id": "run_c28c39ddf5fb43dab242f1c208a5abdf",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 324182,
+          "high_risk_events": 78410,
+          "high_risk_failures": 78169,
+          "high_risk_failure_rate": 0.9969264124473919,
+          "mean_episode_return": -259.38194444444446
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935620264,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 324182,
+              "high_risk_events": 78410,
+              "high_risk_failures": 78169,
+              "high_risk_failure_rate": 0.9969264124473919,
+              "mean_episode_return": -259.38194444444446
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770935620264,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9993852824894784,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20227803830456292,
+          "lesson_quality": 0.9993852824894784,
+          "mastery_current": 0.0030735875526081147,
+          "mastery_recent_mean": 0.002880626767877222,
+          "mastery_prev_mean": 0.0031559361307055647,
+          "mastery_delta": -0.0002753093628283425,
+          "stable_windows": true,
+          "history_points": 52,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770936414890,
+      "tutorial_run_id": "run_0c3db815915644d6976d78428b247a75",
+      "graduation_run_id": "run_9da1613acc7346208920777c542cae2d",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 331570,
+          "high_risk_events": 81200,
+          "high_risk_failures": 80982,
+          "high_risk_failure_rate": 0.9973152709359606,
+          "mean_episode_return": -268.23055555555555
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770936225327,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 331570,
+              "high_risk_events": 81200,
+              "high_risk_failures": 80982,
+              "high_risk_failure_rate": 0.9973152709359606,
+              "mean_episode_return": -268.23055555555555
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 123,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770936225327,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994630541871922,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2020991633998213,
+          "lesson_quality": 0.9994630541871922,
+          "mastery_current": 0.0026847290640393817,
+          "mastery_recent_mean": 0.002880626767877222,
+          "mastery_prev_mean": 0.002989373703457939,
+          "mastery_delta": -0.00010874693558071691,
+          "stable_windows": true,
+          "history_points": 53,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770936630540,
+      "tutorial_run_id": "run_99c71246de564b809f3643daa060340a",
+      "graduation_run_id": "run_131959b85d4a402ab1d7908cf1144c88",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 323435,
+          "high_risk_events": 80069,
+          "high_risk_failures": 79837,
+          "high_risk_failure_rate": 0.997102499094531,
+          "mean_episode_return": -264.1558333333333
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770936451437,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 323435,
+              "high_risk_events": 80069,
+              "high_risk_failures": 79837,
+              "high_risk_failure_rate": 0.997102499094531,
+              "mean_episode_return": -264.1558333333333
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770936451437,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994204998189062,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20219843216872743,
+          "lesson_quality": 0.9994204998189062,
+          "mastery_current": 0.0028975009054690304,
+          "mastery_recent_mean": 0.0028852725073721754,
+          "mastery_prev_mean": 0.002880626767877222,
+          "mastery_delta": 4.64573949495329e-06,
+          "stable_windows": true,
+          "history_points": 54,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770939052017,
+      "tutorial_run_id": "run_6bd5f57f7ecb4039ac9b8db8a580d13f",
+      "graduation_run_id": "run_f482492c1ffd423789bb500e6607472e",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 331695,
+          "high_risk_events": 78335,
+          "high_risk_failures": 78109,
+          "high_risk_failure_rate": 0.9971149550009575,
+          "mean_episode_return": -261.83666666666664
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770938863113,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 331695,
+              "high_risk_events": 78335,
+              "high_risk_failures": 78109,
+              "high_risk_failure_rate": 0.9971149550009575,
+              "mean_episode_return": -261.83666666666664
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 337,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770938863113,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994229910001915,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.20217384819641468,
+          "lesson_quality": 0.9994229910001915,
+          "mastery_current": 0.0028850449990425187,
+          "mastery_recent_mean": 0.002822424989516977,
+          "mastery_prev_mean": 0.002880626767877222,
+          "mastery_delta": -5.820177836024509e-05,
+          "stable_windows": true,
+          "history_points": 55,
+          "window_size": 3
+        }
+      }
+    },
+    {
+      "t_ms": 1770939284890,
+      "tutorial_run_id": "run_dda63e12d6be468a9670592ad192cae2",
+      "graduation_run_id": "run_58ab49330fda40ce98de24d6f2333372",
+      "plan": {
+        "target_verse": "cliff_world",
+        "concept": "risk_management",
+        "signals": {
+          "verse_name": "cliff_world",
+          "episodes": 3600,
+          "events": 332974,
+          "high_risk_events": 80531,
+          "high_risk_failures": 80320,
+          "high_risk_failure_rate": 0.9973798909736623,
+          "mean_episode_return": -266.4588888888889
+        },
+        "tutorial_spec": {
+          "spec_version": "v1",
+          "verse_name": "wind_master_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "tutorial",
+            "concept:safety_margin_navigation",
+            "for:cliff_world",
+            "override:tutorial_params"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 80,
+            "target_margin": 4,
+            "gust_probability": 0.2,
+            "edge_penalty": -5.5,
+            "margin_reward_scale": 0.2
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770939107461,
+            "target_verse": "cliff_world",
+            "signals": {
+              "verse_name": "cliff_world",
+              "episodes": 3600,
+              "events": 332974,
+              "high_risk_events": 80531,
+              "high_risk_failures": 80320,
+              "high_risk_failure_rate": 0.9973798909736623,
+              "mean_episode_return": -266.4588888888889
+            },
+            "tutorial_param_overrides": {
+              "target_margin": 4,
+              "gust_probability": 0.2,
+              "edge_penalty": -5.5,
+              "margin_reward_scale": 0.2
+            }
+          }
+        },
+        "graduation_spec": {
+          "spec_version": "v1",
+          "verse_name": "cliff_world",
+          "verse_version": "0.1",
+          "seed": 223,
+          "tags": [
+            "teacher",
+            "graduation",
+            "concept:risk_management"
+          ],
+          "observation_space": null,
+          "action_space": null,
+          "params": {
+            "max_steps": 100
+          },
+          "metadata": {
+            "generated_by": "teacher",
+            "generated_at_ms": 1770939107461,
+            "target_verse": "cliff_world",
+            "concept": "risk_management"
+          }
+        },
+        "reason": "high_risk_failure_pattern_detected",
+        "lesson_quality": 0.9994759781947326,
+        "graduation_gate": {
+          "ready": false,
+          "reason": "low_graduation_confidence",
+          "confidence": 0.2020455156452003,
+          "lesson_quality": 0.9994759781947326,
+          "mastery_current": 0.0026201090263376914,
+          "mastery_recent_mean": 0.002800884976949747,
+          "mastery_prev_mean": 0.002880626767877222,
+          "mastery_delta": -7.974179092747535e-05,
+          "stable_windows": true,
+          "history_points": 56,
+          "window_size": 3
+        }
+      }
+    }
+  ]
+}

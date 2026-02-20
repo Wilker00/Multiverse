@@ -1,0 +1,24 @@
+# Multiverse local worker image
+# Build: docker build -f Dockerfile.worker -t multiverse-worker:latest .
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional scaling dependencies
+COPY requirements_scale.txt /tmp/requirements_scale.txt
+RUN pip install --no-cache-dir -r /tmp/requirements_scale.txt || true
+
+COPY . /app
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+RUN mkdir -p /app/runs /app/models /app/data
+
+CMD ["python", "-m", "core.parallel_rollout"]
+

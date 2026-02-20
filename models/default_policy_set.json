@@ -1,0 +1,240 @@
+{
+  "selection_date": "2026-02-09",
+  "selection_rule": "best mean_return with episodes>=50 per verse",
+  "winners_robust": {
+    "grid_world": {
+      "run_id": "run_9bec265dedf44795ab2bbc58495d9a26",
+      "run_dir": "runs/run_9bec265dedf44795ab2bbc58495d9a26",
+      "verse": "grid_world",
+      "policy": "special_moe",
+      "mean_return": 0.7799999999999999,
+      "success_rate": 1.0,
+      "mean_steps": 23.0,
+      "episodes": 80
+    },
+    "line_world": {
+      "run_id": "run_b0b0adf90fb449848990841e16622e92",
+      "run_dir": "runs/run_b0b0adf90fb449848990841e16622e92",
+      "verse": "line_world",
+      "policy": "ppo",
+      "mean_return": 0.7837999999999999,
+      "success_rate": 0.99,
+      "mean_steps": 11.3,
+      "episodes": 100
+    },
+    "warehouse_world": {
+      "run_id": "run_6041534c110547afb00006afc6963c8a",
+      "run_dir": "runs/run_6041534c110547afb00006afc6963c8a",
+      "verse": "warehouse_world",
+      "policy": "imitation_lookup",
+      "mean_return": -27.178,
+      "success_rate": 0.08,
+      "mean_steps": 93.88,
+      "episodes": 50
+    },
+    "chess_world": {
+      "run_id": "run_cf7cd0b285c2435b941e627f68f31d8a",
+      "run_dir": "runs/run_cf7cd0b285c2435b941e627f68f31d8a",
+      "verse": "chess_world",
+      "policy": "q",
+      "mean_return": 1.43,
+      "success_rate": 0.925,
+      "mean_steps": 26.18,
+      "episodes": 40
+    },
+    "go_world": {
+      "run_id": "run_654530c5e38b4185aeccca1197f1a0ea",
+      "run_dir": "runs/run_654530c5e38b4185aeccca1197f1a0ea",
+      "verse": "go_world",
+      "policy": "q",
+      "mean_return": 0.77375,
+      "success_rate": 0.725,
+      "mean_steps": 26.57,
+      "episodes": 40
+    },
+    "uno_world": {
+      "run_id": "run_f4c270d6191e4f278bd481c861868e5a",
+      "run_dir": "runs/run_f4c270d6191e4f278bd481c861868e5a",
+      "verse": "uno_world",
+      "policy": "q",
+      "mean_return": 0.82,
+      "success_rate": 0.825,
+      "mean_steps": 22.4,
+      "episodes": 40
+    }
+  },
+  "deployment_ready_defaults": {
+    "line_world": {
+      "picked_run": {
+        "run_id": "run_4d562bcac5994759a9a58369d47b9ee5",
+        "run_dir": "runs/run_4d562bcac5994759a9a58369d47b9ee5",
+        "verse": "line_world",
+        "policy": "cql",
+        "mean_return": 0.72,
+        "success_rate": 1.0,
+        "mean_steps": 15.0,
+        "episodes": 80
+      },
+      "command": "python tools/train_agent.py --algo cql --verse line_world --episodes 50 --max_steps 40 --dataset models/expert_datasets/line_world.jsonl --cql_alpha 0.5",
+      "artifacts": [
+        "models/expert_datasets/line_world.jsonl"
+      ]
+    },
+    "grid_world": {
+      "picked_run": {
+        "run_id": "run_9bec265dedf44795ab2bbc58495d9a26",
+        "run_dir": "runs/run_9bec265dedf44795ab2bbc58495d9a26",
+        "verse": "grid_world",
+        "policy": "special_moe",
+        "mean_return": 0.7799999999999999,
+        "success_rate": 1.0,
+        "mean_steps": 23.0,
+        "episodes": 80
+      },
+      "command": "python tools/train_agent.py --algo special_moe --verse grid_world --episodes 50 --max_steps 60 --expert_dataset_dir models/expert_datasets --top_k_experts 2",
+      "artifacts": [
+        "models/micro_selector.pt",
+        "models/expert_datasets/grid_world.jsonl",
+        "models/expert_datasets/line_world.jsonl"
+      ]
+    },
+    "warehouse_world": {
+      "picked_run": {
+        "run_id": "benchmark_promoted",
+        "run_dir": "",
+        "verse": "warehouse_world",
+        "policy": "imitation_lookup",
+        "mean_return": -13.170000000000012,
+        "success_rate": 0.6,
+        "mean_steps": 35.2,
+        "episodes": 10
+      },
+      "command": "python tools/train_agent.py --algo imitation_lookup --verse warehouse_world --aconfig dataset_path=models/expert_datasets/warehouse_planner_expert_lidar_5k_clean.jsonl",
+      "promotion_source": "tools/promote_candidate.py",
+      "bench_passed": true
+    },
+    "chess_world": {
+      "picked_run": {
+        "run_id": "run_11e1327176b44d8fa7b6695d4f9f1345",
+        "run_dir": "runs/run_11e1327176b44d8fa7b6695d4f9f1345",
+        "verse": "chess_world",
+        "policy": "special_moe",
+        "mean_return": 2.3285,
+        "success_rate": 0.8,
+        "mean_steps": 40.1,
+        "episodes": 20
+      },
+      "command": "python tools/train_agent.py --algo special_moe --verse chess_world --episodes 100 --max_steps 80 --top_k_experts 2 --train --eval",
+      "artifacts": [
+        "models/micro_selector.pt",
+        "models/expert_datasets/synthetic_transfer_go_world_to_chess_world.jsonl",
+        "models/expert_datasets/synthetic_transfer_uno_world_to_chess_world.jsonl",
+        "models/expert_datasets/strategy_transfer_performance.json"
+      ]
+    },
+    "go_world": {
+      "picked_run": {
+        "run_id": "run_e2d9c5a18d164b309429ccbcb0bf2024",
+        "run_dir": "runs/run_e2d9c5a18d164b309429ccbcb0bf2024",
+        "verse": "go_world",
+        "policy": "special_moe",
+        "mean_return": 0.514,
+        "success_rate": 0.5333333333333333,
+        "mean_steps": 26.2,
+        "episodes": 15
+      },
+      "command": "python tools/train_agent.py --algo special_moe --verse go_world --episodes 100 --max_steps 90 --top_k_experts 2 --train --eval",
+      "artifacts": [
+        "models/micro_selector.pt",
+        "models/expert_datasets/synthetic_transfer_chess_world_to_go_world.jsonl",
+        "models/expert_datasets/synthetic_transfer_uno_world_to_go_world.jsonl",
+        "models/expert_datasets/strategy_transfer_performance.json"
+      ]
+    },
+    "uno_world": {
+      "picked_run": {
+        "run_id": "run_5cfeb78128b1401ab60f2fde3395a8c0",
+        "run_dir": "runs/run_5cfeb78128b1401ab60f2fde3395a8c0",
+        "verse": "uno_world",
+        "policy": "special_moe",
+        "mean_return": 1.0826666666666667,
+        "success_rate": 0.8666666666666667,
+        "mean_steps": 21.666666666666668,
+        "episodes": 15
+      },
+      "command": "python tools/train_agent.py --algo special_moe --verse uno_world --episodes 100 --max_steps 70 --top_k_experts 2 --train --eval",
+      "artifacts": [
+        "models/micro_selector.pt",
+        "models/expert_datasets/synthetic_transfer_chess_world_to_uno_world.jsonl",
+        "models/expert_datasets/synthetic_transfer_go_world_to_uno_world.jsonl",
+        "models/expert_datasets/strategy_transfer_performance.json"
+      ]
+    }
+  },
+  "deployment_history": {
+    "grid_world": [
+      {
+        "picked_run": {
+          "run_id": "run_9bec265dedf44795ab2bbc58495d9a26",
+          "run_dir": "runs/run_9bec265dedf44795ab2bbc58495d9a26",
+          "verse": "grid_world",
+          "policy": "special_moe",
+          "mean_return": 0.7799999999999999,
+          "success_rate": 1.0,
+          "mean_steps": 23.0,
+          "episodes": 80
+        },
+        "command": "python tools/train_agent.py --algo special_moe --verse grid_world --episodes 50 --max_steps 60 --expert_dataset_dir models/expert_datasets --top_k_experts 2",
+        "artifacts": [
+          "models/micro_selector.pt",
+          "models/expert_datasets/grid_world.jsonl",
+          "models/expert_datasets/line_world.jsonl"
+        ]
+      }
+    ]
+  },
+  "last_benchmark_report": {
+    "suite": "experiment/warehouse_bench.yaml",
+    "suite_name": "warehouse_only_suite",
+    "candidate_algo": "imitation_lookup",
+    "baseline_algo": "random",
+    "retention_max_drop_pct": 0.05,
+    "overall_pass": true,
+    "by_verse": {
+      "warehouse_world": {
+        "passed": true,
+        "absolute_check": {
+          "passed": true,
+          "min_success_rate": 0.5,
+          "min_mean_return": -25.0,
+          "max_safety_violation_rate": 0.85
+        },
+        "retention_check": {
+          "passed": true,
+          "retention_max_drop_pct": 0.05,
+          "min_success_allowed": 0.0,
+          "min_return_allowed": -24.832500000000014
+        },
+        "candidate": {
+          "episodes": 10,
+          "mean_return": -13.170000000000012,
+          "success_rate": 0.6,
+          "failure_rate": 0.4,
+          "safety_violation_rate": 0.7,
+          "return_variance": 586.9201000000008,
+          "mean_steps": 35.2
+        },
+        "baseline": {
+          "episodes": 10,
+          "mean_return": -23.650000000000013,
+          "success_rate": 0.0,
+          "failure_rate": 1.0,
+          "safety_violation_rate": 1.0,
+          "return_variance": 26.002500000000122,
+          "mean_steps": 60.0
+        }
+      }
+    },
+    "created_at": "2026-02-14T02:50:33.714110+00:00"
+  }
+}

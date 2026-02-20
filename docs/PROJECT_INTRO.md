@@ -1,4 +1,4 @@
-﻿# Multiverse: Project Introduction
+# Multiverse: Project Introduction
 
 Last updated: 2026-02-17
 
@@ -9,7 +9,7 @@ Multiverse is a local reinforcement-learning platform for training and evaluatin
 - rollout/training orchestration
 - safety controls during action selection
 - cross-run memory and retrieval
-- local dashboards and gating tools for operations
+- local operational tooling and gating workflows
 
 In plain language: this repo is an RL lab + runtime framework where you can prototype policies, run them in varied worlds, and attach safety/memory systems so behavior can be monitored and promoted more safely.
 
@@ -25,7 +25,6 @@ At runtime, a `VerseSpec` and `AgentSpec` are validated (`core/types.py`), creat
 - `models/`: model artifacts, datasets, policy manifests, and reports.
 - `tools/`: CLIs for training, benchmarking, evaluation, deployment checks, and maintenance.
 - `tests/`: pytest suites covering runtime and feature behavior.
-- `command_center/`: Next.js operator UI for live snapshots (skill graph, shield feed, promotion decisions).
 
 ## Core execution flow
 1. Build run specs.
@@ -62,27 +61,11 @@ The repo uses two memory styles:
 
 That allows both "within-run recall" and "transfer from prior runs/verses" patterns.
 
-## Command center (frontend)
-`command_center/` is a Next.js app that reads repo artifacts and exposes:
-- Skill Galaxy graph from recent run episode tags
-- neural/safety feed from event metadata
-- promotion-board queue and operator bless/veto actions
-
-Key endpoints:
-- `GET /api/command-center` -> snapshot payload
-- `POST /api/promotion-board/decision` -> persist human decision records
-
 ## How to run the project quickly
 From repo root:
 - Run tests: `python -m pytest -q`
 - Single training run: `python tools/train_agent.py --algo random --verse line_world --episodes 20 --max_steps 40`
 - Distributed local run: `python tools/train_distributed.py --mode sharded --algo q --verse line_world --episodes 100`
-
-Frontend (from `command_center/`):
-- Install deps: `npm install`
-- Dev server: `npm run dev`
-- Build: `npm run build`
-- Lint: `npm run lint`
 
 ## Maturity snapshot (as of 2026-02-17)
 - Local verification run: `python -m pytest -q`
@@ -116,11 +99,6 @@ Memory/retrieval engineer:
 - `memory/retrieval.py`
 - `memory/episode_index.py`
 - `memory/central_repository.py`
-
-Operator/dashboard engineer:
-- `command_center/lib/repoData.ts`
-- `command_center/components/CommandCenter.tsx`
-- `command_center/app/api/command-center/route.ts`
 
 ## Boundaries and caveats
 - This repo contains many generated/runtime artifacts (`runs*`, `central_memory*`, benchmark outputs, datasets) alongside code. Treat executable code and tests as source-of-truth for behavior.

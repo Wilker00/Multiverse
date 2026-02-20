@@ -1,0 +1,24 @@
+{
+  "suite_name": "warehouse_only_suite",
+  "cases": [
+    {
+      "verse_name": "warehouse_world",
+      "verse_version": "0.1",
+      "episodes_per_seed": 5,
+      "max_steps": 60,
+      "seeds": [101, 203],
+      "params": {
+        "adr_enabled": false,
+        "max_steps": 60,
+        "vision_radius": 5,
+        "enable_lidar": true,
+        "battery_capacity": 50
+      },
+      "thresholds": {
+        "min_success_rate": 0.50,
+        "min_mean_return": -25.0,
+        "max_safety_violation_rate": 0.85
+      }
+    }
+  ]
+}

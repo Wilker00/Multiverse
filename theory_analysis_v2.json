@@ -1,0 +1,33 @@
+{
+  "lambda_term_used": 0.06346998591602904,
+  "summary": {
+    "n_reports": 1,
+    "mean_abs_error": 0.0,
+    "max_abs_error": 0.0,
+    "within_tolerance": true,
+    "tolerance": 0.1
+  },
+  "analyses": [
+    {
+      "report_path": "C:\\Users\\kiffs\\OneDrive\\Desktop\\Multiverse\\models\\benchmarks\\transfer_warehouse.json",
+      "seed": 123,
+      "target_verse": "warehouse_world",
+      "empirical_target_success": 0.0,
+      "empirical_target_error": 1.0,
+      "analysis_inputs": {
+        "source_error_estimate": 0.022975143694568156,
+        "domain_divergence_estimate": 0.9135548703894028
+      },
+      "bound": {
+        "source_error": 0.022975143694568156,
+        "domain_divergence": 0.9135548703894028,
+        "lambda_term": 0.06346998591602904,
+        "predicted_target_error": 1.0,
+        "predicted_target_success": 0.0,
+        "transfer_efficiency": -42.525299049007586,
+        "bound_family": "ben_david_style"
+      },
+      "prediction_abs_error": 0.0
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "version": "v1",
+  "updated_at_ms": 1770874869747,
+  "decisions": [
+    {
+      "t_ms": 1770874861964,
+      "target_verse": "grid_world",
+      "candidate_policy_id": "candidate_special_moe:grid_world",
+      "decision": "veto",
+      "actor": "operator_dashboard",
+      "note": "validation veto"
+    },
+    {
+      "t_ms": 1770874869747,
+      "target_verse": "chess_world",
+      "candidate_policy_id": "candidate_special_moe:chess_world",
+      "decision": "bless",
+      "actor": "operator_dashboard",
+      "note": "validation bless"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "message": "This is a placeholder for the centroid policy, trained on 1457 examples.",
+  "model_architecture": "MLP",
+  "training_method": "Behavioral Cloning"
+}

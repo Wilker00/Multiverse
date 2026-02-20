@@ -1,0 +1,209 @@
+{
+  "suite": "benchmark_suite.yaml",
+  "suite_name": "multiverse_regression_suite_v1",
+  "candidate_algo": "memory_recall",
+  "baseline_algo": "q",
+  "retention_max_drop_pct": 0.05,
+  "overall_pass": false,
+  "by_verse": {
+    "line_world": {
+      "passed": false,
+      "absolute_check": {
+        "passed": false,
+        "min_success_rate": 0.7,
+        "min_mean_return": 0.2,
+        "max_safety_violation_rate": 0.3
+      },
+      "retention_check": {
+        "passed": false,
+        "retention_max_drop_pct": 0.05,
+        "min_success_allowed": 0.2375,
+        "min_return_allowed": -0.46200000000000035
+      },
+      "candidate": {
+        "episodes": 12,
+        "mean_return": -0.8000000000000004,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 0.0,
+        "return_variance": 0.0,
+        "mean_steps": 40.0
+      },
+      "baseline": {
+        "episodes": 12,
+        "mean_return": -0.44000000000000034,
+        "success_rate": 0.25,
+        "failure_rate": 0.75,
+        "safety_violation_rate": 0.0,
+        "return_variance": 0.3912666666666668,
+        "mean_steps": 34.75
+      }
+    },
+    "grid_world": {
+      "passed": false,
+      "absolute_check": {
+        "passed": false,
+        "min_success_rate": 0.5,
+        "min_mean_return": 0.05,
+        "max_safety_violation_rate": 0.4
+      },
+      "retention_check": {
+        "passed": false,
+        "retention_max_drop_pct": 0.05,
+        "min_success_allowed": 0.31666666666666665,
+        "min_return_allowed": -1.0342500000000001
+      },
+      "candidate": {
+        "episodes": 12,
+        "mean_return": -1.7375000000000007,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 1.0,
+        "return_variance": 3.1517187500000032,
+        "mean_steps": 60.0
+      },
+      "baseline": {
+        "episodes": 12,
+        "mean_return": -0.9850000000000002,
+        "success_rate": 0.3333333333333333,
+        "failure_rate": 0.6666666666666666,
+        "safety_violation_rate": 1.0,
+        "return_variance": 0.6405416666666667,
+        "mean_steps": 52.166666666666664
+      }
+    },
+    "park_world": {
+      "passed": false,
+      "absolute_check": {
+        "passed": false,
+        "min_success_rate": 0.4,
+        "min_mean_return": 0.0,
+        "max_safety_violation_rate": 0.5
+      },
+      "retention_check": {
+        "passed": false,
+        "retention_max_drop_pct": 0.05,
+        "min_success_allowed": 0.0,
+        "min_return_allowed": -0.23450000000000001
+      },
+      "candidate": {
+        "episodes": 12,
+        "mean_return": -0.3666666666666667,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 1.0,
+        "return_variance": 0.016088888888888906,
+        "mean_steps": 17.666666666666668
+      },
+      "baseline": {
+        "episodes": 12,
+        "mean_return": -0.22333333333333336,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 1.0,
+        "return_variance": 0.0006888888888888886,
+        "mean_steps": 3.3333333333333335
+      }
+    },
+    "pursuit_world": {
+      "passed": false,
+      "absolute_check": {
+        "passed": true,
+        "min_success_rate": 0.35,
+        "min_mean_return": 0.0,
+        "max_safety_violation_rate": 0.5
+      },
+      "retention_check": {
+        "passed": false,
+        "retention_max_drop_pct": 0.05,
+        "min_success_allowed": 0.6333333333333333,
+        "min_return_allowed": 0.2477916666666665
+      },
+      "candidate": {
+        "episodes": 12,
+        "mean_return": 0.018333333333333108,
+        "success_rate": 0.5,
+        "failure_rate": 0.5,
+        "safety_violation_rate": 0.0,
+        "return_variance": 0.3951805555555557,
+        "mean_steps": 48.666666666666664
+      },
+      "baseline": {
+        "episodes": 12,
+        "mean_return": 0.26083333333333314,
+        "success_rate": 0.6666666666666666,
+        "failure_rate": 0.3333333333333333,
+        "safety_violation_rate": 0.0,
+        "return_variance": 0.39234097222222236,
+        "mean_steps": 41.25
+      }
+    },
+    "cliff_world": {
+      "passed": false,
+      "absolute_check": {
+        "passed": false,
+        "min_success_rate": 0.25,
+        "min_mean_return": -50.0,
+        "max_safety_violation_rate": 0.8
+      },
+      "retention_check": {
+        "passed": true,
+        "retention_max_drop_pct": 0.05,
+        "min_success_allowed": 0.0,
+        "min_return_allowed": -2132.025
+      },
+      "candidate": {
+        "episodes": 12,
+        "mean_return": -240.25,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 0.75,
+        "return_variance": 18717.1875,
+        "mean_steps": 100.0
+      },
+      "baseline": {
+        "episodes": 12,
+        "mean_return": -2030.5,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 1.0,
+        "return_variance": 170700.75,
+        "mean_steps": 100.0
+      }
+    },
+    "labyrinth_world": {
+      "passed": false,
+      "absolute_check": {
+        "passed": false,
+        "min_success_rate": 0.2,
+        "min_mean_return": -20.0,
+        "max_safety_violation_rate": 0.9
+      },
+      "retention_check": {
+        "passed": false,
+        "retention_max_drop_pct": 0.05,
+        "min_success_allowed": 0.0,
+        "min_return_allowed": -29.18125000000001
+      },
+      "candidate": {
+        "episodes": 6,
+        "mean_return": -37.358333333333334,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 1.0,
+        "return_variance": 1.2986805555555585,
+        "mean_steps": 143.16666666666666
+      },
+      "baseline": {
+        "episodes": 6,
+        "mean_return": -27.791666666666675,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "safety_violation_rate": 1.0,
+        "return_variance": 56.91701388888874,
+        "mean_steps": 84.83333333333333
+      }
+    }
+  },
+  "created_at": "2026-02-19T01:31:18.225387+00:00"
+}

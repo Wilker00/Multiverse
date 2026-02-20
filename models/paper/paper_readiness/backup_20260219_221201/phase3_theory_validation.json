@@ -1,0 +1,105 @@
+{
+  "created_at_iso": "2026-02-20T03:10:38.639259+00:00",
+  "config": {
+    "safety_events_jsonl": "runs\\run_016326eed33c48ddaeee72ca8ff21544\\events.jsonl",
+    "safety_episodes": 200,
+    "safety_violations": 0,
+    "safety_confidence": 0.95,
+    "transfer_reports": "models\\paper\\paper_readiness\\latest\\fixed_seed\\transfer_seed_*.json",
+    "transfer_lambda": "auto",
+    "transfer_tolerance": 0.1
+  },
+  "safety": {
+    "mode": "counts",
+    "input": {
+      "episodes": 200,
+      "violations": 0
+    },
+    "certificate": {
+      "observed_violations": 0,
+      "episodes": 200,
+      "observed_violation_rate": 0.0,
+      "epsilon": 0.09603227913199205,
+      "upper_bound": 0.09603227913199205,
+      "lower_bound": 0.0,
+      "confidence": 0.95,
+      "method": "hoeffding",
+      "certificate": "With 95% confidence, true violation rate is in [0.0000, 0.0960] and <= 0.0960."
+    }
+  },
+  "transfer": {
+    "lambda_term_used": 0.58,
+    "summary": {
+      "n_reports": 3,
+      "mean_abs_error": 0.04444444444444443,
+      "max_abs_error": 0.06666666666666665,
+      "within_tolerance": true,
+      "tolerance": 0.1
+    },
+    "analyses": [
+      {
+        "report_path": "C:\\Users\\kiffs\\OneDrive\\Desktop\\Multiverse\\models\\paper\\paper_readiness\\latest\\fixed_seed\\transfer_seed_123.json",
+        "seed": 123,
+        "target_verse": "warehouse_world",
+        "empirical_target_success": 0.3,
+        "empirical_target_error": 0.7,
+        "analysis_inputs": {
+          "source_error_estimate": 0.12,
+          "domain_divergence_estimate": 0.0
+        },
+        "bound": {
+          "source_error": 0.12,
+          "domain_divergence": 0.0,
+          "lambda_term": 0.58,
+          "predicted_target_error": 0.7,
+          "predicted_target_success": 0.30000000000000004,
+          "transfer_efficiency": -4.833333333333333,
+          "bound_family": "ben_david_style"
+        },
+        "prediction_abs_error": 0.0
+      },
+      {
+        "report_path": "C:\\Users\\kiffs\\OneDrive\\Desktop\\Multiverse\\models\\paper\\paper_readiness\\latest\\fixed_seed\\transfer_seed_223.json",
+        "seed": 223,
+        "target_verse": "warehouse_world",
+        "empirical_target_success": 0.23333333333333334,
+        "empirical_target_error": 0.7666666666666666,
+        "analysis_inputs": {
+          "source_error_estimate": 0.12,
+          "domain_divergence_estimate": 0.0
+        },
+        "bound": {
+          "source_error": 0.12,
+          "domain_divergence": 0.0,
+          "lambda_term": 0.58,
+          "predicted_target_error": 0.7,
+          "predicted_target_success": 0.30000000000000004,
+          "transfer_efficiency": -4.833333333333333,
+          "bound_family": "ben_david_style"
+        },
+        "prediction_abs_error": 0.06666666666666665
+      },
+      {
+        "report_path": "C:\\Users\\kiffs\\OneDrive\\Desktop\\Multiverse\\models\\paper\\paper_readiness\\latest\\fixed_seed\\transfer_seed_337.json",
+        "seed": 337,
+        "target_verse": "warehouse_world",
+        "empirical_target_success": 0.36666666666666664,
+        "empirical_target_error": 0.6333333333333333,
+        "analysis_inputs": {
+          "source_error_estimate": 0.12,
+          "domain_divergence_estimate": 0.0
+        },
+        "bound": {
+          "source_error": 0.12,
+          "domain_divergence": 0.0,
+          "lambda_term": 0.58,
+          "predicted_target_error": 0.7,
+          "predicted_target_success": 0.30000000000000004,
+          "transfer_efficiency": -4.833333333333333,
+          "bound_family": "ben_david_style"
+        },
+        "prediction_abs_error": 0.06666666666666665
+      }
+    ]
+  }
+}

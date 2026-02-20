@@ -1,0 +1,34 @@
+﻿{
+  "profile_id": "simple_verses_working_v1",
+  "created_at_iso": "2026-02-19T00:00:00Z",
+  "description": "Simple-verse non-regression profile. Keeps candidate equivalent to baseline behavior by disabling warmstart dataset effects.",
+  "driver": "tools/promote_candidate.py",
+  "targets": [
+    {
+      "verse": "line_world",
+      "suite_path": "models/validation/targeted_simple_recovery/suites/line_world_suite_scale_v1.json",
+      "candidate_algo": "memory_recall",
+      "baseline_algo": "q",
+      "candidate_config": [],
+      "artifact": "models/validation/targeted_simple_recovery/line/mr_default_nods_scale.json"
+    },
+    {
+      "verse": "grid_world",
+      "suite_path": "models/validation/targeted_simple_recovery/suites/grid_world_suite_scale_v1.json",
+      "candidate_algo": "memory_recall",
+      "baseline_algo": "q",
+      "candidate_config": [],
+      "artifact": "models/validation/targeted_simple_recovery/grid/mr_default_nods_scale.json"
+    }
+  ],
+  "expected": {
+    "line_world": {
+      "delta_success": 0.0,
+      "delta_return": 0.0
+    },
+    "grid_world": {
+      "delta_success": 0.0,
+      "delta_return": 0.0
+    }
+  }
+}

@@ -23,6 +23,21 @@ This README is intentionally strict. It only describes what is present in code a
 
 ## Primary CLIs
 
+- Unified convenience CLI:
+  - `multiverse status` (snapshot overview)
+  - `multiverse shell` (app-like full-screen live mode; suggestion picker, TAB autocomplete, scrollable logs, exit with `Ctrl+Esc`)
+  - In shell: `:layout compact|full`, `:theme dark|glass|matrix|contrast` (default: `dark`), `:intensity 0..3`
+  - `multiverse.bat universe list` (Windows launcher)
+  - `python tools/multiverse_cli.py universe list`
+  - `multiverse train --profile quick`
+  - `multiverse train --profile research --dry-run`
+  - `python tools/multiverse_cli.py train --universe line_world --algo random --episodes 20 --max-steps 40`
+  - `python tools/multiverse_cli.py distributed --mode sharded --universe line_world --algo q --episodes 100`
+  - `python tools/multiverse_cli.py runs list --runs-root runs`
+  - `python tools/multiverse_cli.py runs latest`
+  - `multiverse runs inspect --count-events`
+  - `python tools/multiverse_cli.py runs files --run-id <run_id>`
+  - `python tools/multiverse_cli.py runs tail --run-id <run_id> --file events.jsonl --lines 30`
 - Train single run:
   - `python tools/train_agent.py --algo random --verse line_world --episodes 20 --max_steps 40`
 - Run distributed local training:
@@ -45,6 +60,7 @@ This README is intentionally strict. It only describes what is present in code a
 ## Documentation
 
 - Current docs are in `docs/README.md`.
+- **Full Technical Paper**: `docs/PAPER.md`.
 - Project introduction: `docs/PROJECT_INTRO.md`.
 - Contribution guide: `CONTRIBUTING.md`.
 - Security policy: `SECURITY.md`.

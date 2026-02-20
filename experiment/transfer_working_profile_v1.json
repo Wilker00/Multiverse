@@ -1,0 +1,31 @@
+{
+  "profile_id": "transfer_working_v1",
+  "created_at_iso": "2026-02-19T12:54:55Z",
+  "description": "Locked transfer baseline control profile (v1) discovered via ablation and retained as canonical benchmark setup.",
+  "driver": "tools/run_fixed_seed_benchmark.py",
+  "config": {
+    "runs_root": "runs_success_scale_working",
+    "report_dir": "models/validation/success_scale_working",
+    "out_json": "models/validation/success_scale_working/summary.json",
+    "target_verse": "warehouse_world",
+    "episodes": 120,
+    "max_steps": 100,
+    "seeds": "101,123,149,223,337,401",
+    "challenge_args": [
+      "--no-safe_transfer",
+      "--no-safe_baseline",
+      "--no-enable_mcts"
+    ]
+  },
+  "canonical_artifact": "models/validation/success_scale_working/summary.json",
+  "expected_aggregate": {
+    "num_seeds": 6,
+    "win_rate": 0.16666666666666666,
+    "mean_hazard_improvement_pct": 5.8679111833259405,
+    "mean_transfer_hazard_per_1k": 141.79767360324487,
+    "mean_baseline_hazard_per_1k": 151.4515808582548,
+    "mean_delta_hazard_per_1k": -9.653907255009932,
+    "mean_delta_return": 0.15611111111111362,
+    "mean_delta_success": 0.002777777777777778
+  }
+}

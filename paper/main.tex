@@ -1,0 +1,232 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\xmark}{\textbf{X}}
+
+\title{Multiverse: A Framework for Safe, Memory-Augmented Reinforcement Learning with Rigorous Evaluation}
+\author{Multiverse Team}
+\date{February 18, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Reinforcement-learning systems often fail to transition from research prototypes to production deployments because they optimize for peak benchmark performance rather than reliability, safety, and repeatability. We present Multiverse, a production-oriented framework that combines typed runtime contracts, pluggable environments and agents, runtime safety intervention (\code{SafeExecutor}), cross-run memory, and artifact-driven promotion gates. At commit \code{35f0846d7ae3e4e282f332332b7c164ea6ac9ee3} (February 18, 2026), the framework passes \code{221} tests (\code{2} warnings). Results are intentionally mixed and fully reported: memory improves hard-task performance (for \code{cliff_world}, absolute mean-return penalty improves from \code{-2030.5} to \code{-240.25}, a factor of \code{8.45x}), while canonical fixed-seed warehouse transfer remains weak (\code{win\_rate=0.0}). Safety is measurable under both stable and hard settings (\code{0/200} violations in a stable stage certificate, \code{17.5\%} aggregate observed violation rate in hard multiseed cliff validation). Retrieval throughput is practical at scale (\code{75.20x} ANN speedup over exact scan), exceeding a \code{65x} operational target. The core contribution is methodological: reproducible RL engineering where positive and negative outcomes are first-class artifacts.
+\end{abstract}
+
+\section{Introduction}
+\subsection{The Production Gap}
+Many RL research workflows optimize for best-case outcomes on a narrow benchmark set. Deployed systems require additional properties:
+\begin{enumerate}[leftmargin=1.25em]
+  \item deterministic reruns and traceability,
+  \item runtime safety controls,
+  \item explicit failure observability,
+  \item reusable cross-run memory.
+\end{enumerate}
+
+\subsection{Approach}
+Multiverse is organized around three pillars:
+\begin{enumerate}[leftmargin=1.25em]
+  \item safety-first execution with runtime veto and fallback,
+  \item generational memory and retrieval across runs,
+  \item artifact-backed evaluation and promotion gates.
+\end{enumerate}
+
+\subsection{Contributions}
+\begin{enumerate}[leftmargin=1.25em]
+  \item A production-grade framework architecture for RL operations.
+  \item Safety certification workflows with Hoeffding-bounded reporting.
+  \item Memory infrastructure with ANN retrieval acceleration.
+  \item Honest mixed-outcome reporting with reproducible artifacts.
+\end{enumerate}
+
+\section{System Architecture}
+\subsection{Runtime Components}
+Core implementation components include:
+\begin{enumerate}[leftmargin=1.25em]
+  \item contracts: \code{core/types.py},
+  \item runtime: \code{core/rollout.py}, \code{orchestrator/trainer.py},
+  \item safety: \code{core/safe_executor.py},
+  \item memory: \code{memory/central_repository.py}, \code{memory/retrieval.py}.
+\end{enumerate}
+
+\subsection{Figure 1: Diversity Heatmap of 23 Verses}
+\begin{table}[ht]
+\centering
+\small
+\caption{Taxonomy heatmap of built-in verses.}
+\begin{tabular}{lcccc}
+\toprule
+Verse & Navigation & Strategic & Economic & Safety-Critical \\
+\midrule
+\code{line\_world} & \xmark &  &  &  \\
+\code{grid\_world} & \xmark &  &  &  \\
+\code{cliff\_world} & \xmark &  &  & \xmark \\
+\code{labyrinth\_world} & \xmark &  &  &  \\
+\code{park\_world} & \xmark &  &  &  \\
+\code{pursuit\_world} & \xmark &  &  &  \\
+\code{warehouse\_world} &  &  & \xmark & \xmark \\
+\code{bridge\_world} & \xmark &  &  & \xmark \\
+\code{swamp\_world} & \xmark &  &  & \xmark \\
+\code{escape\_world} & \xmark &  &  & \xmark \\
+\code{risk\_tutorial\_world} & \xmark &  &  & \xmark \\
+\code{wind\_master\_world} & \xmark &  &  & \xmark \\
+\code{chess\_world} &  & \xmark &  &  \\
+\code{go\_world} &  & \xmark &  &  \\
+\code{uno\_world} &  & \xmark &  &  \\
+\code{chess\_world\_v2} &  & \xmark &  &  \\
+\code{go\_world\_v2} &  & \xmark &  &  \\
+\code{uno\_world\_v2} &  & \xmark &  &  \\
+\code{memory\_vault\_world} &  & \xmark &  &  \\
+\code{rule\_flip\_world} &  & \xmark &  &  \\
+\code{harvest\_world} &  &  & \xmark &  \\
+\code{factory\_world} &  &  & \xmark &  \\
+\code{trade\_world} &  &  & \xmark &  \\
+\midrule
+Totals & 11 & 8 & 4 & 7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Sidebar: Practical Engineering Considerations (BOM and Hygiene)}
+\begin{table}[ht]
+\centering
+\small
+\caption{Operational hygiene issues and mitigations.}
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
+\toprule
+Issue & Mitigation & Evidence \\
+\midrule
+UTF-8 BOM corruption in source/docs &
+\code{tools/find\_bom.py}, \code{tools/remove\_bom.py}, \code{tools/bom\_hygiene\_scan.py} &
+\code{models/validation/bom\_hygiene\_scan\_v1.json} (\code{bom\_file\_count=0}) \\
+Retrieval latency growth with memory size &
+ANN candidate filtering and runtime tuning in \code{memory/central\_repository.py} &
+\code{models/validation/retrieval\_ann\_benchmark\_v1.json} (\code{75.20x}, above \code{65x} target) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Safety Infrastructure}
+\subsection{Runtime Safety}
+\code{SafeExecutor} provides runtime intervention, fallback, and telemetry hooks.
+
+\subsection{Artifact-Backed Safety Results}
+\begin{enumerate}[leftmargin=1.25em]
+  \item Stable stage certificate: \code{models/validation/teacher\_wind\_remediation\_hard\_eval\_v6\_stage25\_eval200.json} contains a stage with \code{0/200} observed violations (\code{upper\_bound=0.0960}, confidence \code{0.95}).
+  \item Hard stochastic validation: \code{models/validation/hard\_cliff\_multiseed\_validation\_v1.json} reports \code{observed\_violation\_rate=0.175}, \code{upper\_bound=0.2304}.
+  \item Theory-pack safety: \code{models/paper/paper\_readiness/latest/phase3\_theory\_validation.json} reports \code{observed\_violation\_rate=0.0}, \code{upper\_bound=0.0960}.
+\end{enumerate}
+
+\section{Memory System}
+\subsection{Cross-Run Memory}
+Multiverse ingests and retrieves cross-run experience to support reuse and transfer.
+
+\subsection{Memory Outcomes}
+\begin{enumerate}[leftmargin=1.25em]
+  \item Long-horizon challenge: \code{models/validation/long\_horizon\_challenge.json} reports success \code{0.000 -> 0.885}.
+  \item Cliff benchmark improvement: \code{models/paper/paper\_readiness/latest/benchmark\_gate.json} reports absolute mean-return penalty improvement of \code{8.45x} (\code{-2030.5} to \code{-240.25}).
+  \item Fixed-seed transfer challenge: \code{models/paper/paper\_readiness/latest/fixed\_seed\_summary.json} reports \code{win\_rate=0.0} and negative hazard improvement in the current warehouse setup.
+\end{enumerate}
+
+\section{Rigorous Evaluation}
+\subsection{Reproducibility Stack}
+\begin{enumerate}[leftmargin=1.25em]
+  \item Pack config: \code{experiment/paper\_readiness\_pack\_v1.json}
+  \item Pack runner: \code{tools/run\_paper\_readiness\_pack.py}
+  \item Latest outputs: \code{models/paper/paper\_readiness/latest/}
+\end{enumerate}
+
+\subsection{Figure 2: Ben-David Transfer Matrix (Predicted vs. Actual Error)}
+\begin{table}[ht]
+\centering
+\small
+\caption{Predicted and empirical transfer error from the phase3 theory validation artifact.}
+\begin{tabular}{lcccc}
+\toprule
+Seed & Predicted Target Error & Empirical Target Error & Absolute Error & Heat Band \\
+\midrule
+123 & 0.9889 & 0.9833 & 0.0056 & LOW \\
+223 & 0.9889 & 0.9833 & 0.0056 & LOW \\
+337 & 0.9889 & 1.0000 & 0.0111 & MED \\
+\midrule
+Summary & - & - & mean=0.0074, max=0.0111 & within\_tolerance=true \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Interpretation:
+\begin{enumerate}[leftmargin=1.25em]
+  \item Bound predictions align with measured transfer error in this benchmark family.
+  \item Analytical consistency is strong even when transfer performance remains weak.
+\end{enumerate}
+
+\section{ADT Status}
+ADT support is integrated in:
+\begin{enumerate}[leftmargin=1.25em]
+  \item \code{models/decision\_transformer.py},
+  \item \code{agents/transformer\_agent.py},
+  \item \code{tools/prep\_adt\_data.py}, \code{tools/train\_adt.py}, \code{tools/run\_adt\_dagger.py},
+  \item passing tests including \code{tests/test\_adt\_pipeline.py} and \code{tests/test\_decision\_transformer.py}.
+\end{enumerate}
+
+\section{Discussion}
+Current strengths:
+\begin{enumerate}[leftmargin=1.25em]
+  \item engineering rigor and reproducibility,
+  \item measurable runtime safety controls,
+  \item strong memory gains in selected hard scenarios.
+\end{enumerate}
+
+Current limitations:
+\begin{enumerate}[leftmargin=1.25em]
+  \item transfer wins are not yet robust across verses,
+  \item canonical benchmark gate does not yet pass overall,
+  \item broader ablations and confidence intervals are still needed.
+\end{enumerate}
+
+\section{Conclusion}
+Multiverse is suitable for a framework paper focused on safe, memory-augmented RL with rigorous evaluation discipline. The strongest contribution is reproducible honesty: both gains and failures are preserved as inspectable artifacts.
+
+\appendix
+\section{Reproducibility Commands}
+\begin{verbatim}
+python -m pytest -q
+python tools/run_paper_readiness_pack.py --pack experiment/paper_readiness_pack_v1.json --candidate_algo memory_recall --baseline_algo q --no-strict
+python -m tools.benchmark_retrieval_ann --rows 50000 --queries 150 --value_max 1999 --top_k 5 --seed 1 --out_json models/validation/retrieval_ann_benchmark_v1.json
+python tools/bom_hygiene_scan.py --root . --out_json models/validation/bom_hygiene_scan_v1.json
+\end{verbatim}
+
+\section{Key Artifacts}
+\begin{enumerate}[leftmargin=1.25em]
+  \item \code{models/paper/paper\_readiness/latest/pack\_summary.json}
+  \item \code{models/paper/paper\_readiness/latest/benchmark\_gate.json}
+  \item \code{models/paper/paper\_readiness/latest/fixed\_seed\_summary.json}
+  \item \code{models/paper/paper\_readiness/latest/phase3\_theory\_validation.json}
+  \item \code{models/validation/hard\_cliff\_multiseed\_validation\_v1.json}
+  \item \code{models/validation/teacher\_wind\_remediation\_hard\_eval\_v6\_stage25\_eval200.json}
+  \item \code{models/validation/retrieval\_ann\_benchmark\_v1.json}
+  \item \code{models/validation/bom\_hygiene\_scan\_v1.json}
+\end{enumerate}
+
+\end{document}

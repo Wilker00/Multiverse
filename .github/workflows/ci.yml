@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Runtime Deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch numpy
+
+      - name: Run CI Gates
+        run: |
+          python tools/ci_gate.py --release_gate --min_coverage 0.05 --min_action_accuracy 0.05 --prod_bench_json models/benchmarks_smoke/latest.json --prod_min_success_rate 0.0 --prod_max_safety_violation_rate 1.0
+
+      - name: Run MCTS Regression Tests
+        run: |
+          python -m pytest -q tests/test_mcts_regression.py tests/test_mcts_search.py tests/test_mcts_value_confidence.py tests/test_mcts_trainer_trace.py tests/test_mcts_trace_filter.py tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_meta_transformer_value.py tests/test_mcts_telemetry_dashboard.py tests/test_transfer_challenge.py tests/test_agent_health_monitor.py

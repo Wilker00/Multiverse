@@ -1,0 +1,34 @@
+{
+  "version": "v1",
+  "verses": {
+    "grid_world": {
+      "history": [
+        {
+          "t_ms": 1770669161399,
+          "success_rate": 0.0,
+          "mean_return": -0.11999999999999998
+        }
+      ],
+      "noise": 0.0,
+      "stochasticity": 0.0,
+      "partial_observability": 0.0,
+      "distractors": 0,
+      "mode": "collapse_backoff"
+    },
+    "line_world": {
+      "history": [
+        {
+          "t_ms": 1770669161403,
+          "success_rate": 0.0,
+          "mean_return": -0.18819560429195367
+        }
+      ],
+      "noise": 0.0,
+      "stochasticity": 0.0,
+      "partial_observability": 0.0,
+      "distractors": 0,
+      "mode": "collapse_backoff"
+    }
+  },
+  "updated_at_ms": 1770669161403
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": "v1",
+  "name": "paper_readiness_pack_v1",
+  "benchmark_gate": {
+    "enabled": true,
+    "suite_path": "benchmark_suite.yaml",
+    "retention_max_drop_pct": 0.05,
+    "candidate_config": [
+      "dataset_path=models/expert_datasets/line_world.jsonl",
+      "warmstart_reward_scale=1.0",
+      "warmstart_target=return_to_go",
+      "warmstart_target_gamma=1.0",
+      "epsilon_start=0.2",
+      "epsilon_min=0.01",
+      "epsilon_decay=0.999",
+      "recall_enabled=true",
+      "recall_uncertainty_margin=0.5",
+      "recall_cooldown_steps=1"
+    ],
+    "baseline_config": []
+  },
+  "fixed_seed_transfer": {
+    "enabled": true,
+    "target_verse": "warehouse_world",
+    "episodes": 60,
+    "max_steps": 100,
+    "seeds": "123,223,337",
+    "challenge_args": [
+      "--transfer_warmstart_reward_scale",
+      "0.01",
+      "--transfer_epsilon_start",
+      "0.05",
+      "--transfer_epsilon_min",
+      "0.01",
+      "--transfer_epsilon_decay",
+      "0.999",
+      "--baseline_epsilon_start",
+      "0.05",
+      "--baseline_epsilon_min",
+      "0.01",
+      "--baseline_epsilon_decay",
+      "0.999",
+      "--no-safe_transfer",
+      "--no-safe_baseline",
+      "--no-enable_mcts",
+      "--no-dynamic_transfer_mix",
+      "--transfer_learn_hazard_penalty",
+      "0.0",
+      "--transfer_learn_success_bonus",
+      "0.0",
+      "--transfer_q_warehouse_obs_key_mode",
+      "direction_only",
+      "--baseline_q_warehouse_obs_key_mode",
+      "direction_only",
+      "--transfer_cfg=recall_enabled=false"
+    ]
+  },
+  "theory_validation": {
+    "enabled": true,
+    "safety_events_jsonl": "",
+    "safety_episodes": 200,
+    "safety_violations": 0,
+    "safety_confidence": 0.95,
+    "transfer_reports_glob": "",
+    "transfer_lambda": "auto",
+    "transfer_tolerance": 0.1
+  }
+}

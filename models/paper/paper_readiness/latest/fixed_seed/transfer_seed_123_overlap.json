@@ -1,0 +1,55 @@
+{
+  "target_verse": "warehouse_world",
+  "bridge_family": "semantic_projection_v2",
+  "bridge_reason": "transferable_logic_projection",
+  "mappings": [
+    {
+      "source_feature": "score_delta (territory/material edge)",
+      "target_feature": "path_progress (x,y toward goal)",
+      "intuition": "Advantage conversion maps to route completion pressure."
+    },
+    {
+      "source_feature": "risk (ko danger / king exposure)",
+      "target_feature": "shelf_safety (nearby_obstacles / hazard proxy)",
+      "intuition": "Defensive board awareness maps to collision avoidance bias."
+    },
+    {
+      "source_feature": "resource + tempo",
+      "target_feature": "battery + charger urgency",
+      "intuition": "Resource pacing maps to energy-aware logistics control."
+    }
+  ],
+  "sources": [
+    {
+      "verse_name": "cliff_world",
+      "run_id": "run_5044db46a1ee47b3b017403d467e14e5",
+      "path": "runs\\run_5044db46a1ee47b3b017403d467e14e5\\dna_success_only.jsonl",
+      "source_kind": "success_events"
+    },
+    {
+      "verse_name": "cliff_world",
+      "run_id": "run_d3c94208e4d24125a34bd2802fdbe726",
+      "path": "runs\\run_d3c94208e4d24125a34bd2802fdbe726\\dna_success_only.jsonl",
+      "source_kind": "success_events"
+    },
+    {
+      "verse_name": "chess_world",
+      "run_id": "run_e2c07ec7347c40ce97593e1341ab3183",
+      "path": "runs\\run_e2c07ec7347c40ce97593e1341ab3183\\dna_success_only.jsonl",
+      "source_kind": "success_events"
+    },
+    {
+      "verse_name": "chess_world",
+      "run_id": "run_722d38f11d424682928a83b4695a4a3a",
+      "path": "runs\\run_722d38f11d424682928a83b4695a4a3a\\dna_success_only.jsonl",
+      "source_kind": "success_events"
+    },
+    {
+      "verse_name": "go_world",
+      "run_id": "run_f48c026ed3204d8d96c9fa6633d9d091",
+      "path": "runs\\run_f48c026ed3204d8d96c9fa6633d9d091\\dna_success_only.jsonl",
+      "source_kind": "success_events"
+    }
+  ],
+  "transfer_dataset_rows": 1282
+}

@@ -22,6 +22,7 @@ runs-*/
 central_memory/
 central_memory*/
 tmp_moe/
+tmp_*.log
 data/memory_smoke/
 data/memory/
 artifacts/
@@ -56,11 +57,6 @@ theory/gap_report*.txt
 *.onnx
 *.sqlite
 *.prof
-
-# Frontend/generated deps
-command_center/node_modules/
-command_center/.next/
-command_center/out/
 
 # OS junk
 .DS_Store
