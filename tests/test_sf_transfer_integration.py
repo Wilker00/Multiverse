@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 
 from core.agent_base import ExperienceBatch, Transition
 from core.types import AgentSpec, SpaceSpec, VerseSpec
@@ -6,6 +7,7 @@ from memory.semantic_bridge import task_embedding_weights
 from verses.registry import create_verse, register_builtin
 from agents.sf_transfer_agent import SuccessorFeatureAgent
 from agents.registry import create_agent, register_builtin_agents
+import numpy as np
 
 
 class TestSFTransferIntegration(unittest.TestCase):
@@ -124,6 +126,17 @@ class TestSFTransferIntegration(unittest.TestCase):
         self.assertEqual(int(m.get("updates", 0)), 2)
         self.assertGreater(int(m.get("feature_dim", 0)), 0)
         self.assertIn("forward_mse_mean", m)
+
+        with tempfile.TemporaryDirectory() as td:
+            ckpt = f"{td}/sf_ckpt.json"
+            ag.save(ckpt)
+            ag2 = create_agent(spec=spec, observation_space=obs_space, action_space=act_space)
+            self.assertIsInstance(ag2, SuccessorFeatureAgent)
+            ag2.load(ckpt)
+            assert isinstance(ag2, SuccessorFeatureAgent)
+            self.assertIsNotNone(ag.forward_model)
+            self.assertIsNotNone(ag2.forward_model)
+            self.assertTrue(np.allclose(ag.forward_model, ag2.forward_model))
 
 
 if __name__ == "__main__":

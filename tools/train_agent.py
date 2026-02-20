@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import json
 import os
 import re
 import sys
@@ -89,6 +90,17 @@ def _parse_kv_list(kvs: Optional[list[str]]) -> Dict[str, Any]:
                 out[k] = int(v)
             continue
         except (ValueError, TypeError):
+            pass
+
+        # JSON-style values allow lists/dicts via CLI:
+        # --aconfig allowed_actions=[0,1,2,3]
+        # --aconfig replay_weighting={"enabled":true}
+        try:
+            parsed = json.loads(v)
+            if isinstance(parsed, (list, dict)):
+                out[k] = parsed
+                continue
+        except Exception:
             pass
 
         out[k] = v

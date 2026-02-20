@@ -275,9 +275,10 @@ class Trainer:
         if isinstance(agent_spec.config, dict):
             config_train = bool(agent_spec.config.get("train", False))
 
-        # Default logic: simple_pg always trains, others only if config says so
-        train = (algo == "simple_pg") or config_train
-        collect = (algo == "simple_pg") or config_train
+        # Default logic: core learning algos train by default.
+        default_train_algos = {"simple_pg", "sf_transfer"}
+        train = (algo in default_train_algos) or config_train
+        collect = (algo in default_train_algos) or config_train
 
         rollout_cfg = RolloutConfig(
             schema_version=self.schema_version,

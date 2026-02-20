@@ -330,11 +330,15 @@ class SuccessorFeatureAgent:
         }
 
     def save(self, path: str) -> None:
+        fwd_payload: Any = None
+        if self.forward_model is not None:
+            fwd_payload = self.forward_model.tolist()
         payload: Dict[str, Any] = {
             "n_actions": int(self.n_actions),
             "feature_dim": int(self._feature_dim),
             "w": ([] if self.w is None else [float(v) for v in self.w.tolist()]),
             "psi_table": {k: arr.tolist() for k, arr in self.psi_table.items()},
+            "forward_model": fwd_payload,
             "epsilon": float(self.stats.epsilon),
         }
         with open(path, "w", encoding="utf-8") as f:
@@ -351,6 +355,14 @@ class SuccessorFeatureAgent:
         if self.w.shape[0] != self._feature_dim:
             raise ValueError("Invalid SF checkpoint w length")
         self.forward_model = np.zeros((self.n_actions, self._feature_dim, self._feature_dim), dtype=np.float32)
+        fwd_raw = payload.get("forward_model")
+        if fwd_raw is not None:
+            try:
+                fwd = np.asarray(fwd_raw, dtype=np.float32)
+                if fwd.shape == (self.n_actions, self._feature_dim, self._feature_dim):
+                    self.forward_model = fwd
+            except Exception:
+                pass
         table_raw = payload.get("psi_table", {})
         self.psi_table = {}
         if isinstance(table_raw, dict):
