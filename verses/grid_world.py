@@ -70,21 +70,37 @@ class GridWorldVerse:
             teleporter_pairs=max(0, int(self.spec.params.get("teleporter_pairs", 1))),
         )
 
+        self._enable_ego_grid = bool(self.spec.params.get("enable_ego_grid", False))
+        ego_size = int(self.spec.params.get("ego_grid_size", 5))
+        if ego_size < 3:
+            ego_size = 3
+        if ego_size % 2 == 0:
+            ego_size += 1
+        self._ego_grid_size = int(ego_size)
+
         obs_keys = ["x", "y", "goal_x", "goal_y", "t", "nearby_obstacles",
                     "on_ice", "on_teleporter"]
+        obs_subspaces = {
+            "x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "goal_x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "goal_y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "t": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "nearby_obstacles": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "on_ice": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "on_teleporter": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+        }
+        if self._enable_ego_grid:
+            obs_keys.append("ego_grid")
+            obs_subspaces["ego_grid"] = SpaceSpec(
+                type="vector",
+                shape=(self._ego_grid_size * self._ego_grid_size,),
+                dtype="int32",
+            )
         self.observation_space = self.spec.observation_space or SpaceSpec(
             type="dict",
             keys=obs_keys,
-            subspaces={
-                "x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "goal_x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "goal_y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "t": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "nearby_obstacles": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "on_ice": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "on_teleporter": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-            },
+            subspaces=obs_subspaces,
             notes="GridWorld obs dict with obstacles, ice, and teleporters",
         )
 
@@ -365,7 +381,7 @@ class GridWorldVerse:
                 nearby_obs += 1  # Boundary counts as obstacle
             elif (nx, ny) in self._obstacles:
                 nearby_obs += 1
-        return {
+        out = {
             "x": self._x,
             "y": self._y,
             "goal_x": self._goal_x(),
@@ -375,6 +391,36 @@ class GridWorldVerse:
             "on_ice": 1 if (self._x, self._y) in self._ice else 0,
             "on_teleporter": 1 if (self._x, self._y) in self._teleporters else 0,
         }
+        if self._enable_ego_grid:
+            out["ego_grid"] = self._ego_grid_flat()
+        return out
+
+    def _ego_grid_flat(self) -> List[int]:
+        """
+        Egocentric occupancy grid flattened row-major.
+        Cell encoding:
+          0 = free
+          1 = obstacle / out of bounds
+          2 = goal
+        """
+        size = int(self._ego_grid_size)
+        radius = size // 2
+        gx = self._goal_x()
+        gy = self._goal_y()
+        out: List[int] = []
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                wx = self._x + dx
+                wy = self._y + dy
+                val = 0
+                if not (0 <= wx < self.params.width and 0 <= wy < self.params.height):
+                    val = 1
+                elif (wx, wy) in self._obstacles:
+                    val = 1
+                elif wx == gx and wy == gy:
+                    val = 2
+                out.append(int(val))
+        return out
 
     def _goal_x(self) -> int:
         gx = int(self.params.goal_x)

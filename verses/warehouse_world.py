@@ -84,27 +84,45 @@ class WarehouseWorldVerse:
         self.params.charge_rate = max(0, int(self.params.charge_rate))
         self.params.lidar_range = max(1, int(self.params.lidar_range))
 
+        self._enable_ego_grid = bool(self.spec.params.get("enable_ego_grid", False))
+        ego_size = int(self.spec.params.get("ego_grid_size", 5))
+        if ego_size < 3:
+            ego_size = 3
+        if ego_size % 2 == 0:
+            ego_size += 1
+        self._ego_grid_size = int(ego_size)
+
+        obs_keys = [
+            "x", "y", "goal_x", "goal_y", "battery",
+            "nearby_obstacles", "nearest_charger_dist", "t",
+            "on_conveyor", "patrol_dist", "lidar", "flat",
+        ]
+        obs_subspaces = {
+            "x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "goal_x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "goal_y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "battery": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "nearby_obstacles": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "nearest_charger_dist": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "t": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "on_conveyor": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "patrol_dist": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
+            "lidar": SpaceSpec(type="vector", shape=(8,), dtype="int32"),
+            "flat": SpaceSpec(type="vector", shape=(17,), dtype="float32"),
+        }
+        if self._enable_ego_grid:
+            obs_keys.append("ego_grid")
+            obs_subspaces["ego_grid"] = SpaceSpec(
+                type="vector",
+                shape=(self._ego_grid_size * self._ego_grid_size,),
+                dtype="int32",
+            )
+
         self.observation_space = self.spec.observation_space or SpaceSpec(
             type="dict",
-            keys=[
-                "x", "y", "goal_x", "goal_y", "battery",
-                "nearby_obstacles", "nearest_charger_dist", "t",
-                "on_conveyor", "patrol_dist", "lidar", "flat",
-            ],
-            subspaces={
-                "x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "goal_x": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "goal_y": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "battery": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "nearby_obstacles": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "nearest_charger_dist": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "t": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "on_conveyor": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "patrol_dist": SpaceSpec(type="vector", shape=(1,), dtype="int32"),
-                "lidar": SpaceSpec(type="vector", shape=(8,), dtype="int32"),
-                "flat": SpaceSpec(type="vector", shape=(17,), dtype="float32"),
-            },
+            keys=obs_keys,
+            subspaces=obs_subspaces,
             notes="WarehouseWorld obs dict",
         )
 
@@ -324,7 +342,7 @@ class WarehouseWorldVerse:
                 float(self._t), float(on_conv), float(patrol_dist),
         ] + [float(d) for d in lidar]
 
-        return {
+        out = {
             "x": int(self._x),
             "y": int(self._y),
             "goal_x": int(self._goal_x()),
@@ -338,6 +356,43 @@ class WarehouseWorldVerse:
             "lidar": lidar,
             "flat": flat,
         }
+        if self._enable_ego_grid:
+            out["ego_grid"] = self._ego_grid_from_lidar(lidar=lidar)
+        return out
+
+    def _ego_grid_from_lidar(self, *, lidar: List[int]) -> List[int]:
+        """
+        Egocentric occupancy inferred from lidar rays.
+        Cell encoding:
+          0 = free/unknown
+          1 = obstacle/wall
+          2 = goal (if goal is inside local window)
+        """
+        size = int(self._ego_grid_size)
+        radius = size // 2
+        grid = [[0 for _ in range(size)] for _ in range(size)]
+        dirs = [
+            (0, -1), (1, -1), (1, 0), (1, 1),
+            (0, 1), (-1, 1), (-1, 0), (-1, -1),
+        ]
+        for i, (dx, dy) in enumerate(dirs):
+            dist = max(1, int(lidar[i] if i < len(lidar) else (radius + 1)))
+            for k in range(1, radius + 1):
+                lx = radius + dx * k
+                ly = radius + dy * k
+                if lx < 0 or lx >= size or ly < 0 or ly >= size:
+                    continue
+                if k >= dist:
+                    grid[ly][lx] = 1
+                    break
+        dgx = int(self._goal_x()) - int(self._x)
+        dgy = int(self._goal_y()) - int(self._y)
+        if -radius <= dgx <= radius and -radius <= dgy <= radius:
+            gx = dgx + radius
+            gy = dgy + radius
+            if grid[gy][gx] == 0:
+                grid[gy][gx] = 2
+        return [int(v) for row in grid for v in row]
 
     def _path_exists(self, start: Tuple[int, int], goal: Tuple[int, int]) -> bool:
         """BFS check that a walkable path exists from start to goal."""

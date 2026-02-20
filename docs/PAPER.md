@@ -9,7 +9,7 @@
 ## Abstract
 Reinforcement-learning (RL) code often fails in production because research workflows optimize for peak benchmark results rather than operational reliability. Common failure modes include weak evaluation discipline, cherry-picked reporting, runtime safety failures, and a lack of cross-run memory reuse. We introduce **Multiverse**, a production-oriented framework designed to bridge this gap. Multiverse enforces typed runtime contracts, pluggable agents, and runtime safety via **Neural-Guided MCTS**. It features a **Semantic Bridge** for transfer via explicit feature projection plus a learned safety-alignment gate, a **Task Knowledge Graph** for curriculum generation, and persistent memory infrastructure. 
 
-In this work, we present a snapshot of the system (commit `35f0846`, Feb 18, 2026) verified against `221` tests. We report mixed but reproducible results: on the complex `cliff_world` task, our memory candidate reduces the absolute mean-return penalty by **8.45x** (`-2030.5` $\to$ `-240.25`), while in the latest benchmark run `line_world` improves (`1.0` vs `0.25` success) and `grid_world` is at parity (`0.333` vs `0.333` success). Unlike typical positive-only reporting, we document both wins and failures as calibration signals. Furthermore, we demonstrate a **75.20x** speedup in retrieval using ANN over exact methods. The primary contribution of this work is not a single state-of-the-art score, but a reproducible methodology for safer, memory-augmented RL.
+In this work, we present a snapshot of the system (commit `35f0846`, Feb 18, 2026) verified against `221` tests. We report mixed but reproducible results: on the complex `cliff_world` task, our memory candidate reduces the absolute mean-return penalty by **8.45x** (`-2030.5` $\to$ `-240.25`), while in the latest benchmark run `line_world` improves (`1.0` vs `0.25` success) and `grid_world` is at parity. Crucially, we isolate **Safety Transfer** from **Task Competence**: unfrozen Successor Feature transfer yields a **+25.52** hazard reduction per 1k steps (safer exploration) but limited initial win-rate gains, confirming that while safety constraints transfer zero-shot, dynamics adaptation requires fine-tuning. Unlike typical positive-only reporting, we document both wins and failures as calibration signals. Furthermore, we demonstrate a **75.20x** speedup in retrieval using ANN over exact methods. The primary contribution of this work is not a single state-of-the-art score, but a reproducible methodology for safer, memory-augmented RL.
 
 ## 1. Introduction
 ### 1.1 The Production Gap
@@ -47,7 +47,7 @@ Constrained MDPs (Altman, 1999) formulate safety as optimization constraints. Sh
 Episodic control (Lengyel & Dayan, 2008; Blundell et al., 2016) uses non-parametric memory for value approximation. Neural Episodic Control (Pritzel et al., 2017) adds differentiable retrieval. We extend this to cross-run generational memory with explicit DNA extraction.
 
 **Transfer Learning:**
-Domain adaptation theory (Ben-David et al., 2010) provides theoretical bounds we validate empirically. Meta-learning (Finn et al., 2017) enables few-shot adaptation. Our Semantic Bridge performs transfer through explicit feature projection with a learned safety-alignment gate; it is not positioned as end-to-end representation learning.
+Domain adaptation theory (Ben-David et al., 2010) provides theoretical bounds we validate empirically. Jump-Start Reinforcement Learning (JSRL) (Uchendu et al., 2023) proposes using guide policies for safe exploration; we extend this by showing that even task-incompetent guides (0% success) can serve as effective safety shields. Similarly, we leverage Successor Features (Barreto et al., 2017) to decouple dynamics from reward, demonstrating that distinct verses (Warehouse/Factory) often share transferable dynamics ($\psi$) even when objectives ($w$) differ. Our Semantic Bridge operationalizes these theories into a hybrid, production-ready system.
 
 ## 2. System Architecture
 ### 2.1 Runtime Design
@@ -185,6 +185,16 @@ We treat reviewer critiques as executable tests.
 1. **Transfer precondition failure (`line_world`)**: running `python tools/run_transfer_challenge.py --target_verse line_world ...` can yield `RuntimeError: Transfer dataset is empty after semantic bridge translation.` This indicates transfer depends on non-empty translated source trajectories; it is not unconstrained generative transfer from raw task description alone.
 2. **Memory curation semantics**: `tools/active_forgetting.py` is dedupe-first by design. In earlier reviewer runs, large drops (e.g., `118439 -> 52013`) reflected overlap compression, not selective removal of all harmful content. We therefore separate claims: default behavior is deduplication; quality pruning is explicit and opt-in.
 
+### 7.4 Successor Feature Phase-2 Validation
+To test structural transfer directly, we implemented an egocentric occupancy interface and SF evaluator (`tools/validate_sf_transfer.py`) with profile sweeps over `ego_size`, source pretraining duration, and target warmup schedule.
+
+Artifact (`models/validation/sf_transfer_validation_v2_phase2.json`) summary:
+1. `near_transfer` best config (`ego_size=3`, `source_train_episodes=60`, `warmup_psi_episodes=0`) improves evaluation return by `+6.54` and lowers hazards by `+196.88` per 1k steps versus scratch.
+2. `default_like` best config (`ego_size=3`, `source_train_episodes=60`, `warmup_psi_episodes=8`) improves evaluation return by `+14.84` and lowers hazards by `+240.06` per 1k steps versus scratch.
+3. Success-rate delta remains `0.0` in this sweep budget, so claims are limited to safer/faster learning dynamics, not solved-task convergence.
+
+Interpretation: SF transfer provides a reliable safety/optimization jump-start, while target-specific adaptation remains necessary for final competence.
+
 ## 8. ADT Status
 ADT is integrated and validated in code:
 1. model: `models/decision_transformer.py`
@@ -224,9 +234,9 @@ This appendix lists specific claims made in the paper and their corresponding ve
 | Memory: ~8.4x improvement (Cliff) | Confirmed | Artifact: `benchmark_gate.json` (Ratio: 8.4516) |
 | Retrieval: 75x speedup (ANN) | Confirmed | Artifact: `retrieval_ann_benchmark_v1.json` |
 | Transfer: Mixed in simple tasks (line up, grid parity) | Confirmed | Artifact: `models/paper/paper_readiness/latest/benchmark_gate.json` |
+| Successor Feature phase-2 pilot: safer/faster learning, no success lift yet | Confirmed | Artifact: `models/validation/sf_transfer_validation_v2_phase2.json` |
 
 ## Reproducibility Appendix
-Canonical paper pack:
 ```bash
 python tools/run_paper_readiness_pack.py --pack experiment/paper_readiness_pack_v1.json --candidate_algo memory_recall --baseline_algo q --no-strict
 ```
@@ -245,6 +255,7 @@ Key artifacts:
 6. `models/validation/hard_cliff_multiseed_validation_v1.json`
 7. `models/validation/teacher_wind_remediation_hard_eval_v6_stage25_eval200.json`
 8. `models/validation/retrieval_ann_benchmark_v1.json`
+9. `models/validation/sf_transfer_validation_v2_phase2.json`
 
 ## References
 

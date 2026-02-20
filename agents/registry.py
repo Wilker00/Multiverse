@@ -31,6 +31,7 @@ from agents.evolving_agent import EvolvingAgent
 from agents.memory_recall_agent import MemoryRecallAgent
 from agents.planner_recall_agent import PlannerRecallAgent
 from agents.transformer_agent import TransformerAgent
+from agents.sf_transfer_agent import SuccessorFeatureAgent
 
 AgentFactory = Callable[[AgentSpec, SpaceSpec, SpaceSpec], Agent]
 
@@ -119,6 +120,10 @@ def register_builtin_agents() -> None:
     register_agent(
         "q",
         lambda s, o, a: QLearningAgent(spec=s, observation_space=o, action_space=a),
+    )
+    register_agent(
+        "sf_transfer",
+        lambda s, o, a: SuccessorFeatureAgent(spec=s, observation_space=o, action_space=a),
     )
     register_agent(
         "memory_recall",

@@ -164,7 +164,7 @@ class Trainer:
 
         # Agent-specific config normalization before construction.
         algo = (agent_spec.algo or "").strip().lower()
-        if algo in ("special_moe", "gateway", "aware", "evolving", "memory_recall", "planner_recall"):
+        if algo in ("special_moe", "gateway", "aware", "evolving", "memory_recall", "planner_recall", "sf_transfer"):
             cfg = dict(agent_spec.config) if isinstance(agent_spec.config, dict) else {}
             cfg.setdefault("verse_name", verse_spec.verse_name)
             agent_spec = dataclasses.replace(agent_spec, config=cfg)

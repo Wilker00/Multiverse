@@ -126,6 +126,56 @@ def _norm_verse_name(name: Optional[str]) -> str:
     return str(name or "").strip().lower()
 
 
+def task_embedding_weights(
+    *,
+    target_verse_name: str,
+    profile: str = "balanced",
+) -> Dict[str, float]:
+    """
+    Return a lightweight semantic task embedding usable as SF reward weights.
+
+    Keys are intentionally generic so downstream agents can map them onto their
+    local feature basis:
+      - bias
+      - obstacle
+      - goal
+      - battery
+      - patrol
+      - conveyor
+    """
+    v = _norm_verse_name(target_verse_name)
+    p = str(profile or "balanced").strip().lower()
+
+    out: Dict[str, float] = {
+        "bias": -0.03,
+        "obstacle": -1.00,
+        "goal": 2.00,
+        "battery": 0.10,
+        "patrol": -0.60,
+        "conveyor": -0.10,
+    }
+
+    if p in {"safety", "safety_first"}:
+        out["obstacle"] = -1.40
+        out["goal"] = 1.60
+        out["patrol"] = -0.90
+    elif p in {"goal", "goal_first", "profit"}:
+        out["obstacle"] = -0.70
+        out["goal"] = 2.40
+        out["patrol"] = -0.40
+
+    # Verse-specific priors.
+    if v == "warehouse_world":
+        out["battery"] = max(out["battery"], 0.20)
+        out["conveyor"] = -0.20
+    elif v == "grid_world":
+        out["battery"] = 0.0
+        out["patrol"] = 0.0
+        out["conveyor"] = 0.0
+
+    return out
+
+
 def _is_strategy_verse(name: str) -> bool:
     return _norm_verse_name(name) in {"chess_world", "go_world", "uno_world"}
 
