@@ -4,12 +4,12 @@
 **Affiliation:** Independent Researcher  
 **Contact:** Simok38@mail.broward.edu
 **Code:** https://github.com/wilker00/multiverse
-**Date:** February 18, 2026
+**Date:** February 22, 2026
 
 ## Abstract
-Reinforcement-learning (RL) code often fails in production because research workflows optimize for peak benchmark results rather than operational reliability. Common failure modes include weak evaluation discipline, cherry-picked reporting, runtime safety failures, and a lack of cross-run memory reuse. We introduce **Multiverse**, a production-oriented framework designed to bridge this gap. Multiverse enforces typed runtime contracts, pluggable agents, and runtime safety via **Neural-Guided MCTS**. It features a **Semantic Bridge** for transfer via explicit feature projection plus a learned safety-alignment gate, a **Task Knowledge Graph** for curriculum generation, and persistent memory infrastructure. 
+Reinforcement-learning (RL) code often fails in production because research workflows optimize for peak benchmark results rather than operational reliability. Common failure modes include weak evaluation discipline, cherry-picked reporting, runtime safety failures, and a lack of cross-run memory reuse. We introduce **Multiverse**, a production-oriented framework designed to bridge this gap. Multiverse enforces typed runtime contracts, pluggable agents, and runtime safety via **Neural-Guided MCTS**. It features a **Semantic Bridge** for transfer via explicit feature projection plus a learned safety-alignment gate, a **Task Knowledge Graph** for curriculum generation, and persistent memory infrastructure.
 
-In this work, we present a snapshot of the system (commit `35f0846`, Feb 18, 2026) verified against `221` tests. We report mixed but reproducible results: on the complex `cliff_world` task, our memory candidate reduces the absolute mean-return penalty by **8.45x** (`-2030.5` $\to$ `-240.25`), while in the latest benchmark run `line_world` improves (`1.0` vs `0.25` success) and `grid_world` is at parity. Crucially, we isolate **Safety Transfer** from **Task Competence**: unfrozen Successor Feature transfer yields a **+25.52** hazard reduction per 1k steps (safer exploration) but limited initial win-rate gains, confirming that while safety constraints transfer zero-shot, dynamics adaptation requires fine-tuning. Unlike typical positive-only reporting, we document both wins and failures as calibration signals. Furthermore, we demonstrate a **75.20x** speedup in retrieval using ANN over exact methods. The primary contribution of this work is not a single state-of-the-art score, but a reproducible methodology for safer, memory-augmented RL.
+In this work, we present a snapshot of the system (Feb 22, 2026) verified against `232` tests across 11 convergence tests added this cycle. We report mixed but reproducible results: on the complex `cliff_world` task, our memory candidate reduces the absolute mean-return penalty by **8.45x** (`-2030.5` $\to$ `-240.25`), while `line_world` improves (`1.0` vs `0.25` success) and `grid_world` is at parity. Crucially, we isolate **Safety Transfer** from **Task Competence**: our latest Successor Feature (SF) transfer sweep over a full hyperparameter grid confirms that SF transfer reliably provides a safety and optimization jump-start — the best `near_transfer` config improves target evaluation return by **+6.92** and reduces hazards by **+147.71 per 1k steps** versus scratch; under the more complex `default_like` profile (patrol, conveyor, battery), the best config achieves **+13.81 return** and **+129.65 hazard reduction per 1k steps**. Unlike typical positive-only reporting, we document both wins and failures as calibration signals. Furthermore, we demonstrate a **75.20x** speedup in retrieval using ANN over exact methods. The primary contribution of this work is not a single state-of-the-art score, but a reproducible methodology for safer, memory-augmented RL.
 
 ## 1. Introduction
 ### 1.1 The Production Gap
@@ -60,11 +60,11 @@ Core components:
 4. **Rollout Runtime** (`core/rollout.py`): Unified execution loop for training and inference.
 
 ### 2.2 Environment Surface
-After `register_builtin()`, Multiverse currently registers 23 built-in verses:
-`line_world`, `grid_world`, `cliff_world`, `labyrinth_world`, `park_world`, `pursuit_world`, `warehouse_world`, `chess_world`, `go_world`, `uno_world`, `harvest_world`, `bridge_world`, `swamp_world`, `escape_world`, `factory_world`, `trade_world`, `memory_vault_world`, `rule_flip_world`, `risk_tutorial_world`, `wind_master_world`, `chess_world_v2`, `go_world_v2`, `uno_world_v2`.
+After `register_builtin()`, Multiverse currently registers **24** built-in verses:
+`line_world`, `grid_world`, `cliff_world`, `labyrinth_world`, `park_world`, `pursuit_world`, `warehouse_world`, `chess_world`, `go_world`, `uno_world`, `harvest_world`, `bridge_world`, `swamp_world`, `escape_world`, `factory_world`, `trade_world`, `memory_vault_world`, `rule_flip_world`, `risk_tutorial_world`, `wind_master_world`, `chess_world_v2`, `go_world_v2`, `uno_world_v2`, `maze_world`.
 
 ### 2.3 Agent Surface
-Integrated algorithms include `q`, `memory_recall`, `planner_recall`, `ppo`, `recurrent_ppo`, `mpc`, `special_moe`, `adaptive_moe`, `gateway`, and `adt`.
+Integrated algorithms include `q`, `dqn`, `memory_recall`, `planner_recall`, `ppo`, `recurrent_ppo`, `mpc`, `special_moe`, `adaptive_moe`, `gateway`, and `adt`. The DQN agent now uses a **generic flat encoder** supporting all 24 registered verses via an auto-detect action-count registry.
 
 ### 2.4 Task Taxonomy and Knowledge Graph
 To support curriculum learning and transfer, Multiverse maintains a relational Knowledge Graph (`memory/knowledge_graph.py`). This graph maps verses to hierarchical concepts (e.g., `cliff_world` -> `risk_sensitive_task` -> `task`).
@@ -160,8 +160,8 @@ To bridge the "Production Gap" (Section 1.1), Multiverse includes a suite of mai
 ## 7. Rigorous Evaluation
 ### 7.1 Test Discipline
 Current suite status:
-1. command: `python -m pytest -q`
-2. result: `221 passed, 2 warnings`
+1. command: `.venv312\Scripts\python.exe -m pytest -q`
+2. result: `232 passed` (includes 11 new agent convergence tests verifying Q-Learning, PPO, and DQN learning on held-out verses)
 
 ### 7.2 Promotion and Canonical Pack
 Paper pack:
@@ -186,14 +186,25 @@ We treat reviewer critiques as executable tests.
 2. **Memory curation semantics**: `tools/active_forgetting.py` is dedupe-first by design. In earlier reviewer runs, large drops (e.g., `118439 -> 52013`) reflected overlap compression, not selective removal of all harmful content. We therefore separate claims: default behavior is deduplication; quality pruning is explicit and opt-in.
 
 ### 7.4 Successor Feature Phase-2 Validation
-To test structural transfer directly, we implemented an egocentric occupancy interface and SF evaluator (`tools/validate_sf_transfer.py`) with profile sweeps over `ego_size`, source pretraining duration, and target warmup schedule.
+To test structural transfer directly, we implemented an egocentric occupancy interface and SF evaluator (`tools/validate_sf_transfer.py`) with full hyperparameter sweeps over `ego_size ∈ {3, 5, 7}`, source pretraining duration, and a PSI warmup schedule. The sweep was re-run on Feb 22, 2026, producing the following updated results:
 
-Artifact (`models/validation/sf_transfer_validation_v2_phase2.json`) summary:
-1. `near_transfer` best config (`ego_size=3`, `source_train_episodes=60`, `warmup_psi_episodes=0`) improves evaluation return by `+6.54` and lowers hazards by `+196.88` per 1k steps versus scratch.
-2. `default_like` best config (`ego_size=3`, `source_train_episodes=60`, `warmup_psi_episodes=8`) improves evaluation return by `+14.84` and lowers hazards by `+240.06` per 1k steps versus scratch.
-3. Success-rate delta remains `0.0` in this sweep budget, so claims are limited to safer/faster learning dynamics, not solved-task convergence.
+**`near_transfer` profile** (navigation-isolated warehouse target):
+| Config | Return Δ vs Scratch | Hazard Δ/1k vs Scratch | Success Δ |
+|---|---|---|---|
+| `ego=7, src=80, warmup=0` | **+6.92** | **−147.71** | 0.0 |
+| `ego=5, src=80, warmup=16` | +5.89 | −49.48 | 0.0 |
+| `ego=7, src=80, warmup=8` | +4.64 | −107.50 | 0.0 |
 
-Interpretation: SF transfer provides a reliable safety/optimization jump-start, while target-specific adaptation remains necessary for final competence.
+**`default_like` profile** (patrol robot + conveyor belt + battery drain — full complexity):
+| Config | Return Δ vs Scratch | Hazard Δ/1k vs Scratch | Success Δ |
+|---|---|---|---|
+| `ego=3, src=120, warmup=8` | **+13.81** | **−129.65** | 0.0 |
+| `ego=3, src=80, warmup=0` | +10.54 | −196.40 | 0.0 |
+| `ego=5, src=80, warmup=8` | +8.09 | −83.48 | 0.0 |
+
+**Key observation:** Higher environment complexity (`default_like`) produces *larger* return deltas from transfer, suggesting SF dynamics generalize better when the target task has richer structure. Success-rate delta remains `0.0` in this sweep budget, so claims are limited to safer/faster learning dynamics, not solved-task convergence.
+
+Interpretation: SF transfer provides a reliable safety/optimization jump-start across all tested configurations, while target-specific reward-weight adaptation remains necessary for final competence.
 
 ## 8. ADT Status
 ADT is integrated and validated in code:
@@ -228,13 +239,15 @@ This appendix lists specific claims made in the paper and their corresponding ve
 
 | Claim | Status | Evidence |
 | --- | --- | --- |
-| Framework passes 221 automated tests | Confirmed | `python -m pytest -q` output |
+| Framework passes 232 automated tests | Confirmed | `.venv312/Scripts/python.exe -m pytest -q` (11 new convergence tests added Feb 22) |
 | Safety: 0 observed violations (stable) | Confirmed | Artifact: `teacher_wind_remediation_hard_eval_v6.json` |
 | Safety: 17.5% violation (stochastic) | Confirmed | Artifact: `hard_cliff_multiseed_validation_v1.json` |
 | Memory: ~8.4x improvement (Cliff) | Confirmed | Artifact: `benchmark_gate.json` (Ratio: 8.4516) |
 | Retrieval: 75x speedup (ANN) | Confirmed | Artifact: `retrieval_ann_benchmark_v1.json` |
 | Transfer: Mixed in simple tasks (line up, grid parity) | Confirmed | Artifact: `models/paper/paper_readiness/latest/benchmark_gate.json` |
-| Successor Feature phase-2 pilot: safer/faster learning, no success lift yet | Confirmed | Artifact: `models/validation/sf_transfer_validation_v2_phase2.json` |
+| SF transfer (near_transfer): +6.92 return, −147.71 hazards/1k vs scratch | Confirmed | Artifact: `models/validation/sf_transfer_validation_v2_phase2.json` (Feb 22 run) |
+| SF transfer (default_like, full complexity): +13.81 return, −129.65 hazards/1k vs scratch | Confirmed | Artifact: `models/validation/sf_transfer_validation_v2_phase2.json` (Feb 22 run) |
+| DQN generic encoder: runs on all 24 verses, no NaN losses | Confirmed | `tests/test_agent_convergence.py::TestDQNConvergence` (4/4 pass) |
 
 ## Reproducibility Appendix
 ```bash
