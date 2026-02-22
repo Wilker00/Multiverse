@@ -6,6 +6,8 @@ import unittest
 from core.taxonomy import bridge_reason, can_bridge
 from memory.semantic_bridge import translate_action, translate_observation
 from tools.run_transfer_challenge import (
+    _SourceDNA,
+    _augment_translated_file_with_lane_metadata,
     _auto_tune_safe_veto_schedule,
     _auto_safe_veto_schedule_steps,
     _auto_transfer_mix_decay_steps,
@@ -13,6 +15,8 @@ from tools.run_transfer_challenge import (
     _filter_transfer_dataset,
     _first_passable_episode,
     _speedup_summary,
+    _train_td_diagnostics,
+    _transfer_score_diagnostics,
 )
 
 
@@ -242,6 +246,106 @@ class TestTransferChallenge(unittest.TestCase):
         self.assertGreaterEqual(int(tuned.get("schedule_steps", 0)), 500)
         self.assertLessEqual(float(tuned.get("relax_end", 1.0)), 0.35)
         self.assertGreaterEqual(float(tuned.get("schedule_power", 0.0)), 1.2)
+
+    def test_transfer_score_diagnostics_reports_by_lane(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "transfer.jsonl")
+            rows = [
+                {"transfer_score": 1.2, "source_lane": "near_universe", "universe_feature_score": 0.8},
+                {"transfer_score": 0.7, "source_lane": "far_universe", "universe_feature_score": 0.5, "far_lane_weight_multiplier": 0.7},
+                {"transfer_score": 0.9, "source_lane": "far_universe", "universe_feature_score": 0.6},
+            ]
+            with open(path, "w", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            d = _transfer_score_diagnostics(path)
+            self.assertEqual(int(d.get("rows", 0)), 3)
+            self.assertEqual(int(d.get("weighted_far_lane_rows", 0)), 1)
+            by_lane = d.get("by_lane", {})
+            self.assertEqual(int(by_lane.get("near_universe", {}).get("rows", 0)), 1)
+            self.assertEqual(int(by_lane.get("far_universe", {}).get("rows", 0)), 2)
+            self.assertIsNotNone(by_lane.get("far_universe", {}).get("transfer_score", {}).get("mean"))
+
+    def test_augment_translated_file_applies_far_lane_weight(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = os.path.join(td, "translated.jsonl")
+            rows = [
+                {
+                    "obs": {"x": 1, "y": 1, "goal_x": 7, "goal_y": 7, "battery": 20, "nearby_obstacles": 1, "t": 1},
+                    "next_obs": {"x": 2, "y": 1, "goal_x": 7, "goal_y": 7, "battery": 19, "nearby_obstacles": 1, "t": 2},
+                    "action": 0,
+                    "reward": 0.1,
+                    "transfer_score": 1.0,
+                }
+            ]
+            with open(p, "w", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            src = _SourceDNA(
+                verse_name="chess_world",
+                path=p,
+                run_id="r1",
+                source_kind="explicit",
+                source_lane="far_universe",
+                source_universe="strategy_universe",
+            )
+            st = _augment_translated_file_with_lane_metadata(
+                path=p,
+                source=src,
+                target_verse="warehouse_world",
+                universe_adapter_enabled=True,
+                far_lane_score_weight_enabled=True,
+                far_lane_score_weight_strength=0.5,
+                far_lane_min_universe_feature_score=0.0,
+            )
+            self.assertEqual(int(st.get("updated_rows", 0)), 1)
+            self.assertEqual(int(st.get("far_lane_weighted_rows", 0)), 1)
+            with open(p, "r", encoding="utf-8") as f:
+                out_rows = [json.loads(ln) for ln in f if ln.strip()]
+            self.assertEqual(len(out_rows), 1)
+            self.assertIn("universe_transfer", out_rows[0])
+            self.assertIn("universe_feature_score", out_rows[0])
+            self.assertIn("transfer_score_pre_lane_weight", out_rows[0])
+            self.assertLessEqual(
+                float(out_rows[0]["transfer_score"]),
+                float(out_rows[0]["transfer_score_pre_lane_weight"]),
+            )
+
+    def test_train_td_diagnostics_reports_replay_sampling_metrics(self):
+        with tempfile.TemporaryDirectory() as td:
+            run_dir = os.path.join(td, "run")
+            os.makedirs(run_dir, exist_ok=True)
+            metrics_path = os.path.join(run_dir, "metrics.jsonl")
+            rows = [
+                {
+                    "native_td_abs_mean": 0.2,
+                    "transfer_td_abs_mean": 0.4,
+                    "transfer_td_score_corr": 0.1,
+                    "transfer_replay_sampled_score_mean": 0.8,
+                    "transfer_replay_weighted_sampling": True,
+                },
+                {
+                    "native_td_abs_mean": 0.3,
+                    "transfer_td_abs_mean": 0.5,
+                    "transfer_td_score_corr": 0.2,
+                    "transfer_replay_sampled_score_mean": 1.2,
+                    "transfer_replay_weighted_sampling": True,
+                },
+                {
+                    "native_td_abs_mean": 0.9,
+                    "transfer_replay_sampled_score_mean": 2.0,
+                    "transfer_replay_weighted_sampling": False,
+                },
+            ]
+            with open(metrics_path, "w", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+            d = _train_td_diagnostics(run_dir, early_episodes=2)
+            self.assertEqual(int(d.get("episodes_logged", 0)), 3)
+            self.assertEqual(int(d.get("early_episodes", 0)), 2)
+            self.assertAlmostEqual(float(d.get("transfer_replay_sampled_score_mean_early", 0.0)), 1.0, places=6)
+            self.assertTrue(bool(d.get("transfer_replay_weighted_sampling_enabled", False)))
 
 
 if __name__ == "__main__":

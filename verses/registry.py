@@ -83,6 +83,8 @@ def _default_adr_keys(verse_name: str) -> list[str]:
         return ["step_penalty", "risk_floor_start", "all_in_threshold", "target_control"]
     if v == "wind_master_world":
         return ["step_penalty", "gust_probability", "edge_penalty", "margin_reward_scale", "target_margin"]
+    if v == "maze_world":
+        return ["step_penalty", "bump_penalty", "explore_bonus", "hazard_penalty"]
     return []
 
 
@@ -222,6 +224,7 @@ def register_builtin() -> None:
     from verses.chess_world_v2 import ChessWorldV2Factory
     from verses.go_world_v2 import GoWorldV2Factory
     from verses.uno_world_v2 import UnoWorldV2Factory
+    from verses.maze_world import MazeWorldFactory
 
     builtins = {
         "line_world": LineWorldFactory(),
@@ -247,6 +250,7 @@ def register_builtin() -> None:
         "chess_world_v2": ChessWorldV2Factory(),
         "go_world_v2": GoWorldV2Factory(),
         "uno_world_v2": UnoWorldV2Factory(),
+        "maze_world": MazeWorldFactory(),
     }
     for name, factory in builtins.items():
         if name not in _FACTORIES:

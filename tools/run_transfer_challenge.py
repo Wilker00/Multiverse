@@ -25,6 +25,12 @@ if __package__ in (None, ""):
         sys.path.insert(0, _PROJECT_ROOT)
 
 from core.types import AgentSpec, VerseSpec
+from core.universe_registry import (
+    build_transfer_source_plan,
+    primary_universe_for_verse,
+    source_transfer_lane,
+)
+from memory.universe_adapters import transfer_row_universe_metadata
 from memory.semantic_bridge import bridge_reason, infer_verse_from_obs, translate_dna
 from orchestrator.evaluator import evaluate_run
 from orchestrator.trainer import Trainer
@@ -184,22 +190,25 @@ class _SourceDNA:
     path: str
     run_id: str
     source_kind: str
+    source_lane: str = "far_universe"
+    source_universe: str = ""
 
 
-def _discover_strategy_sources(
+def _discover_transfer_sources(
     *,
+    target_verse: str,
     runs_root: str,
     max_runs_per_verse: int,
     min_success_rate: float,
     min_rows_per_source: int,
     max_source_scan: int = 200,
 ) -> List[_SourceDNA]:
-    # Priority 1: navigation-family verses with direct bridge to warehouse_world.
-    # These share grid semantics and action spaces, producing much higher quality transfer.
-    nav_targets = ("grid_world", "cliff_world", "escape_world", "bridge_world", "factory_world")
-    # Priority 2: strategy game verses (cross-domain projection).
-    strategy_targets = ("chess_world", "go_world", "trade_world", "uno_world")
-    all_targets = nav_targets + strategy_targets
+    plan = build_transfer_source_plan(str(target_verse))
+    ordered_sources = [str(v).strip().lower() for v in (plan.get("ordered_sources") or []) if str(v).strip()]
+    if not ordered_sources:
+        ordered_sources = ["chess_world", "go_world", "trade_world", "uno_world"]
+    near_set = set(str(v).strip().lower() for v in (plan.get("near_sources") or []) if str(v).strip())
+    all_targets = tuple(ordered_sources)
     candidates_by_verse: Dict[str, List[Tuple[str, float, float]]] = {v: [] for v in all_targets}
     scanned = 0
     for run_dir in _list_run_dirs(runs_root):
@@ -222,7 +231,6 @@ def _discover_strategy_sources(
         candidates_by_verse[verse_name].append((run_dir, success_rate, mtime))
 
     out: List[_SourceDNA] = []
-    # Discover navigation sources first, then strategy sources.
     for verse_name in all_targets:
         cands = sorted(
             candidates_by_verse.get(verse_name, []),
@@ -235,13 +243,29 @@ def _discover_strategy_sources(
             if os.path.isfile(dna_good):
                 rows = sum(1 for _ in _iter_jsonl(dna_good))
                 if rows >= int(min_rows_per_source):
-                    out.append(_SourceDNA(verse_name=verse_name, path=dna_good, run_id=run_id, source_kind="dna_good"))
+                    out.append(
+                        _SourceDNA(
+                            verse_name=verse_name,
+                            path=dna_good,
+                            run_id=run_id,
+                            source_kind="dna_good",
+                            source_lane=("near_universe" if verse_name in near_set else "far_universe"),
+                            source_universe=(primary_universe_for_verse(verse_name) or ""),
+                        )
+                    )
                     continue
             succ = os.path.join(run_dir, "dna_success_only.jsonl")
             rows = _extract_success_dna_from_events(run_dir=run_dir, out_path=succ, max_rows=12000)
             if rows >= int(min_rows_per_source):
                 out.append(
-                    _SourceDNA(verse_name=verse_name, path=succ, run_id=run_id, source_kind="success_events")
+                    _SourceDNA(
+                        verse_name=verse_name,
+                        path=succ,
+                        run_id=run_id,
+                        source_kind="success_events",
+                        source_lane=("near_universe" if verse_name in near_set else "far_universe"),
+                        source_universe=(primary_universe_for_verse(verse_name) or ""),
+                    )
                 )
 
     # Fallback to curated expert datasets if run discovery is empty.
@@ -249,8 +273,36 @@ def _discover_strategy_sources(
         for verse_name in all_targets:
             p = os.path.join("models", "expert_datasets", f"{verse_name}.jsonl")
             if os.path.isfile(p):
-                out.append(_SourceDNA(verse_name=verse_name, path=p, run_id="expert_dataset", source_kind="fallback"))
+                out.append(
+                    _SourceDNA(
+                        verse_name=verse_name,
+                        path=p,
+                        run_id="expert_dataset",
+                        source_kind="fallback",
+                        source_lane=("near_universe" if verse_name in near_set else "far_universe"),
+                        source_universe=(primary_universe_for_verse(verse_name) or ""),
+                    )
+                )
     return out
+
+
+def _discover_strategy_sources(
+    *,
+    runs_root: str,
+    max_runs_per_verse: int,
+    min_success_rate: float,
+    min_rows_per_source: int,
+    max_source_scan: int = 200,
+) -> List[_SourceDNA]:
+    # Backward-compatible wrapper for tests/tools that still call the legacy helper.
+    return _discover_transfer_sources(
+        target_verse="warehouse_world",
+        runs_root=runs_root,
+        max_runs_per_verse=max_runs_per_verse,
+        min_success_rate=min_success_rate,
+        min_rows_per_source=min_rows_per_source,
+        max_source_scan=max_source_scan,
+    )
 
 
 def _merge_jsonl(paths: List[str], out_path: str, *, max_rows_per_file: int = 0) -> int:
@@ -268,6 +320,223 @@ def _merge_jsonl(paths: List[str], out_path: str, *, max_rows_per_file: int = 0)
                 if int(max_rows_per_file) > 0 and taken >= int(max_rows_per_file):
                     break
     return rows
+
+
+def _default_far_lane_cap(*, base_cap: int) -> int:
+    if int(base_cap) <= 0:
+        return 0
+    return max(25, int(base_cap) // 2)
+
+
+def _universe_feature_score_from_row(row: Dict[str, Any]) -> Optional[float]:
+    ut = row.get("universe_transfer")
+    if not isinstance(ut, dict):
+        return None
+    adapter = ut.get("adapter")
+    if not isinstance(adapter, dict):
+        return None
+    feats = adapter.get("features")
+    if not isinstance(feats, dict) or not feats:
+        return None
+
+    core_keys = (
+        "goal_progress",
+        "hazard_proximity",
+        "resource_level",
+        "queue_pressure",
+        "throughput",
+        "congestion",
+        "time_pressure",
+    )
+    vals: List[float] = []
+    for k in core_keys:
+        v = feats.get(k)
+        if isinstance(v, (int, float)):
+            fv = max(0.0, min(1.0, float(v)))
+            vals.append(fv)
+    if not vals:
+        return None
+
+    mean_core = float(sum(vals) / float(len(vals)))
+    # Reward non-degenerate transitions slightly when mechanics deltas are present.
+    prog_delta = abs(_safe_float(feats.get("mechanics_progress_delta", 0.0), 0.0))
+    comp_delta = abs(_safe_float(feats.get("mechanics_completed_delta", 0.0), 0.0))
+    motion_bonus = 0.0
+    if (prog_delta + comp_delta) > 0.0:
+        motion_bonus = min(0.15, 0.05 + 0.05 * prog_delta + 0.03 * comp_delta)
+    score = max(0.0, min(1.0, mean_core + motion_bonus))
+    return float(score)
+
+
+def _augment_translated_file_with_lane_metadata(
+    *,
+    path: str,
+    source: _SourceDNA,
+    target_verse: str,
+    universe_adapter_enabled: bool,
+    far_lane_score_weight_enabled: bool = True,
+    far_lane_score_weight_strength: float = 0.35,
+    far_lane_min_universe_feature_score: float = 0.0,
+) -> Dict[str, Any]:
+    if not os.path.isfile(path):
+        return {
+            "path": str(path),
+            "updated_rows": 0,
+            "adapter_rows": 0,
+            "lane": str(source.source_lane),
+            "dropped_rows": 0,
+        }
+    tmp = path + ".lane.tmp"
+    updated = 0
+    adapter_rows = 0
+    dropped_rows = 0
+    weighted_rows = 0
+    universe_feature_scores: List[float] = []
+    with open(path, "r", encoding="utf-8") as src, open(tmp, "w", encoding="utf-8") as out:
+        for line in src:
+            s = line.strip()
+            if not s:
+                continue
+            try:
+                row = json.loads(s)
+            except Exception:
+                continue
+            if not isinstance(row, dict):
+                continue
+            row["source_lane"] = str(source.source_lane)
+            row["source_universe"] = str(source.source_universe)
+            row["target_universe"] = str(primary_universe_for_verse(str(target_verse)) or "")
+            if bool(universe_adapter_enabled):
+                meta = transfer_row_universe_metadata(
+                    source_verse=str(source.verse_name),
+                    target_verse=str(target_verse),
+                    translated_obs=row.get("obs"),
+                    translated_next_obs=row.get("next_obs"),
+                )
+                if isinstance(meta, dict):
+                    row["universe_transfer"] = meta
+                    adapter_rows += 1
+            uf_score = _universe_feature_score_from_row(row)
+            if uf_score is not None:
+                row["universe_feature_score"] = float(uf_score)
+                universe_feature_scores.append(float(uf_score))
+            lane = str(source.source_lane or "")
+            if (
+                lane == "far_universe"
+                and float(max(0.0, min(1.0, far_lane_min_universe_feature_score))) > 0.0
+                and uf_score is not None
+                and float(uf_score) < float(max(0.0, min(1.0, far_lane_min_universe_feature_score)))
+            ):
+                dropped_rows += 1
+                continue
+            if (
+                lane == "far_universe"
+                and bool(far_lane_score_weight_enabled)
+                and uf_score is not None
+                and isinstance(row.get("transfer_score"), (int, float))
+            ):
+                strength = max(0.0, min(1.0, float(far_lane_score_weight_strength)))
+                mult = (1.0 - strength) + (strength * float(uf_score))
+                base_ts = float(_safe_float(row.get("transfer_score", 0.0), 0.0))
+                row["transfer_score_pre_lane_weight"] = float(base_ts)
+                row["far_lane_weight_multiplier"] = float(mult)
+                row["transfer_score"] = float(base_ts * mult)
+                weighted_rows += 1
+            out.write(json.dumps(row, ensure_ascii=False) + "\n")
+            updated += 1
+    os.replace(tmp, path)
+    qs = _quantiles(universe_feature_scores)
+    return {
+        "path": str(path),
+        "updated_rows": int(updated),
+        "adapter_rows": int(adapter_rows),
+        "lane": str(source.source_lane),
+        "dropped_rows": int(dropped_rows),
+        "far_lane_weighted_rows": int(weighted_rows),
+        "universe_feature_score": {
+            "mean": (float(sum(universe_feature_scores) / float(len(universe_feature_scores))) if universe_feature_scores else None),
+            "p10": qs.get("p10"),
+            "p50": qs.get("p50"),
+            "p90": qs.get("p90"),
+        },
+    }
+
+
+def _merge_transfer_files_by_lane(
+    *,
+    sources: List[_SourceDNA],
+    translated_paths_by_source: List[Tuple[_SourceDNA, str]],
+    out_path: str,
+    max_rows_per_source: int,
+    near_lane_max_rows_per_source: int,
+    far_lane_max_rows_per_source: int,
+    far_lane_enabled: bool,
+    near_lane_enabled: bool,
+) -> Dict[str, Any]:
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+
+    lane_file_counts: Dict[str, int] = {}
+    lane_rows_written: Dict[str, int] = {}
+    per_source_rows_written: List[Dict[str, Any]] = []
+    total_rows = 0
+
+    with open(out_path, "w", encoding="utf-8") as out:
+        for src, p in translated_paths_by_source:
+            if not os.path.isfile(p):
+                continue
+            lane = str(src.source_lane or "unknown")
+            if lane == "near_universe" and not bool(near_lane_enabled):
+                continue
+            if lane == "far_universe" and not bool(far_lane_enabled):
+                continue
+
+            lane_file_counts[lane] = int(lane_file_counts.get(lane, 0)) + 1
+
+            if lane == "near_universe":
+                cap = int(near_lane_max_rows_per_source) if int(near_lane_max_rows_per_source) > 0 else int(max_rows_per_source)
+            elif lane == "far_universe":
+                if int(far_lane_max_rows_per_source) > 0:
+                    cap = int(far_lane_max_rows_per_source)
+                else:
+                    cap = _default_far_lane_cap(base_cap=int(max_rows_per_source))
+            else:
+                cap = int(max_rows_per_source)
+
+            taken = 0
+            for row in _iter_jsonl(p):
+                out.write(json.dumps(row, ensure_ascii=False) + "\n")
+                total_rows += 1
+                taken += 1
+                lane_rows_written[lane] = int(lane_rows_written.get(lane, 0)) + 1
+                if int(cap) > 0 and taken >= int(cap):
+                    break
+            per_source_rows_written.append(
+                {
+                    "verse_name": str(src.verse_name),
+                    "run_id": str(src.run_id),
+                    "source_kind": str(src.source_kind),
+                    "source_lane": str(src.source_lane),
+                    "source_universe": str(src.source_universe),
+                    "rows_written": int(taken),
+                    "cap_used": int(cap),
+                    "path": str(p),
+                }
+            )
+
+    return {
+        "rows_written": int(total_rows),
+        "lane_file_counts": lane_file_counts,
+        "lane_rows_written": lane_rows_written,
+        "per_source_rows_written": per_source_rows_written,
+        "lane_controls": {
+            "near_lane_enabled": bool(near_lane_enabled),
+            "far_lane_enabled": bool(far_lane_enabled),
+            "max_rows_per_source": int(max_rows_per_source),
+            "near_lane_max_rows_per_source": int(near_lane_max_rows_per_source),
+            "far_lane_max_rows_per_source": int(far_lane_max_rows_per_source),
+            "far_lane_default_cap_if_zero": int(_default_far_lane_cap(base_cap=int(max_rows_per_source))),
+        },
+    }
 
 
 def _target_action_count(target_verse: str) -> int:
@@ -759,8 +1028,16 @@ def _build_transfer_dataset(
     target_verse: str,
     out_path: str,
     max_rows_per_source: int,
-    bridge_synthetic_reward_blend: float,
-    bridge_synthetic_done_union: bool,
+    near_lane_max_rows_per_source: int = 0,
+    far_lane_max_rows_per_source: int = 0,
+    near_lane_enabled: bool = True,
+    far_lane_enabled: bool = True,
+    universe_adapter_enabled: bool = True,
+    far_lane_score_weight_enabled: bool = True,
+    far_lane_score_weight_strength: float = 0.35,
+    far_lane_min_universe_feature_score: float = 0.0,
+    bridge_synthetic_reward_blend: float = 0.75,
+    bridge_synthetic_done_union: bool = True,
     bridge_confidence_threshold: float = 0.35,
     bridge_label_cfg: Optional[Dict[str, Any]] = None,
     bridge_behavioral_enabled: bool = False,
@@ -768,7 +1045,9 @@ def _build_transfer_dataset(
     bridge_behavioral_max_prototype_rows: int = 4096,
 ) -> Dict[str, Any]:
     translated_paths: List[str] = []
+    translated_pairs: List[Tuple[_SourceDNA, str]] = []
     bridge_stats: List[Dict[str, Any]] = []
+    translated_lane_annotation_stats: List[Dict[str, Any]] = []
     for src in sources:
         base = os.path.splitext(os.path.basename(src.path))[0]
         tmp_out = os.path.join(
@@ -790,11 +1069,27 @@ def _build_transfer_dataset(
         )
         if st.translated_rows > 0:
             translated_paths.append(tmp_out)
+            translated_pairs.append((src, tmp_out))
+            translated_lane_annotation_stats.append(
+                _augment_translated_file_with_lane_metadata(
+                    path=tmp_out,
+                    source=src,
+                    target_verse=str(target_verse),
+                    universe_adapter_enabled=bool(universe_adapter_enabled),
+                    far_lane_score_weight_enabled=bool(far_lane_score_weight_enabled),
+                    far_lane_score_weight_strength=max(0.0, min(1.0, float(far_lane_score_weight_strength))),
+                    far_lane_min_universe_feature_score=max(
+                        0.0, min(1.0, float(far_lane_min_universe_feature_score))
+                    ),
+                )
+            )
         bridge_stats.append(
             {
                 "source_verse": src.verse_name,
                 "source_path": src.path,
                 "source_kind": src.source_kind,
+                "source_lane": str(src.source_lane),
+                "source_universe": str(src.source_universe),
                 "run_id": src.run_id,
                 "output_path": tmp_out,
                 "input_rows": int(st.input_rows),
@@ -809,11 +1104,31 @@ def _build_transfer_dataset(
                 "bridge_reason": bridge_reason(src.verse_name, target_verse),
             }
         )
-    merged_rows = _merge_jsonl(translated_paths, out_path, max_rows_per_file=max_rows_per_source)
+    lane_merge = _merge_transfer_files_by_lane(
+        sources=sources,
+        translated_paths_by_source=translated_pairs,
+        out_path=out_path,
+        max_rows_per_source=max(0, int(max_rows_per_source)),
+        near_lane_max_rows_per_source=max(0, int(near_lane_max_rows_per_source)),
+        far_lane_max_rows_per_source=max(0, int(far_lane_max_rows_per_source)),
+        near_lane_enabled=bool(near_lane_enabled),
+        far_lane_enabled=bool(far_lane_enabled),
+    )
+    merged_rows = int(lane_merge.get("rows_written", 0))
     return {
         "transfer_dataset_path": out_path,
         "transfer_dataset_rows": int(merged_rows),
         "translated_files": [str(p) for p in translated_paths],
+        "translated_lane_annotation_stats": translated_lane_annotation_stats,
+        "lane_merge": lane_merge,
+        "lane_weighting": {
+            "far_lane_score_weight_enabled": bool(far_lane_score_weight_enabled),
+            "far_lane_score_weight_strength": float(max(0.0, min(1.0, float(far_lane_score_weight_strength)))),
+            "far_lane_min_universe_feature_score": float(
+                max(0.0, min(1.0, float(far_lane_min_universe_feature_score)))
+            ),
+            "universe_adapter_enabled": bool(universe_adapter_enabled),
+        },
         "bridge_stats": bridge_stats,
     }
 
@@ -1041,13 +1356,61 @@ def _quantiles(values: List[float]) -> Dict[str, Optional[float]]:
 
 def _transfer_score_diagnostics(dataset_path: str) -> Dict[str, Any]:
     if not os.path.isfile(dataset_path):
-        return {"rows": 0, "transfer_score": {"mean": None, "min": None, "max": None, "p10": None, "p50": None, "p90": None}}
+        return {
+            "rows": 0,
+            "transfer_score": {"mean": None, "min": None, "max": None, "p10": None, "p50": None, "p90": None},
+            "universe_feature_score": {"mean": None, "p10": None, "p50": None, "p90": None},
+            "by_lane": {},
+        }
     vals: List[float] = []
+    feature_vals: List[float] = []
+    by_lane_scores: Dict[str, List[float]] = {}
+    by_lane_feature_scores: Dict[str, List[float]] = {}
+    by_lane_rows: Dict[str, int] = {}
+    weighted_rows = 0
+    dropped_far_in_premerge = 0
     for row in _iter_jsonl(dataset_path):
         if not isinstance(row, dict):
             continue
-        vals.append(float(_safe_float(row.get("transfer_score", 0.0), 0.0)))
+        score = float(_safe_float(row.get("transfer_score", 0.0), 0.0))
+        vals.append(score)
+        lane = str(row.get("source_lane", "unknown")).strip() or "unknown"
+        by_lane_rows[lane] = int(by_lane_rows.get(lane, 0)) + 1
+        by_lane_scores.setdefault(lane, []).append(score)
+        if isinstance(row.get("far_lane_weight_multiplier"), (int, float)):
+            weighted_rows += 1
+        fs = row.get("universe_feature_score")
+        if isinstance(fs, (int, float)):
+            fsv = max(0.0, min(1.0, float(fs)))
+            feature_vals.append(fsv)
+            by_lane_feature_scores.setdefault(lane, []).append(fsv)
+        # Kept for future compatibility if row-level drops are tracked inside merged files later.
+        if bool(row.get("_far_lane_dropped_premerge", False)):
+            dropped_far_in_premerge += 1
     qs = _quantiles(vals)
+    fqs = _quantiles(feature_vals)
+    by_lane: Dict[str, Any] = {}
+    for lane, lane_vals in by_lane_scores.items():
+        lqs = _quantiles(lane_vals)
+        lf = by_lane_feature_scores.get(lane, [])
+        lfqs = _quantiles(lf)
+        by_lane[lane] = {
+            "rows": int(by_lane_rows.get(lane, 0)),
+            "transfer_score": {
+                "mean": (float(sum(lane_vals) / float(max(1, len(lane_vals)))) if lane_vals else None),
+                "min": (float(min(lane_vals)) if lane_vals else None),
+                "max": (float(max(lane_vals)) if lane_vals else None),
+                "p10": lqs.get("p10"),
+                "p50": lqs.get("p50"),
+                "p90": lqs.get("p90"),
+            },
+            "universe_feature_score": {
+                "mean": (float(sum(lf) / float(max(1, len(lf)))) if lf else None),
+                "p10": lfqs.get("p10"),
+                "p50": lfqs.get("p50"),
+                "p90": lfqs.get("p90"),
+            },
+        }
     return {
         "rows": int(len(vals)),
         "transfer_score": {
@@ -1058,6 +1421,15 @@ def _transfer_score_diagnostics(dataset_path: str) -> Dict[str, Any]:
             "p50": qs.get("p50"),
             "p90": qs.get("p90"),
         },
+        "universe_feature_score": {
+            "mean": (float(sum(feature_vals) / float(max(1, len(feature_vals)))) if feature_vals else None),
+            "p10": fqs.get("p10"),
+            "p50": fqs.get("p50"),
+            "p90": fqs.get("p90"),
+        },
+        "weighted_far_lane_rows": int(weighted_rows),
+        "dropped_far_rows_flagged_in_rows": int(dropped_far_in_premerge),
+        "by_lane": by_lane,
     }
 
 
@@ -1132,6 +1504,8 @@ def _train_td_diagnostics(run_dir: str, *, early_episodes: int) -> Dict[str, Any
             "native_td_abs_mean_early": None,
             "transfer_td_abs_mean_early": None,
             "transfer_td_score_corr_early": None,
+            "transfer_replay_sampled_score_mean_early": None,
+            "transfer_replay_weighted_sampling_enabled": None,
         }
     rows = [r for r in _iter_jsonl(metrics_path) if isinstance(r, dict)]
     n = max(1, int(early_episodes))
@@ -1147,6 +1521,20 @@ def _train_td_diagnostics(run_dir: str, *, early_episodes: int) -> Dict[str, Any
             return None
         return float(sum(vals) / float(max(1, len(vals))))
 
+    def _bool_summary(rows_: List[Dict[str, Any]], key: str) -> Optional[bool]:
+        vals: List[bool] = []
+        for r in rows_:
+            v = r.get(key)
+            if isinstance(v, bool):
+                vals.append(bool(v))
+            elif isinstance(v, (int, float)):
+                vals.append(bool(v))
+        if not vals:
+            return None
+        # `any` is useful here: report whether weighted replay sampling was active
+        # in at least one early episode metric payload.
+        return bool(any(vals))
+
     return {
         "episodes_logged": int(len(rows)),
         "early_episodes": int(len(early)),
@@ -1155,6 +1543,8 @@ def _train_td_diagnostics(run_dir: str, *, early_episodes: int) -> Dict[str, Any
         "transfer_td_abs_mean_early": _mean(early, "transfer_td_abs_mean"),
         "transfer_td_abs_p90_early": _mean(early, "transfer_td_abs_p90"),
         "transfer_td_score_corr_early": _mean(early, "transfer_td_score_corr"),
+        "transfer_replay_sampled_score_mean_early": _mean(early, "transfer_replay_sampled_score_mean"),
+        "transfer_replay_weighted_sampling_enabled": _bool_summary(early, "transfer_replay_weighted_sampling"),
     }
 
 
@@ -1439,10 +1829,32 @@ def _build_overlap_map(
                 "run_id": str(s.run_id),
                 "path": str(s.path),
                 "source_kind": str(s.source_kind),
+                "source_lane": str(s.source_lane),
+                "source_universe": str(s.source_universe),
             }
             for s in sources
         ],
         "transfer_dataset_rows": int(transfer_dataset_rows),
+    }
+
+
+def _source_selection_summary(*, target_verse: str, sources: List[_SourceDNA]) -> Dict[str, Any]:
+    plan = build_transfer_source_plan(str(target_verse))
+    counts_by_lane: Dict[str, int] = {}
+    counts_by_verse: Dict[str, int] = {}
+    for s in sources:
+        lane = str(s.source_lane or "unknown")
+        counts_by_lane[lane] = int(counts_by_lane.get(lane, 0)) + 1
+        vv = str(s.verse_name or "")
+        if vv:
+            counts_by_verse[vv] = int(counts_by_verse.get(vv, 0)) + 1
+    return {
+        "target_verse": str(target_verse),
+        "target_universe": plan.get("target_universe"),
+        "planned_near_sources": list(plan.get("near_sources") or []),
+        "planned_far_sources": list(plan.get("far_sources") or []),
+        "counts_by_lane": counts_by_lane,
+        "counts_by_verse": counts_by_verse,
     }
 
 
@@ -1500,6 +1912,44 @@ def main() -> None:
     ap.add_argument("--min_rows_per_source", type=int, default=50)
     ap.add_argument("--max_source_scan", type=int, default=200, help="Max strategy-verse runs to evaluate during discovery (0=unlimited)")
     ap.add_argument("--max_rows_per_source", type=int, default=2500)
+    ap.add_argument("--near_lane_enabled", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--far_lane_enabled", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument(
+        "--near_lane_max_rows_per_source",
+        type=int,
+        default=0,
+        help="0 => use --max_rows_per_source for near-universe sources",
+    )
+    ap.add_argument(
+        "--far_lane_max_rows_per_source",
+        type=int,
+        default=0,
+        help="0 => auto smaller cap for far-universe sources",
+    )
+    ap.add_argument(
+        "--universe_adapter_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Annotate translated rows with shared universe features (diagnostic metadata only).",
+    )
+    ap.add_argument(
+        "--far_lane_score_weight_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Downweight far-universe transfer rows using universe adapter feature quality.",
+    )
+    ap.add_argument(
+        "--far_lane_score_weight_strength",
+        type=float,
+        default=0.35,
+        help="Blend strength for far-lane score weighting (0..1).",
+    )
+    ap.add_argument(
+        "--far_lane_min_universe_feature_score",
+        type=float,
+        default=0.0,
+        help="Drop far-lane translated rows below this universe feature quality score (0..1).",
+    )
 
     ap.add_argument("--bridge_synthetic_reward_blend", type=float, default=0.75)
     ap.add_argument("--bridge_synthetic_done_union", action=argparse.BooleanOptionalAction, default=True)
@@ -1655,10 +2105,13 @@ def main() -> None:
                     path=path,
                     run_id=os.path.basename(os.path.dirname(path)) or "manual",
                     source_kind="explicit",
+                    source_lane=source_transfer_lane(verse_hint, str(args.target_verse)),
+                    source_universe=(primary_universe_for_verse(verse_hint) or ""),
                 )
             )
     else:
-        sources = _discover_strategy_sources(
+        sources = _discover_transfer_sources(
+            target_verse=str(args.target_verse),
             runs_root=str(args.runs_root),
             max_runs_per_verse=max(1, int(args.max_source_runs_per_verse)),
             min_success_rate=float(args.min_source_success_rate),
@@ -1667,7 +2120,10 @@ def main() -> None:
         )
 
     if not sources:
-        raise RuntimeError("No strategy DNA sources found. Provide --source_dna or generate chess/go runs first.")
+        raise RuntimeError(
+            "No transfer DNA sources found. Provide --source_dna or generate runs/expert datasets "
+            "for same-universe or far-transfer source verses."
+        )
 
     bridge_label_cfg: Dict[str, Any] = {}
     if str(args.target_verse).strip().lower() == "warehouse_world":
@@ -1687,6 +2143,14 @@ def main() -> None:
         target_verse=str(args.target_verse),
         out_path=str(args.transfer_dataset_out),
         max_rows_per_source=max(0, int(args.max_rows_per_source)),
+        near_lane_max_rows_per_source=max(0, int(args.near_lane_max_rows_per_source)),
+        far_lane_max_rows_per_source=max(0, int(args.far_lane_max_rows_per_source)),
+        near_lane_enabled=bool(args.near_lane_enabled),
+        far_lane_enabled=bool(args.far_lane_enabled),
+        universe_adapter_enabled=bool(args.universe_adapter_enabled),
+        far_lane_score_weight_enabled=bool(args.far_lane_score_weight_enabled),
+        far_lane_score_weight_strength=max(0.0, min(1.0, float(args.far_lane_score_weight_strength))),
+        far_lane_min_universe_feature_score=max(0.0, min(1.0, float(args.far_lane_min_universe_feature_score))),
         bridge_synthetic_reward_blend=max(0.0, min(1.0, float(args.bridge_synthetic_reward_blend))),
         bridge_synthetic_done_union=bool(args.bridge_synthetic_done_union),
         bridge_confidence_threshold=max(0.0, min(1.0, float(args.bridge_confidence_threshold))),
@@ -1717,6 +2181,8 @@ def main() -> None:
                     "path": s.path,
                     "run_id": s.run_id,
                     "source_kind": s.source_kind,
+                    "source_lane": s.source_lane,
+                    "source_universe": s.source_universe,
                 }
                 for s in sources
             ],
@@ -1998,12 +2464,19 @@ def main() -> None:
                 "path": s.path,
                 "run_id": s.run_id,
                 "source_kind": s.source_kind,
+                "source_lane": s.source_lane,
+                "source_universe": s.source_universe,
             }
             for s in sources
         ],
+        "source_selection": _source_selection_summary(
+            target_verse=str(args.target_verse),
+            sources=sources,
+        ),
         "transfer_dataset": ds,
         "transfer_dataset_diagnostics": {
             "score_distribution": transfer_score_diag,
+            "lane_summary": dict(ds.get("lane_merge", {})) if isinstance(ds.get("lane_merge"), dict) else {},
         },
         "bridge_tuning": {
             "synthetic_reward_blend": float(max(0.0, min(1.0, float(args.bridge_synthetic_reward_blend)))),
@@ -2011,6 +2484,21 @@ def main() -> None:
             "behavioral_bridge_enabled": bool(args.bridge_behavioral_enabled),
             "behavioral_bridge_score_weight": float(max(0.0, min(1.0, float(args.bridge_behavioral_score_weight)))),
             "behavioral_max_prototype_rows": int(max(1, int(args.bridge_behavioral_max_prototype_rows))),
+            "lane_controls": {
+                "near_lane_enabled": bool(args.near_lane_enabled),
+                "far_lane_enabled": bool(args.far_lane_enabled),
+                "max_rows_per_source": int(max(0, int(args.max_rows_per_source))),
+                "near_lane_max_rows_per_source": int(max(0, int(args.near_lane_max_rows_per_source))),
+                "far_lane_max_rows_per_source": int(max(0, int(args.far_lane_max_rows_per_source))),
+            },
+            "universe_adapter_enabled": bool(args.universe_adapter_enabled),
+            "far_lane_weighting": {
+                "enabled": bool(args.far_lane_score_weight_enabled),
+                "strength": float(max(0.0, min(1.0, float(args.far_lane_score_weight_strength)))),
+                "min_universe_feature_score": float(
+                    max(0.0, min(1.0, float(args.far_lane_min_universe_feature_score)))
+                ),
+            },
             "label_cfg": dict(bridge_label_cfg),
         },
         "transfer_agent": {

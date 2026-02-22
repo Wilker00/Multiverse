@@ -158,6 +158,19 @@ class QLearningAgent:
         self.transfer_mix_decay_steps = max(1, int(cfg.get("transfer_mix_decay_steps", 10000)))
         self.transfer_mix_min_rows = max(1, int(cfg.get("transfer_mix_min_rows", 32)))
         self.transfer_replay_reward_scale = max(0.0, float(cfg.get("transfer_replay_reward_scale", 0.5)))
+        self.transfer_replay_use_transfer_score = _safe_bool(
+            cfg.get("transfer_replay_use_transfer_score", True), True
+        )
+        self.transfer_replay_score_min = max(
+            0.0, float(_safe_float(cfg.get("transfer_replay_score_min", 0.05), 0.05))
+        )
+        self.transfer_replay_score_max = max(
+            self.transfer_replay_score_min,
+            float(_safe_float(cfg.get("transfer_replay_score_max", 2.0), 2.0)),
+        )
+        self.transfer_replay_score_sampling_power = max(
+            0.0, float(_safe_float(cfg.get("transfer_replay_score_sampling_power", 1.0), 1.0))
+        )
         self.warehouse_obs_key_mode = str(cfg.get("warehouse_obs_key_mode", "direction_only")).strip().lower()
         self.grid_obs_key_mode = str(cfg.get("grid_obs_key_mode", "full")).strip().lower()
         self.warmstart_use_transfer_score = _safe_bool(cfg.get("warmstart_use_transfer_score", False), False)
@@ -275,6 +288,7 @@ class QLearningAgent:
 
         transfer_mix_ratio = self._transfer_mix_ratio(steps_seen=pre_online_steps)
         transfer_updates = 0
+        transfer_sampled_score_vals: List[float] = []
         if (
             bool(self.dynamic_transfer_mix_enabled)
             and len(self._transfer_rows) >= int(self.transfer_mix_min_rows)
@@ -284,7 +298,7 @@ class QLearningAgent:
             target = int(round(float(transfer_mix_ratio) * float(len(batch.transitions))))
             n_offline = max(0, target)
             for _ in range(n_offline):
-                idx = int(self._rng.integers(0, len(self._transfer_rows)))
+                idx = int(self._sample_transfer_row_index())
                 s, a, r, sp, done, truncated, tscore = self._transfer_rows[idx]
                 q_s = self._get_q(s)
                 q_sp = self._get_q(sp)
@@ -296,6 +310,7 @@ class QLearningAgent:
                 td_abs = abs(float(td))
                 transfer_td_abs.append(td_abs)
                 transfer_td_score_pairs.append((float(tscore), float(td_abs)))
+                transfer_sampled_score_vals.append(float(tscore))
                 transfer_updates += 1
 
         self.stats.updates += updates
@@ -311,6 +326,12 @@ class QLearningAgent:
             "transfer_mix_ratio": float(transfer_mix_ratio),
             "transfer_replay_updates": int(transfer_updates),
             "transfer_replay_rows": int(len(self._transfer_rows)),
+            "transfer_replay_weighted_sampling": bool(self.transfer_replay_use_transfer_score),
+            "transfer_replay_sampled_score_mean": (
+                float(sum(transfer_sampled_score_vals) / float(max(1, len(transfer_sampled_score_vals))))
+                if transfer_sampled_score_vals
+                else None
+            ),
             "native_td_abs_mean": (
                 float(sum(native_td_abs) / float(max(1, len(native_td_abs)))) if native_td_abs else None
             ),
@@ -366,17 +387,21 @@ class QLearningAgent:
             else:
                 bonus = 0.0
             score_w = 1.0
+            raw_transfer_score = _safe_float(row["source"].get("transfer_score", 1.0), 1.0)
+            replay_score_w = max(
+                float(self.transfer_replay_score_min),
+                min(float(self.transfer_replay_score_max), float(raw_transfer_score)),
+            )
             if bool(self.warmstart_use_transfer_score):
-                raw_score = _safe_float(row["source"].get("transfer_score", 1.0), 1.0)
                 score_w = max(
                     float(self.warmstart_transfer_score_min),
-                    min(float(self.warmstart_transfer_score_max), float(raw_score)),
+                    min(float(self.warmstart_transfer_score_max), float(raw_transfer_score)),
                 )
                 transfer_score_rows += 1
                 transfer_score_sum += float(score_w)
             qvals[a] = float(qvals[a]) + float(bonus) * float(sample_w) * float(score_w)
             self._transfer_rows.append(
-                (k, int(a), float(r), kp, bool(done), bool(truncated), float(score_w))
+                (k, int(a), float(r), kp, bool(done), bool(truncated), float(replay_score_w))
             )
             rows += 1
 
@@ -393,6 +418,7 @@ class QLearningAgent:
             "warmstart_transfer_score_mean": (
                 float(transfer_score_sum / float(max(1, transfer_score_rows))) if transfer_score_rows > 0 else None
             ),
+            "transfer_replay_use_transfer_score": bool(self.transfer_replay_use_transfer_score),
         }
 
     def _load_warmstart_rows(self, dataset_path: str) -> List[Dict[str, Any]]:
@@ -561,6 +587,33 @@ class QLearningAgent:
         progress = max(0.0, min(1.0, float(cur_steps) / float(self.transfer_mix_decay_steps)))
         cur = start + (end - start) * progress
         return max(0.0, min(1.0, cur))
+
+    def _sample_transfer_row_index(self) -> int:
+        n = int(len(self._transfer_rows))
+        if n <= 0:
+            return 0
+        if not bool(self.transfer_replay_use_transfer_score):
+            return int(self._rng.integers(0, n))
+        weights: List[float] = []
+        for row in self._transfer_rows:
+            try:
+                tscore = float(row[6])
+            except Exception:
+                tscore = 1.0
+            tscore = max(0.0, float(tscore))
+            if float(self.transfer_replay_score_sampling_power) != 1.0 and tscore > 0.0:
+                tscore = float(tscore ** float(self.transfer_replay_score_sampling_power))
+            weights.append(float(tscore))
+        total = float(sum(weights))
+        if total <= 1e-12 or not np.isfinite(total):
+            return int(self._rng.integers(0, n))
+        r = float(self._rng.random()) * total
+        acc = 0.0
+        for i, w in enumerate(weights):
+            acc += float(w)
+            if r <= acc:
+                return int(i)
+        return int(n - 1)
 
     def _get_q(self, k: str) -> np.ndarray:
         if k not in self.q:

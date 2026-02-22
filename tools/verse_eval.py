@@ -19,6 +19,16 @@ Usage:
 
 from __future__ import annotations
 
+import io
+import sys
+
+# Windows consoles default to cp1252 which cannot encode emoji/arrows.
+# Force UTF-8 output so verdict symbols render correctly.
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if sys.stderr.encoding and sys.stderr.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 import argparse
 import dataclasses
 import json

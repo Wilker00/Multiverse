@@ -111,19 +111,96 @@ def encode_obs_uno_v2(obs: Dict[str, Any]) -> np.ndarray:
     return scalars
 
 
-# Encoder registry
+def encode_obs_generic(obs, dim: int = 32) -> np.ndarray:
+    """
+    Generic flat encoder for any verse observation.
+    Handles dict, list, and scalar observations.
+    Output is always a fixed-length float32 vector (padded or truncated to `dim`).
+    """
+    if isinstance(obs, dict):
+        vals = []
+        for k in sorted(obs.keys()):
+            v = obs[k]
+            if isinstance(v, (list, tuple)):
+                for vi in v:
+                    try:
+                        vals.append(float(vi))
+                    except (ValueError, TypeError):
+                        vals.append(0.0)
+            else:
+                try:
+                    vals.append(float(v))
+                except (ValueError, TypeError):
+                    vals.append(0.0)
+        arr = np.array(vals, dtype=np.float32)
+    elif isinstance(obs, (list, tuple)):
+        try:
+            arr = np.array(obs, dtype=np.float32).flatten()
+        except Exception:
+            arr = np.zeros(dim, dtype=np.float32)
+    else:
+        try:
+            arr = np.array([float(obs)], dtype=np.float32)
+        except Exception:
+            arr = np.zeros(dim, dtype=np.float32)
+
+    if arr.shape[0] >= dim:
+        return arr[:dim]
+    # Pad with zeros
+    out = np.zeros(dim, dtype=np.float32)
+    out[:arr.shape[0]] = arr
+    return out
+
+
+def _make_generic_encoder(dim: int):
+    """Return a closure that encodes any obs to a fixed-length vector."""
+    def _enc(obs) -> np.ndarray:
+        return encode_obs_generic(obs, dim=dim)
+    return _enc
+
+
+# Encoder registry — verse-specific encoders for best results
 OBS_ENCODERS = {
     "go_world_v2": (encode_obs_go_v2, 90),
     "chess_world_v2": (encode_obs_chess_v2, 240),
     "uno_world_v2": (encode_obs_uno_v2, 14),
 }
 
-# Action counts
+# Action counts — verse-specific overrides
 ACTION_COUNTS = {
     "go_world_v2": 26,
     "chess_world_v2": 625,
     "uno_world_v2": 15,
+    # Navigation verses
+    "grid_world": 4,
+    "cliff_world": 4,
+    "line_world": 2,
+    "maze_world": 4,
+    "labyrinth_world": 4,
+    "park_world": 4,
+    "warehouse_world": 5,
+    "swamp_world": 4,
+    "escape_world": 4,
+    "bridge_world": 4,
+    "Wind_master_world": 4,
+    "wind_master_world": 4,
+    "pursuit_world": 4,
+    # Strategy
+    "chess_world": 7,
+    "go_world": 10,
+    "uno_world": 15,
+    # Planning / Economics
+    "harvest_world": 4,
+    "factory_world": 5,
+    "trade_world": 4,
+    "risk_tutorial_world": 5,
+    # Memory
+    "memory_vault_world": 4,
+    "rule_flip_world": 4,
 }
+
+# Default generic encoding dim (covers all known verse obs sizes)
+_GENERIC_DIM = 32
 
 
 # ---------------------------------------------------------------------------
@@ -183,9 +260,24 @@ class DQNAgent:
 
     def __init__(self, verse_name: str, hidden: int = 128, lr: float = 1e-3,
                  gamma: float = 0.95, buffer_size: int = 20000, batch_size: int = 64,
-                 target_update_freq: int = 50):
-        encoder_fn, input_dim = OBS_ENCODERS[verse_name]
-        n_actions = ACTION_COUNTS[verse_name]
+                 target_update_freq: int = 50, obs_dim: int = _GENERIC_DIM,
+                 n_actions: int = 0):
+        # Use verse-specific encoder if available, else fall back to generic
+        if verse_name in OBS_ENCODERS:
+            encoder_fn, input_dim = OBS_ENCODERS[verse_name]
+        else:
+            input_dim = obs_dim
+            encoder_fn = _make_generic_encoder(input_dim)
+
+        # Use verse-specific action count if available, else require explicit n_actions
+        if n_actions <= 0:
+            if verse_name in ACTION_COUNTS:
+                n_actions = ACTION_COUNTS[verse_name]
+            else:
+                raise ValueError(
+                    f"DQNAgent: verse '{verse_name}' has no registered action count. "
+                    f"Pass n_actions=<int> explicitly, or add to ACTION_COUNTS."
+                )
 
         self.verse_name = verse_name
         self.encoder_fn = encoder_fn

@@ -49,6 +49,14 @@
       "max_steps": 80,
       "seeds": [101, 203, 307],
       "params": {"adr_enabled": false, "max_steps": 80},
+      "candidate_config": [
+        "dataset_path=",
+        "warmstart_reward_scale=0.0",
+        "recall_enabled=false",
+        "epsilon_start=1.0",
+        "epsilon_min=0.05",
+        "epsilon_decay=0.995"
+      ],
       "thresholds": {"min_success_rate": 0.40, "min_mean_return": 0.00, "max_safety_violation_rate": 0.50}
     },
     {
@@ -58,6 +66,14 @@
       "max_steps": 60,
       "seeds": [101, 203, 307],
       "params": {"adr_enabled": false, "max_steps": 60},
+      "candidate_config": [
+        "dataset_path=",
+        "warmstart_reward_scale=0.0",
+        "recall_enabled=false",
+        "epsilon_start=1.0",
+        "epsilon_min=0.05",
+        "epsilon_decay=0.995"
+      ],
       "thresholds": {"min_success_rate": 0.35, "min_mean_return": 0.00, "max_safety_violation_rate": 0.50}
     },
     {
@@ -92,6 +108,14 @@
         "wall_follow_bonus": 0.02,
         "max_steps": 180
       },
+      "candidate_config": [
+        "dataset_path=",
+        "warmstart_reward_scale=0.0",
+        "recall_enabled=false",
+        "epsilon_start=1.0",
+        "epsilon_min=0.05",
+        "epsilon_decay=0.995"
+      ],
       "thresholds": {"min_success_rate": 0.20, "min_mean_return": -20.0, "max_safety_violation_rate": 0.90}
     }
   ]
