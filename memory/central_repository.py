@@ -146,9 +146,14 @@ class _SimilarityCacheEntry:
 # Multiprocess-safe locks and caches for ProcessPoolExecutor compatibility
 _mp_manager = Manager()
 _SIM_CACHE_LOCK = _mp_manager.Lock()
-_SIM_CACHE = _mp_manager.dict()  # Shared across processes
+# Note: Keep _SIM_CACHE as OrderedDict (process-local) for move_to_end() LRU support
+# The shared lock coordinates cache invalidation across processes
+# Each process maintains its own cache copy, which is acceptable for memory retrieval
+_SIM_CACHE: "OrderedDict[str, _SimilarityCacheEntry]" = OrderedDict()
 _DEDUPE_READY_LOCK = _mp_manager.Lock()
-_DEDUPE_READY = _mp_manager.list()  # Using list instead of set for Manager compatibility
+# Note: Keep _DEDUPE_READY as Set (process-local) for standard set operations
+# The shared lock coordinates access across processes
+_DEDUPE_READY: Set[str] = set()
 _ANN_TUNE_LOCK = _mp_manager.Lock()
 _REPO_LOCK = _mp_manager.Lock()  # Primary lock for repository operations
 # Note: These counters remain module-level (per-process) as they're for metrics only
@@ -342,7 +347,7 @@ def _ensure_repo(cfg: CentralMemoryConfig) -> None:
             json.dump([], f)
     db_path = os.path.abspath(_dedupe_db_path(cfg))
     with _DEDUPE_READY_LOCK:
-        ready = db_path in list(_DEDUPE_READY)
+        ready = db_path in _DEDUPE_READY
     if not ready:
         conn = _open_dedupe_db(cfg)
         try:
@@ -350,8 +355,7 @@ def _ensure_repo(cfg: CentralMemoryConfig) -> None:
         finally:
             conn.close()
         with _DEDUPE_READY_LOCK:
-            if db_path not in list(_DEDUPE_READY):
-                _DEDUPE_READY.append(db_path)
+            _DEDUPE_READY.add(db_path)
 
 
 def _as_set(value: Optional[Set[str]]) -> Optional[Set[str]]:
