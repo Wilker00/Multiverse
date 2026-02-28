@@ -22,6 +22,7 @@ import time
 from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import dataclass
+from multiprocessing import Manager
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from core.types import JSONValue
@@ -82,7 +83,10 @@ class ScenarioMatch:
     action: JSONValue
     reward: float
     obs: JSONValue
+    source_greedy_action: Optional[int] = None
+    source_action_matches_greedy: Optional[bool] = None
     recency_weight: float = 1.0
+    trajectory: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass
@@ -120,6 +124,8 @@ class _PreparedMemoryRow:
     action: JSONValue
     reward: float
     obs: JSONValue
+    source_greedy_action: Optional[int]
+    source_action_matches_greedy: Optional[bool]
     obs_vector: List[float]
     obs_vector_u: List[float]
 
@@ -137,16 +143,22 @@ class _SimilarityCacheEntry:
     built_at_ms: int
 
 
-_SIM_CACHE_LOCK = threading.Lock()
-_SIM_CACHE: "OrderedDict[str, _SimilarityCacheEntry]" = OrderedDict()
-_DEDUPE_READY_LOCK = threading.Lock()
-_DEDUPE_READY: Set[str] = set()
-_ANN_TUNE_LOCK = threading.Lock()
+# Multiprocess-safe locks and caches for ProcessPoolExecutor compatibility
+_mp_manager = Manager()
+_SIM_CACHE_LOCK = _mp_manager.Lock()
+_SIM_CACHE = _mp_manager.dict()  # Shared across processes
+_DEDUPE_READY_LOCK = _mp_manager.Lock()
+_DEDUPE_READY = _mp_manager.list()  # Using list instead of set for Manager compatibility
+_ANN_TUNE_LOCK = _mp_manager.Lock()
+_REPO_LOCK = _mp_manager.Lock()  # Primary lock for repository operations
+# Note: These counters remain module-level (per-process) as they're for metrics only
 _ANN_DYNAMIC_FACTOR: Optional[int] = None
 _ANN_QUERY_COUNT = 0
 _ANN_DRIFT_CHECKS = 0
 _ANN_LAST_DRIFT = 0.0
 _ANN_MAX_DRIFT = 0.0
+# Lock timeout in seconds (configurable via environment variable)
+_LOCK_TIMEOUT = int(os.environ.get("MULTIVERSE_MEMORY_LOCK_TIMEOUT", "30"))
 
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
@@ -223,35 +235,99 @@ def _tier_policy_path(cfg: CentralMemoryConfig) -> str:
     return os.path.join(cfg.root_dir, name)
 
 
+def _atomic_write(file_path: str, content: str, max_retries: int = 3) -> None:
+    """
+    Atomic file write to prevent partial JSON corruption from concurrent writes.
+    Uses temp file + rename for atomicity, with exponential backoff retry logic.
+
+    Args:
+        file_path: Target file path
+        content: Content to write
+        max_retries: Maximum number of retry attempts (default: 3)
+
+    Raises:
+        IOError: If all retry attempts fail
+    """
+    import tempfile
+
+    for attempt in range(max_retries):
+        try:
+            # Write to temp file in same directory as target (ensures same filesystem)
+            dir_name = os.path.dirname(file_path) or "."
+            os.makedirs(dir_name, exist_ok=True)
+
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                encoding='utf-8',
+                dir=dir_name,
+                delete=False,
+                suffix='.tmp'
+            ) as tmp_file:
+                tmp_file.write(content)
+                tmp_path = tmp_file.name
+
+            # Atomic rename (overwrites target if exists)
+            os.replace(tmp_path, file_path)
+            return
+
+        except Exception as exc:
+            if attempt < max_retries - 1:
+                # Exponential backoff: 100ms, 200ms, 400ms
+                delay_ms = 100 * (2 ** attempt)
+                time.sleep(delay_ms / 1000.0)
+            else:
+                raise IOError(f"Failed to atomic write after {max_retries} attempts: {exc}") from exc
+
+
 @contextmanager
 def _repo_lock(cfg: CentralMemoryConfig):
+    """
+    Multiprocess-safe repository lock with timeout.
+
+    Uses both multiprocess.Manager lock (primary) and file lock (secondary defense).
+    The multiprocess lock coordinates between ProcessPoolExecutor workers,
+    while the file lock provides additional protection against external processes.
+
+    Raises:
+        TimeoutError: If lock cannot be acquired within _LOCK_TIMEOUT seconds
+    """
     os.makedirs(cfg.root_dir, exist_ok=True)
     lock_path = _repo_lock_path(cfg)
-    with open(lock_path, "a+b") as fh:
-        locked = False
-        try:
-            if msvcrt is not None:
-                fh.seek(0, os.SEEK_END)
-                if fh.tell() <= 0:
-                    fh.write(b"0")
-                    fh.flush()
-                fh.seek(0)
-                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
-                locked = True
-            elif fcntl is not None:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-                locked = True
-            yield
-        finally:
-            if locked:
-                try:
+
+    # Primary: multiprocess lock with timeout
+    mp_locked = _REPO_LOCK.acquire(timeout=_LOCK_TIMEOUT)
+    if not mp_locked:
+        raise TimeoutError(f"Failed to acquire multiprocess repo lock within {_LOCK_TIMEOUT}s")
+
+    try:
+        # Secondary: file lock for external process protection
+        with open(lock_path, "a+b") as fh:
+            file_locked = False
+            try:
+                if msvcrt is not None:
+                    fh.seek(0, os.SEEK_END)
+                    if fh.tell() <= 0:
+                        fh.write(b"0")
+                        fh.flush()
                     fh.seek(0)
-                    if msvcrt is not None:
-                        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
-                    elif fcntl is not None:
-                        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-                except Exception:
-                    pass
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+                    file_locked = True
+                elif fcntl is not None:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+                    file_locked = True
+                yield
+            finally:
+                if file_locked:
+                    try:
+                        fh.seek(0)
+                        if msvcrt is not None:
+                            msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                        elif fcntl is not None:
+                            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                    except Exception:
+                        pass
+    finally:
+        _REPO_LOCK.release()
 
 
 def _ensure_repo(cfg: CentralMemoryConfig) -> None:
@@ -266,7 +342,7 @@ def _ensure_repo(cfg: CentralMemoryConfig) -> None:
             json.dump([], f)
     db_path = os.path.abspath(_dedupe_db_path(cfg))
     with _DEDUPE_READY_LOCK:
-        ready = db_path in _DEDUPE_READY
+        ready = db_path in list(_DEDUPE_READY)
     if not ready:
         conn = _open_dedupe_db(cfg)
         try:
@@ -274,7 +350,8 @@ def _ensure_repo(cfg: CentralMemoryConfig) -> None:
         finally:
             conn.close()
         with _DEDUPE_READY_LOCK:
-            _DEDUPE_READY.add(db_path)
+            if db_path not in list(_DEDUPE_READY):
+                _DEDUPE_READY.append(db_path)
 
 
 def _as_set(value: Optional[Set[str]]) -> Optional[Set[str]]:
@@ -511,16 +588,36 @@ def _enrich_memory_row(
 
 
 def _open_dedupe_db(cfg: CentralMemoryConfig) -> sqlite3.Connection:
+    """
+    Open dedupe database connection with multiprocess-safe configuration.
+
+    Returns:
+        sqlite3.Connection with WAL mode and busy_timeout configured
+    """
     db_path = _dedupe_db_path(cfg)
     conn = sqlite3.connect(db_path)
+
+    # Configure for multiprocess access
     try:
+        # WAL mode allows concurrent reads + 1 writer
         conn.execute("PRAGMA journal_mode=WAL")
     except Exception:
         pass
+
     try:
+        # Faster syncing (still crash-safe with WAL)
         conn.execute("PRAGMA synchronous=NORMAL")
     except Exception:
         pass
+
+    try:
+        # Critical: Wait up to 30s for lock instead of immediate failure
+        # Prevents "database locked" errors with ProcessPoolExecutor
+        busy_timeout_ms = int(os.environ.get("MULTIVERSE_MEMORY_LOCK_TIMEOUT", "30")) * 1000
+        conn.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")
+    except Exception:
+        pass
+
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS dedupe_keys(
@@ -774,6 +871,14 @@ def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
         action=raw.get("action"),
         reward=_safe_float(raw.get("reward", 0.0)),
         obs=raw.get("obs"),
+        source_greedy_action=(
+            None if raw.get("source_greedy_action") in (None, "") else _safe_int(raw.get("source_greedy_action"), -1)
+        ),
+        source_action_matches_greedy=(
+            None
+            if raw.get("source_action_matches_greedy") is None
+            else bool(raw.get("source_action_matches_greedy"))
+        ),
         obs_vector=base_vec,
         obs_vector_u=uni_vec,
     )
@@ -792,6 +897,12 @@ def _prepared_row_to_dict(row: _PreparedMemoryRow) -> Dict[str, Any]:
         "action": row.action,
         "reward": float(row.reward),
         "obs": row.obs,
+        "source_greedy_action": (
+            None if row.source_greedy_action is None else int(row.source_greedy_action)
+        ),
+        "source_action_matches_greedy": (
+            None if row.source_action_matches_greedy is None else bool(row.source_action_matches_greedy)
+        ),
         "obs_vector": [float(v) for v in list(row.obs_vector or [])],
         "obs_vector_u": [float(v) for v in list(row.obs_vector_u or [])],
     }
@@ -927,6 +1038,28 @@ def _build_similarity_cache_for_path(
                 action=row.get("action"),
                 reward=_safe_float(row.get("reward", 0.0)),
                 obs=row.get("obs"),
+                source_greedy_action=(
+                    None
+                    if not isinstance(row.get("info"), dict)
+                    else (
+                        None
+                        if not isinstance((row.get("info") or {}).get("action_info"), dict)
+                        else (
+                            None
+                            if ((row.get("info") or {}).get("action_info") or {}).get("greedy_action") in (None, "")
+                            else _safe_int((((row.get("info") or {}).get("action_info") or {}).get("greedy_action")), -1)
+                        )
+                    )
+                ),
+                source_action_matches_greedy=(
+                    None
+                    if not isinstance(row.get("info"), dict)
+                    else (
+                        None
+                        if not isinstance((row.get("info") or {}).get("action_info"), dict)
+                        else bool((((row.get("info") or {}).get("action_info") or {}).get("action_matches_greedy")))
+                    )
+                ),
                 obs_vector=row_vec_f,
                 obs_vector_u=_extract_or_build_universal_vector(row=row, obs_vector=row_vec_f),
             )
@@ -1387,6 +1520,7 @@ def find_similar(
     memory_families: Optional[Set[str]] = None,
     memory_types: Optional[Set[str]] = None,
     stm_decay_lambda: Optional[float] = None,
+    trajectory_window: int = 0,
 ) -> List[ScenarioMatch]:
     """
     Query central memory for similar observations.
@@ -1425,6 +1559,40 @@ def find_similar(
         if not os.path.isfile(mem_path):
             continue
         cache = _get_similarity_cache_for_path(mem_path=mem_path, tier_policy=tier_policy)
+        
+        def _extract_trajectory(row_input: Any) -> Optional[List[Dict[str, Any]]]:
+            if int(trajectory_window) <= 0:
+                return None
+            ep_id = str(row_input.episode_id)
+            root_step = int(row_input.step_idx)
+            # Find the row in cache.rows if we just have the row reference.
+            # O(N) scan but only on matched rows. Usually matches are small top_n.
+            idx = -1
+            for i, r in enumerate(cache.rows):
+                if r is row_input:
+                    idx = i
+                    break
+            if idx < 0:
+                return []
+            traj = []
+            curr = idx
+            while curr >= 0 and len(traj) < int(trajectory_window):
+                r = cache.rows[curr]
+                if str(r.episode_id) != ep_id or int(r.step_idx) > root_step:
+                    if str(r.episode_id) != ep_id:
+                        break
+                    curr -= 1
+                    continue
+                traj.append({
+                    "step_idx": int(r.step_idx),
+                    "obs": r.obs,
+                    "action": r.action,
+                    "reward": float(r.reward)
+                })
+                curr -= 1
+            traj.reverse()
+            return traj
+
         q_dim = len(query_vec)
         q_norm: Optional[Any] = None
         sims: Optional[Any] = None
@@ -1498,7 +1666,10 @@ def find_similar(
                     action=row.action,
                     reward=float(row.reward),
                     obs=row.obs,
+                    source_greedy_action=row.source_greedy_action,
+                    source_action_matches_greedy=row.source_action_matches_greedy,
                     recency_weight=float(recency_weight),
+                    trajectory=_extract_trajectory(row),
                 )
                 if len(heap) < top_n:
                     heapq.heappush(heap, (float(score), ordinal, match))
@@ -1608,7 +1779,10 @@ def find_similar(
                     action=row.action,
                     reward=float(row.reward),
                     obs=row.obs,
+                    source_greedy_action=row.source_greedy_action,
+                    source_action_matches_greedy=row.source_action_matches_greedy,
                     recency_weight=float(recency_weight),
+                    trajectory=_extract_trajectory(row),
                 )
                 if len(heap) < top_n:
                     heapq.heappush(heap, (float(score), ordinal, match))
@@ -1680,6 +1854,8 @@ def find_similar(
                 action=row.action,
                 reward=float(row.reward),
                 obs=row.obs,
+                source_greedy_action=row.source_greedy_action,
+                source_action_matches_greedy=row.source_action_matches_greedy,
                 recency_weight=float(recency_weight),
             )
             if len(heap) < top_n:
