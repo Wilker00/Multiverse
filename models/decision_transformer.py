@@ -7,7 +7,7 @@ Minimal Decision Transformer for discrete action spaces.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -22,6 +22,7 @@ def _causal_mask(seq_len: int, *, device: torch.device) -> torch.Tensor:
 class DecisionTransformerConfig:
     state_dim: int
     action_dim: int
+    action_space_type: str = "discrete"
     context_len: int = 20
     d_model: int = 128
     n_head: int = 4
@@ -29,6 +30,9 @@ class DecisionTransformerConfig:
     dropout: float = 0.1
     max_timestep: int = 4096
     bos_token_id: Optional[int] = None
+    n_verses: int = 0
+    verse_to_id: Optional[Dict[str, int]] = None
+    verse_action_ranges: Optional[Dict[str, int]] = None
 
 
 class DecisionTransformer(nn.Module):
@@ -72,8 +76,13 @@ class DecisionTransformer(nn.Module):
         d_model = int(self.config.d_model)
         self.state_embed = nn.Linear(int(self.config.state_dim), d_model)
         self.return_embed = nn.Linear(1, d_model)
-        self.action_embed = nn.Embedding(int(self.config.action_dim) + 1, d_model)
+        if self.config.action_space_type == "continuous":
+            self.action_embed = nn.Linear(int(self.config.action_dim), d_model)
+        else:
+            self.action_embed = nn.Embedding(int(self.config.action_dim) + 1, d_model)
         self.time_embed = nn.Embedding(int(self.config.max_timestep), d_model)
+        n_verses = max(1, int(self.config.n_verses)) if int(self.config.n_verses) > 0 else 0
+        self.verse_embed = nn.Embedding(max(1, n_verses if n_verses > 0 else 1), d_model) if n_verses > 0 else None
         self.embed_ln = nn.LayerNorm(d_model)
         self.embed_drop = nn.Dropout(float(self.config.dropout))
 
@@ -97,6 +106,7 @@ class DecisionTransformer(nn.Module):
         prev_actions: torch.Tensor,
         timesteps: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
+        verse_ids: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Returns action logits with shape [B, T, action_dim].
@@ -105,8 +115,10 @@ class DecisionTransformer(nn.Module):
             raise ValueError(f"states must be rank-3 [B,T,D], got {tuple(states.shape)}")
         if returns_to_go.dim() != 2:
             raise ValueError(f"returns_to_go must be rank-2 [B,T], got {tuple(returns_to_go.shape)}")
-        if prev_actions.dim() != 2:
+        if self.config.action_space_type == "discrete" and prev_actions.dim() != 2:
             raise ValueError(f"prev_actions must be rank-2 [B,T], got {tuple(prev_actions.shape)}")
+        if self.config.action_space_type == "continuous" and prev_actions.dim() != 3:
+            raise ValueError(f"prev_actions must be rank-3 [B,T,A], got {tuple(prev_actions.shape)}")
         if timesteps.dim() != 2:
             raise ValueError(f"timesteps must be rank-2 [B,T], got {tuple(timesteps.shape)}")
 
@@ -115,7 +127,9 @@ class DecisionTransformer(nn.Module):
             raise ValueError(f"states last dim mismatch: expected {self.config.state_dim}, got {state_dim}")
         if returns_to_go.shape != (batch_size, seq_len):
             raise ValueError("returns_to_go shape mismatch against states")
-        if prev_actions.shape != (batch_size, seq_len):
+        if self.config.action_space_type == "discrete" and prev_actions.shape != (batch_size, seq_len):
+            raise ValueError("prev_actions shape mismatch against states")
+        if self.config.action_space_type == "continuous" and prev_actions.shape != (batch_size, seq_len, int(self.config.action_dim)):
             raise ValueError("prev_actions shape mismatch against states")
         if timesteps.shape != (batch_size, seq_len):
             raise ValueError("timesteps shape mismatch against states")
@@ -125,14 +139,22 @@ class DecisionTransformer(nn.Module):
         if attention_mask.shape != (batch_size, seq_len):
             raise ValueError("attention_mask shape mismatch against states")
 
-        prev_actions = prev_actions.long().clamp(0, int(self.config.action_dim))
         timesteps = timesteps.long().clamp(0, int(self.config.max_timestep) - 1)
 
         x_state = self.state_embed(states)
         x_rtg = self.return_embed(returns_to_go.unsqueeze(-1))
-        x_prev = self.action_embed(prev_actions)
+        if self.config.action_space_type == "continuous":
+            x_prev = self.action_embed(prev_actions.float())
+        else:
+            prev_actions = prev_actions.long().clamp(0, int(self.config.action_dim))
+            x_prev = self.action_embed(prev_actions)
         x_time = self.time_embed(timesteps)
-        x = self.embed_ln(x_state + x_rtg + x_prev + x_time)
+        x_verse = torch.zeros_like(x_state)
+        if self.verse_embed is not None and verse_ids is not None:
+            # verse_ids: [B] integer tensor
+            v_ids = verse_ids.long().clamp(0, self.verse_embed.num_embeddings - 1)
+            x_verse = self.verse_embed(v_ids).unsqueeze(1).expand_as(x_state)
+        x = self.embed_ln(x_state + x_rtg + x_prev + x_time + x_verse)
         x = self.embed_drop(x)
 
         key_padding_mask = attention_mask <= 0.0
@@ -156,6 +178,8 @@ class DecisionTransformer(nn.Module):
         temperature: float = 1.0,
         top_k: int = 0,
         sample: bool = False,
+        verse_ids: Optional[torch.Tensor] = None,
+        valid_action_n: Optional[int] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Predict action for the last valid token in each batch item.
@@ -168,6 +192,7 @@ class DecisionTransformer(nn.Module):
             prev_actions=prev_actions,
             timesteps=timesteps,
             attention_mask=attention_mask,
+            verse_ids=verse_ids,
         )
 
         batch_size, seq_len, _ = logits.shape
@@ -182,17 +207,28 @@ class DecisionTransformer(nn.Module):
 
         temp = max(1e-6, float(temperature))
         last_logits = last_logits / temp
+        # Action masking: zero out logits for invalid actions
+        if valid_action_n is not None and int(valid_action_n) > 0 and int(valid_action_n) < int(self.config.action_dim):
+            last_logits[:, int(valid_action_n):] = -1e9
         if int(top_k) > 0 and int(top_k) < int(self.config.action_dim):
             kth_vals = torch.topk(last_logits, k=int(top_k), dim=-1).values[:, -1].unsqueeze(-1)
             last_logits = torch.where(last_logits < kth_vals, torch.full_like(last_logits, -1e9), last_logits)
 
-        probs = torch.softmax(last_logits, dim=-1)
-        if bool(sample):
-            actions = torch.multinomial(probs, num_samples=1).squeeze(1)
+        if self.config.action_space_type == "continuous":
+            actions = last_logits
+            if bool(sample):
+                actions = actions + torch.randn_like(actions) * 0.1
+            conf = torch.ones_like(actions[:, 0])
+            probs = actions
+            return actions, conf, probs
         else:
-            actions = torch.argmax(probs, dim=-1)
-        conf = probs.gather(1, actions.view(-1, 1)).squeeze(1)
-        return actions, conf, probs
+            probs = torch.softmax(last_logits, dim=-1)
+            if bool(sample):
+                actions = torch.multinomial(probs, num_samples=1).squeeze(1)
+            else:
+                actions = torch.argmax(probs, dim=-1)
+            conf = probs.gather(1, actions.view(-1, 1)).squeeze(1)
+            return actions, conf, probs
 
     def get_config(self) -> Dict[str, Any]:
         return dict(self.config.__dict__)
@@ -212,7 +248,11 @@ def load_decision_transformer_checkpoint(
     cfg = payload.get("model_config")
     if not isinstance(cfg, dict):
         raise ValueError("checkpoint missing model_config")
-    model = DecisionTransformer(DecisionTransformerConfig(**cfg))
+    # Filter unknown fields for backward compat
+    import dataclasses as _dc
+    _valid_fields = {f.name for f in _dc.fields(DecisionTransformerConfig)}
+    cfg_filtered = {k: v for k, v in cfg.items() if k in _valid_fields}
+    model = DecisionTransformer(DecisionTransformerConfig(**cfg_filtered))
     state_dict = payload.get("model_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError("checkpoint missing model_state_dict")

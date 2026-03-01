@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m tools.benchmark_batch_queries:*)"
+    ]
+  }
+}

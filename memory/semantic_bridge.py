@@ -736,18 +736,45 @@ def translate_observation(
         gx = _safe_int(obs.get("goal_x", 0))
         gy = _safe_int(obs.get("goal_y", 0))
         t = _safe_int(obs.get("t", 0))
-        nearby = 0
-        nearest_charger = abs(x - gx) + abs(y - gy)
+        goal_dist = abs(x - gx) + abs(y - gy)
+        boundary_prox = int((x <= 0) or (x >= 7)) + int((y <= 0) or (y >= 7))
+        nearby = max(0, min(4, boundary_prox))
+        nearest_charger = min(goal_dist, max(0, x) + max(0, y))
+        # Provide non-constant synthetic battery so transfer keying has useful variety.
+        battery = max(1, min(20, int(max(float(goal_dist) + 2.0, 20.0 - 0.25 * float(t)))))
+        lidar = [
+            max(0, min(8, y)),         # up
+            max(0, min(8, 7 - y)),     # down
+            max(0, min(8, x)),         # left
+            max(0, min(8, 7 - x)),     # right
+            max(0, min(8, min(x, y))),                 # up-left
+            max(0, min(8, min(7 - x, y))),             # up-right
+            max(0, min(8, min(x, 7 - y))),             # down-left
+            max(0, min(8, min(7 - x, 7 - y))),         # down-right
+        ]
         return {
             "x": x,
             "y": y,
             "goal_x": gx,
             "goal_y": gy,
-            "battery": 20,
+            "battery": int(battery),
             "nearby_obstacles": nearby,
             "nearest_charger_dist": nearest_charger,
             "t": t,
-            "flat": [float(x), float(y), float(gx), float(gy), 20.0, float(nearby), float(t)],
+            "on_conveyor": 0,
+            "patrol_dist": -1,
+            "lidar": [int(v) for v in lidar],
+            "flat": [
+                float(x),
+                float(y),
+                float(gx),
+                float(gy),
+                float(battery),
+                float(nearby),
+                float(t),
+                0.0,
+                -1.0,
+            ] + [float(v) for v in lidar],
         }
     if src == "warehouse_world" and dst == "grid_world":
         return {
@@ -761,22 +788,114 @@ def translate_observation(
         x = _safe_int(obs.get("pos", 0))
         gx = _safe_int(obs.get("goal", 0))
         t = _safe_int(obs.get("t", 0))
+        dist = abs(x - gx)
+        battery = max(1, min(20, int(max(float(dist) + 2.0, 20.0 - 0.25 * float(t)))))
         return {
             "x": x,
             "y": 0,
             "goal_x": gx,
             "goal_y": 0,
-            "battery": 20,
-            "nearby_obstacles": 0,
-            "nearest_charger_dist": abs(x - gx),
+            "battery": int(battery),
+            "nearby_obstacles": int(1 if x <= 0 or x >= 7 else 0),
+            "nearest_charger_dist": int(dist),
             "t": t,
-            "flat": [float(x), 0.0, float(gx), 0.0, 20.0, 0.0, float(t)],
+            "on_conveyor": 0,
+            "patrol_dist": -1,
+            "flat": [float(x), 0.0, float(gx), 0.0, float(battery), 0.0, float(t), 0.0, -1.0],
         }
     if src == "warehouse_world" and dst == "line_world":
         return {
             "pos": _safe_int(obs.get("x", 0)),
             "goal": _safe_int(obs.get("goal_x", 0)),
             "t": _safe_int(obs.get("t", 0)),
+        }
+    if src == "park_world" and dst == "warehouse_world":
+        pos = _safe_int(obs.get("pos", 0))
+        goal = _safe_int(obs.get("goal", 0))
+        t = _safe_int(obs.get("t", 0))
+        extent = max(1, pos, goal)
+        x = max(0, min(7, int(round(7.0 * float(pos) / float(extent)))))
+        gx = max(0, min(7, int(round(7.0 * float(goal) / float(extent)))))
+        dist = abs(x - gx)
+        battery = max(1, min(20, int(max(float(dist) + 2.0, 20.0 - 0.20 * float(t)))))
+        return {
+            "x": int(x),
+            "y": 0,
+            "goal_x": int(gx),
+            "goal_y": 0,
+            "battery": int(battery),
+            "nearby_obstacles": int(1 if x <= 0 or x >= 7 else 0),
+            "nearest_charger_dist": int(dist),
+            "t": int(t),
+            "on_conveyor": 0,
+            "patrol_dist": -1,
+        }
+    if src == "warehouse_world" and dst == "park_world":
+        return {
+            "pos": _safe_int(obs.get("x", 0)),
+            "goal": _safe_int(obs.get("goal_x", 0)),
+            "t": _safe_int(obs.get("t", 0)),
+        }
+    if src == "pursuit_world" and dst == "warehouse_world":
+        agent = _safe_int(obs.get("agent", 0))
+        target = _safe_int(obs.get("target", 0))
+        t = _safe_int(obs.get("t", 0))
+        extent = max(1, agent, target)
+        x = max(0, min(7, int(round(7.0 * float(agent) / float(extent)))))
+        gx = max(0, min(7, int(round(7.0 * float(target) / float(extent)))))
+        dist = abs(x - gx)
+        battery = max(1, min(20, int(max(float(dist) + 2.0, 20.0 - 0.20 * float(t)))))
+        return {
+            "x": int(x),
+            "y": 0,
+            "goal_x": int(gx),
+            "goal_y": 0,
+            "battery": int(battery),
+            "nearby_obstacles": int(1 if dist <= 1 else 0),
+            "nearest_charger_dist": int(dist),
+            "t": int(t),
+            "on_conveyor": 0,
+            "patrol_dist": int(max(0, dist)),
+        }
+    if src == "warehouse_world" and dst == "pursuit_world":
+        return {
+            "agent": _safe_int(obs.get("x", 0)),
+            "target": _safe_int(obs.get("goal_x", 0)),
+            "t": _safe_int(obs.get("t", 0)),
+        }
+    if src == "labyrinth_world" and dst == "warehouse_world":
+        x = _safe_int(obs.get("x", 1))
+        y = _safe_int(obs.get("y", 1))
+        gx = _safe_int(obs.get("goal_x", 13))
+        gy = _safe_int(obs.get("goal_y", 9))
+        t = _safe_int(obs.get("t", 0))
+        # Scale 15x11-style labyrinth coordinates into 8x8 warehouse coordinates.
+        x_den = max(1, gx)
+        y_den = max(1, gy)
+        wx = max(0, min(7, int(round(7.0 * float(x) / float(x_den)))))
+        wy = max(0, min(7, int(round(7.0 * float(y) / float(y_den)))))
+        wgx = max(0, min(7, int(round(7.0 * float(gx) / float(x_den)))))
+        wgy = max(0, min(7, int(round(7.0 * float(gy) / float(y_den)))))
+        battery_src = max(0, _safe_int(obs.get("battery", 80), 80))
+        battery = max(1, min(20, int(round(0.25 * float(battery_src)))))
+        nearby_walls = max(0, _safe_int(obs.get("nearby_walls", 0), 0))
+        nearby_pits = max(0, _safe_int(obs.get("nearby_pits", 0), 0))
+        laser_nearby = max(0, _safe_int(obs.get("laser_nearby", 0), 0))
+        nearby = max(0, min(4, int(round(min(4, nearby_walls) + min(2, nearby_pits + laser_nearby)))))
+        charger_dist = max(0, _safe_int(obs.get("nearest_charger_dist", 0), 0))
+        w_charger = max(0, min(25, int(round(0.5 * float(charger_dist)))))
+        patrol_dist = max(0, min(25, int(1 if laser_nearby > 0 else 6)))
+        return {
+            "x": int(wx),
+            "y": int(wy),
+            "goal_x": int(wgx),
+            "goal_y": int(wgy),
+            "battery": int(battery),
+            "nearby_obstacles": int(nearby),
+            "nearest_charger_dist": int(w_charger),
+            "t": int(t),
+            "on_conveyor": 0,
+            "patrol_dist": int(patrol_dist),
         }
 
     # ---- harvest_world bridges ----
@@ -1084,6 +1203,14 @@ def translate_action(
         if a == 4:
             return 0
         return None
+    if src == "labyrinth_world" and dst == "warehouse_world":
+        if a in (0, 1, 2, 3, 4):
+            return a
+        return None
+    if src == "warehouse_world" and dst == "labyrinth_world":
+        if a in (0, 1, 2, 3, 4):
+            return a
+        return None
     if src == "line_world" and dst == "warehouse_world":
         if a == 0:
             return 2
@@ -1091,6 +1218,34 @@ def translate_action(
             return 3
         return None
     if src == "warehouse_world" and dst == "line_world":
+        if a == 2:
+            return 0
+        if a == 3:
+            return 1
+        return None
+    if src == "park_world" and dst == "warehouse_world":
+        if a == 0:
+            return 2
+        if a == 1:
+            return 3
+        if a == 2:
+            return 4
+        return None
+    if src == "warehouse_world" and dst == "park_world":
+        if a == 2:
+            return 0
+        if a == 3:
+            return 1
+        if a in (0, 1, 4):
+            return 2
+        return None
+    if src == "pursuit_world" and dst == "warehouse_world":
+        if a == 0:
+            return 2
+        if a == 1:
+            return 3
+        return None
+    if src == "warehouse_world" and dst == "pursuit_world":
         if a == 2:
             return 0
         if a == 3:
@@ -1274,6 +1429,95 @@ def translate_transition(
         out["learned_bridge_confidence"] = conf
         out["learned_bridge_model_path"] = resolved
     return out
+
+
+def _estimate_next_obs_from_action(
+    *,
+    obs: JSONValue,
+    action: JSONValue,
+    verse_name: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Build a lightweight next_obs approximation when source DNA lacks next_obs.
+    This preserves transition diversity for transfer filtering without requiring
+    exact simulator dynamics.
+    """
+    if not isinstance(obs, dict):
+        return None
+    v = _norm_verse_name(verse_name)
+    try:
+        a = int(action)  # type: ignore[arg-type]
+    except Exception:
+        return None
+
+    nxt: Dict[str, Any] = dict(obs)
+
+    def _bump_t() -> None:
+        nxt["t"] = int(max(0, _safe_int(obs.get("t", 0), 0)) + 1)
+
+    if v in {"line_world", "park_world"} and ("pos" in obs):
+        pos = _safe_int(obs.get("pos", 0), 0)
+        goal = _safe_int(obs.get("goal", pos), pos)
+        hi = max(1, pos, goal)
+        npos = pos
+        if a == 0:
+            npos -= 1
+        elif a == 1:
+            npos += 1
+        nxt["pos"] = int(max(0, min(hi, npos)))
+        _bump_t()
+        return nxt
+
+    if v == "pursuit_world" and ("agent" in obs):
+        agent = _safe_int(obs.get("agent", 0), 0)
+        target = _safe_int(obs.get("target", agent), agent)
+        hi = max(1, agent, target)
+        nagent = agent
+        if a == 0:
+            nagent -= 1
+        elif a == 1:
+            nagent += 1
+        nxt["agent"] = int(max(0, min(hi, nagent)))
+        # Keep target unchanged in fallback mode; source data did not include it.
+        nxt["target"] = int(target)
+        _bump_t()
+        return nxt
+
+    if v in {"grid_world", "cliff_world", "swamp_world", "warehouse_world", "labyrinth_world", "maze_world"} and (
+        "x" in obs and "y" in obs
+    ):
+        x = _safe_int(obs.get("x", 0), 0)
+        y = _safe_int(obs.get("y", 0), 0)
+        gx = _safe_int(obs.get("goal_x", x), x)
+        gy = _safe_int(obs.get("goal_y", y), y)
+        hi_x = max(7, x, gx)
+        hi_y = max(7, y, gy)
+        nx, ny = x, y
+        if a == 0:
+            ny -= 1
+        elif a == 1:
+            ny += 1
+        elif a == 2:
+            nx -= 1
+        elif a == 3:
+            nx += 1
+        nx = max(0, min(hi_x, nx))
+        ny = max(0, min(hi_y, ny))
+        nxt["x"] = int(nx)
+        nxt["y"] = int(ny)
+        if "battery" in obs:
+            b = max(0, _safe_int(obs.get("battery", 0), 0))
+            if a == 4:
+                # approximate wait/charge behavior
+                if _safe_int(obs.get("nearest_charger_dist", -1), -1) == 0:
+                    b = min(b + 5, 100)
+            else:
+                b = max(0, b - 1)
+            nxt["battery"] = int(b)
+        _bump_t()
+        return nxt
+
+    return None
 
 
 def _synthesize_warehouse_labels(
@@ -1909,13 +2153,20 @@ def translate_dna(
                 inferred_source = _norm_verse_name(guessed)
             if inferred_source == "":
                 continue
+            src_next_obs = row.get("next_obs")
+            if src_next_obs is None:
+                src_next_obs = _estimate_next_obs_from_action(
+                    obs=obs,
+                    action=action,
+                    verse_name=inferred_source,
+                )
 
             translated = translate_transition(
                 obs=obs,
                 action=action,
                 source_verse_name=inferred_source,
                 target_verse_name=target,
-                next_obs=row.get("next_obs"),
+                next_obs=src_next_obs,
                 learned_bridge_enabled=learned_enabled,
                 learned_bridge_model_path=learned_bridge_model_path,
             )

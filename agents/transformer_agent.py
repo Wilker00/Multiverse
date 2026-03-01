@@ -36,6 +36,20 @@ def _safe_int(x: Any, default: int = 0) -> int:
         return default
 
 
+
+def _as_set(raw: Any) -> Optional[set]:
+    if raw is None:
+        return None
+    if isinstance(raw, (set, list, tuple)):
+        out = set(str(x).strip().lower() for x in raw if str(x).strip())
+        return out if out else None
+    s = str(raw).strip().lower()
+    if not s:
+        return None
+    parts = [p.strip().lower() for p in s.split(",") if p.strip()]
+    return set(parts) if parts else None
+
+
 def _load_torch_payload(path: str) -> Dict[str, Any]:
     try:
         payload = torch.load(path, map_location="cpu", weights_only=False)
@@ -74,9 +88,16 @@ class TransformerAgent:
         self.observation_space = observation_space
         self.action_space = action_space
 
-        if action_space.type != "discrete" or not isinstance(action_space.n, int) or int(action_space.n) <= 0:
-            raise ValueError("TransformerAgent requires discrete action_space with n > 0")
-        self._n_actions = int(action_space.n)
+        self._action_space_type = "discrete"
+        if action_space.type in ("vector", "continuous", "box"):
+            self._action_space_type = "continuous"
+            if not getattr(action_space, "shape", None):
+                raise ValueError("Continuous action_space requires a shape attribute")
+            self._n_actions = int(action_space.shape[0])
+        else:
+            if action_space.type != "discrete" or not isinstance(action_space.n, int) or int(action_space.n) <= 0:
+                raise ValueError("TransformerAgent requires discrete/vector action_space with valid dimension")
+            self._n_actions = int(action_space.n)
 
         cfg = dict(spec.config) if isinstance(spec.config, dict) else {}
         model_path = str(cfg.get("model_path", "")).strip()
@@ -101,10 +122,21 @@ class TransformerAgent:
         self._model_action_dim = int(model_cfg["action_dim"])
         if self._model_action_dim <= 0:
             raise RuntimeError("invalid action_dim in ADT checkpoint")
-        if self._model_action_dim > int(self._n_actions):
-            raise ValueError(
-                f"ADT checkpoint action_dim={self._model_action_dim} exceeds action_space.n={self._n_actions}"
-            )
+        # Resolve verse_id from checkpoint's verse_to_id mapping
+        self._verse_id: Optional[int] = None
+        self._valid_action_n: Optional[int] = None
+        _cfg_verse_name = str(cfg.get("verse_name", "")).strip().lower()
+        verse_to_id = model_cfg.get("verse_to_id")
+        verse_action_ranges = model_cfg.get("verse_action_ranges")
+        if isinstance(verse_to_id, dict) and _cfg_verse_name:
+            self._verse_id = verse_to_id.get(_cfg_verse_name)
+        if isinstance(verse_action_ranges, dict) and _cfg_verse_name:
+            if _cfg_verse_name in verse_action_ranges:
+                self._valid_action_n = int(verse_action_ranges[_cfg_verse_name])
+        # If no explicit range from checkpoint, use the env's action space
+        if self._valid_action_n is None and int(self._n_actions) < self._model_action_dim:
+            self._valid_action_n = int(self._n_actions)
+        # Allow checkpoint action_dim > n_actions for cross-verse padded spaces.
 
         requested_context = _safe_int(cfg.get("context_len"), trained_context_len)
         self._context_len = max(1, min(int(trained_context_len), int(requested_context)))
@@ -123,14 +155,14 @@ class TransformerAgent:
         self._rng = random.Random()
         self._step_count = 0
         self._state_history: Deque[List[float]] = deque(maxlen=self._context_len)
-        self._action_history: Deque[int] = deque(maxlen=self._context_len)
+        self._action_history: Deque[Any] = deque(maxlen=self._context_len)
 
         self._online_enabled = bool(cfg.get("online_enabled", False))
         self._online_lr = max(1e-6, _safe_float(cfg.get("online_lr", 1e-4), 1e-4))
         self._online_weight_decay = max(0.0, _safe_float(cfg.get("online_weight_decay", 1e-2), 1e-2))
         self._online_grad_clip = max(0.0, _safe_float(cfg.get("online_grad_clip", 1.0), 1.0))
-        self._online_batch_size = max(1, _safe_int(cfg.get("online_batch_size"), 32))
-        self._online_updates_per_learn = max(1, _safe_int(cfg.get("online_updates_per_learn"), 1))
+        self._online_batch_size = max(1, _safe_int(cfg.get("online_batch_size"), 64))
+        self._online_updates_per_learn = max(1, _safe_int(cfg.get("online_updates_per_learn"), 4))
         self._online_replay_capacity = max(1, _safe_int(cfg.get("online_replay_capacity"), 4096))
         self._online_gamma = max(0.0, min(1.0, _safe_float(cfg.get("online_gamma", 1.0), 1.0)))
         self._online_chunk_stride = _safe_int(cfg.get("online_chunk_stride"), 0)
@@ -139,6 +171,23 @@ class TransformerAgent:
 
         self._online_replay: Deque[Dict[str, List[Any]]] = deque(maxlen=self._online_replay_capacity)
         self._online_updates = 0
+        self._verse_name = str(cfg.get("verse_name", "")).strip().lower()
+        self._recall_enabled = bool(cfg.get("recall_enabled", False))
+        self._recall_top_k = max(1, _safe_int(cfg.get("recall_top_k", 5), 5))
+        self._recall_min_score = _safe_float(cfg.get("recall_min_score", -0.2), -0.2)
+        self._recall_same_verse_only = bool(cfg.get("recall_same_verse_only", True))
+        self._recall_memory_types = _as_set(cfg.get("recall_memory_types"))
+        self._recall_vote_weight = max(0.0, min(3.0, _safe_float(cfg.get("recall_vote_weight", 0.75), 0.75)))
+        self._recall_use_source_greedy_action = bool(cfg.get("recall_use_source_greedy_action", False))
+        self._recall_risk_key = str(cfg.get("recall_risk_key", "risk")).strip() or "risk"
+        self._recall_risk_threshold = _safe_float(cfg.get("recall_risk_threshold", 6.0), 6.0)
+        self._recall_uncertainty_margin = max(0.0, _safe_float(cfg.get("recall_uncertainty_margin", 0.10), 0.10))
+        self._recall_cooldown_steps = max(1, _safe_int(cfg.get("recall_cooldown_steps", 2), 2))
+
+        self._last_query_step = -10**9
+        self._last_bundle: Optional[Dict[str, Any]] = None
+        self._recall_uses = 0
+
         self._optimizer: Optional[torch.optim.Optimizer] = None
         if self._online_enabled:
             self._optimizer = torch.optim.AdamW(
@@ -309,36 +358,94 @@ class TransformerAgent:
         if t_val == 0 and self._step_count > 0:
             self._reset_context()
 
-    def _build_inputs(self, current_state: List[float]) -> Dict[str, torch.Tensor]:
+    def _build_inputs(self, current_state: List[float], trajectory: Optional[List[Dict[str, Any]]] = None) -> Dict[str, torch.Tensor]:
         hist_states = list(self._state_history)
         hist_actions = list(self._action_history)
-        states_seq = hist_states + [list(current_state)]
+        
+        my_states = hist_states + [list(current_state)]
+        my_actions = hist_actions
+        
+        start_t = max(0, int(self._step_count) - len(my_states) + 1)
+        my_timesteps = [start_t + i for i in range(len(my_states))]
+        my_rtg = [float(self._target_return) for _ in range(len(my_states))]
+        
+        demo_states = []
+        demo_actions = []
+        demo_timesteps = []
+        demo_rtg = []
+        
+        if trajectory:
+            for i, st in enumerate(trajectory):
+                # parse obs to univ vec or use as is
+                raw_obs = st.get("obs")
+                from memory.embeddings import obs_to_universal_vector
+                try:
+                    vec = obs_to_universal_vector(raw_obs, dim=int(self._state_dim))
+                    demo_states.append(list(vec))
+                except Exception:
+                    demo_states.append([0.0]*int(self._state_dim))
+                    
+                act = st.get("action")
+                if self._action_space_type == "continuous":
+                    try:
+                        act_vec = [float(x) for x in list(act)]
+                    except Exception:
+                        act_vec = [0.0]*int(self._n_actions)
+                    demo_actions.append(act_vec)
+                else:
+                    try:
+                        act_val = int(act)
+                    except Exception:
+                        act_val = int(self._bos_token_id)
+                    demo_actions.append(act_val)
+                demo_timesteps.append(int(st.get("step_idx", 0)))
+                # We could estimate RTG from rewards, but let's just copy current RTG for demo
+                demo_rtg.append(float(self._target_return))
 
+        states_seq = demo_states + my_states
+        action_seq = demo_actions + my_actions
+        timesteps_seq = demo_timesteps + my_timesteps
+        rtg_seq = demo_rtg + my_rtg
+        
         if len(states_seq) > self._context_len:
             overflow = len(states_seq) - self._context_len
             states_seq = states_seq[overflow:]
-            hist_actions = hist_actions[overflow:]
-
+            action_seq = action_seq[overflow:]
+            timesteps_seq = timesteps_seq[overflow:]
+            rtg_seq = rtg_seq[overflow:]
+            
         seq_len = len(states_seq)
-        prev_actions_seq = [int(self._bos_token_id) for _ in range(seq_len)]
-        for i in range(1, seq_len):
-            hist_idx = i - 1
-            if hist_idx < len(hist_actions):
-                prev_actions_seq[i] = int(hist_actions[hist_idx])
-
-        start_t = max(0, int(self._step_count) - seq_len + 1)
-        timesteps_seq = [start_t + i for i in range(seq_len)]
-        rtg_seq = [float(self._target_return) for _ in range(seq_len)]
+        
+        if self._action_space_type == "continuous":
+            prev_actions_seq = [[0.0] * self._n_actions for _ in range(seq_len)]
+            for i in range(1, seq_len):
+                if (i-1) < len(action_seq):
+                    prev_actions_seq[i] = list(action_seq[i-1])
+        else:
+            prev_actions_seq = [int(self._bos_token_id) for _ in range(seq_len)]
+            for i in range(1, seq_len):
+                if (i-1) < len(action_seq):
+                    prev_actions_seq[i] = int(action_seq[i-1])
 
         K = self._context_len
         states_pad = [[0.0] * self._state_dim for _ in range(K)]
-        prev_pad = [int(self._bos_token_id) for _ in range(K)]
         rtg_pad = [0.0 for _ in range(K)]
         t_pad = [0 for _ in range(K)]
         m_pad = [0.0 for _ in range(K)]
+        
+        if self._action_space_type == "continuous":
+            prev_pad = [[0.0] * self._n_actions for _ in range(K)]
+            for i in range(seq_len):
+                prev_pad[i] = list(prev_actions_seq[i])
+            prev_tensor = torch.tensor([prev_pad], dtype=torch.float32, device=self._device)
+        else:
+            prev_pad = [int(self._bos_token_id) for _ in range(K)]
+            for i in range(seq_len):
+                prev_pad[i] = int(prev_actions_seq[i])
+            prev_tensor = torch.tensor([prev_pad], dtype=torch.long, device=self._device)
+            
         for i in range(seq_len):
             states_pad[i] = list(states_seq[i])
-            prev_pad[i] = int(prev_actions_seq[i])
             rtg_pad[i] = float(rtg_seq[i])
             t_pad[i] = int(timesteps_seq[i])
             m_pad[i] = 1.0
@@ -346,13 +453,168 @@ class TransformerAgent:
         return {
             "states": torch.tensor([states_pad], dtype=torch.float32, device=self._device),
             "returns_to_go": torch.tensor([rtg_pad], dtype=torch.float32, device=self._device),
-            "prev_actions": torch.tensor([prev_pad], dtype=torch.long, device=self._device),
+            "prev_actions": prev_tensor,
             "timesteps": torch.tensor([t_pad], dtype=torch.long, device=self._device),
             "attention_mask": torch.tensor([m_pad], dtype=torch.float32, device=self._device),
             "seq_len": torch.tensor([seq_len], dtype=torch.long, device=self._device),
+            "verse_ids": torch.tensor([self._verse_id if self._verse_id is not None else 0], dtype=torch.long, device=self._device),
         }
 
+
+    def memory_query_request(self, *, obs: JSONValue, step_idx: int) -> Optional[Dict[str, Any]]:
+        if not bool(self._recall_enabled):
+            return None
+        step = int(step_idx)
+        if step < int(self._last_query_step):
+            # New episode: rollout step_idx resets to 0.
+            self._last_query_step = -10**9
+        if (step - int(self._last_query_step)) < int(self._recall_cooldown_steps):
+            return None
+
+        risk_value = None
+        if isinstance(obs, dict) and self._recall_risk_key in obs:
+            risk_value = _safe_float(obs.get(self._recall_risk_key), None)  # type: ignore[arg-type]
+        trigger_risk = bool(risk_value is not None and float(risk_value) >= float(self._recall_risk_threshold))
+
+        # Skip uncertainty trigger to prevent unnecessary forward passes in memory query.
+        trigger_uncertain = False
+        
+        if not (trigger_risk or trigger_uncertain):
+            return None
+
+        reason = "high_risk" if trigger_risk else "uncertain_state"
+        req = {
+            "query_obs": obs,
+            "top_k": int(self._recall_top_k),
+            "min_score": float(self._recall_min_score),
+            "verse_name": (self._verse_name if bool(self._recall_same_verse_only and self._verse_name) else None),
+            "memory_types": (sorted(list(self._recall_memory_types)) if self._recall_memory_types else None),
+            "reason": str(reason),
+            "trajectory_window": int(self._context_len // 2) if self._context_len > 4 else 0,
+        }
+        self._last_query_step = int(step)
+        return req
+
+    def on_memory_response(self, payload: Dict[str, Any]) -> None:
+        self._last_bundle = payload if isinstance(payload, dict) else None
+
+    def _extract_recall_bundle(self, *, hint: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if isinstance(hint, dict):
+            raw = hint.get("memory_recall")
+            if isinstance(raw, dict):
+                return raw
+        if isinstance(self._last_bundle, dict):
+            return self._last_bundle
+        return None
+
+    def _memory_action_prior(self, recall: Optional[Dict[str, Any]]) -> Optional[List[float]]:
+        if not isinstance(recall, dict):
+            return None
+        matches = recall.get("matches")
+        if not isinstance(matches, list) or not matches:
+            return None
+        prior = [0.0] * self._n_actions
+        for row in matches:
+            if not isinstance(row, dict):
+                continue
+            a = -1
+            if bool(self._recall_use_source_greedy_action):
+                a = _safe_int(row.get("source_greedy_action"), -1)
+            if a < 0:
+                a = _safe_int(row.get("action"), -1)
+            if a < 0 or a >= int(self._n_actions):
+                continue
+            score = max(0.0, _safe_float(row.get("score"), 0.0))
+            prior[a] += float(score)
+        mx = max(prior)
+        if mx <= 0.0:
+            return None
+        return [p / mx for p in prior]
+
+    def act_with_hint(self, obs: JSONValue, hint: Optional[Dict[str, Any]]) -> ActionResult:
+        self._maybe_reset_on_obs(obs)
+        state_vec = obs_to_universal_vector(obs, dim=self._state_dim)
+        
+        import numpy as np
+        recall = self._extract_recall_bundle(hint=hint)
+        trajectory = None
+        if isinstance(recall, dict):
+            matches = recall.get("matches")
+            if isinstance(matches, list) and len(matches) > 0:
+                top_match = matches[0]
+                if isinstance(top_match, dict) and top_match.get("trajectory"):
+                    trajectory = top_match.get("trajectory")
+
+        model_in = self._build_inputs(state_vec, trajectory=trajectory)
+        with torch.no_grad():
+            action_t, conf_t, probs_t = self.model.predict_next_action(
+                states=model_in["states"],
+                returns_to_go=model_in["returns_to_go"],
+                prev_actions=model_in["prev_actions"],
+                timesteps=model_in["timesteps"],
+                attention_mask=model_in["attention_mask"],
+                temperature=float(self._temperature),
+                top_k=int(self._top_k),
+                sample=bool(self._sample),
+                verse_ids=model_in.get("verse_ids"),
+                valid_action_n=self._valid_action_n,
+            )
+        
+        import numpy as np
+        recall = self._extract_recall_bundle(hint=hint)
+        recall_prior = self._memory_action_prior(recall)
+        recall_eligible = bool(recall_prior is not None and max(recall_prior) > 0.0)
+        
+        if self._action_space_type == "continuous":
+            action_out = action_t.squeeze(0).cpu().numpy().astype(float).tolist()
+            # For continuous, we skip simple memory prior addition for now or blend later.
+            action_ret = action_out
+            self._action_history.append(list(action_ret))
+        else:
+            probs_base = probs_t.squeeze(0).cpu().numpy().astype(float)
+            probs_recall = probs_base.copy()
+            if recall_eligible and recall_prior is not None:
+                for i in range(self._n_actions):
+                    probs_recall[i] += float(self._recall_vote_weight) * float(recall_prior[i])
+                    
+            if self._sample:
+                p_sum = float(np.sum(probs_recall))
+                if p_sum > 0:
+                    probs_recall = probs_recall / p_sum
+                else:
+                    probs_recall = probs_base
+                action_int = int(np.random.choice(self._n_actions, p=probs_recall))
+            else:
+                action_int = int(np.argmax(probs_recall))
+
+            action_int = max(0, min(self._n_actions - 1, action_int))
+            action_ret = action_int
+            self._action_history.append(int(action_int))
+
+        self._state_history.append(list(state_vec))
+        self._step_count += 1
+        
+        info = {
+            "mode": "adt",
+            "confidence": float(conf_t.item()),
+            "target_return": float(self._target_return),
+            "context_len": int(self._context_len),
+            "memory_recall_eligible": bool(recall_eligible),
+            "memory_recall_used": bool(recall_eligible),  # Simplification
+        }
+        if recall_eligible:
+            self._recall_uses += 1
+            info["memory_recall_uses"] = int(self._recall_uses)
+
+        return ActionResult(
+            action=action_ret,
+            info=info,
+        )
+
     def act(self, obs: JSONValue) -> ActionResult:
+        return self.act_with_hint(obs, None)
+
+    def _old_act(self, obs: JSONValue) -> ActionResult:
         self._maybe_reset_on_obs(obs)
         state_vec = obs_to_universal_vector(obs, dim=self._state_dim)
         model_in = self._build_inputs(state_vec)
@@ -366,6 +628,8 @@ class TransformerAgent:
                 temperature=float(self._temperature),
                 top_k=int(self._top_k),
                 sample=bool(self._sample),
+                verse_ids=model_in.get("verse_ids"),
+                valid_action_n=self._valid_action_n,
             )
         action = int(action_t.item())
         if action < 0 or action >= self._n_actions:
@@ -411,11 +675,15 @@ class TransformerAgent:
                 timesteps=sampled["timesteps"],
                 attention_mask=sampled["attention_mask"],
             )
-            loss = F.cross_entropy(
-                logits.reshape(-1, logits.shape[-1]),
-                sampled["actions"].reshape(-1),
-                ignore_index=-100,
-            )
+            if self._action_space_type == "continuous":
+                valid = sampled["attention_mask"] > 0
+                loss = F.mse_loss(logits[valid], sampled["actions"][valid].float())
+            else:
+                loss = F.cross_entropy(
+                    logits.reshape(-1, logits.shape[-1]),
+                    sampled["actions"].reshape(-1),
+                    ignore_index=-100,
+                )
             self._optimizer.zero_grad()
             loss.backward()
             if float(self._online_grad_clip) > 0.0:

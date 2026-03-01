@@ -1,0 +1,57 @@
+{
+  "target_verse": "warehouse_world",
+  "bridge_family": "semantic_projection_v2",
+  "bridge_reason": "transferable_logic_projection",
+  "mappings": [
+    {
+      "source_feature": "score_delta (territory/material edge)",
+      "target_feature": "path_progress (x,y toward goal)",
+      "intuition": "Advantage conversion maps to route completion pressure."
+    },
+    {
+      "source_feature": "risk (ko danger / king exposure)",
+      "target_feature": "shelf_safety (nearby_obstacles / hazard proxy)",
+      "intuition": "Defensive board awareness maps to collision avoidance bias."
+    },
+    {
+      "source_feature": "resource + tempo",
+      "target_feature": "battery + charger urgency",
+      "intuition": "Resource pacing maps to energy-aware logistics control."
+    }
+  ],
+  "sources": [
+    {
+      "verse_name": "grid_world",
+      "run_id": "warehouse_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/grid_world.jsonl",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    },
+    {
+      "verse_name": "labyrinth_world",
+      "run_id": "warehouse_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/labyrinth_world.jsonl",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    },
+    {
+      "verse_name": "park_world",
+      "run_id": "warehouse_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/park_world.jsonl",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    },
+    {
+      "verse_name": "pursuit_world",
+      "run_id": "warehouse_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/pursuit_world.jsonl",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    }
+  ],
+  "transfer_dataset_rows": 1421
+}

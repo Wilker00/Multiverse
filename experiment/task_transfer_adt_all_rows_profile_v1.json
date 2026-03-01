@@ -1,0 +1,79 @@
+{
+  "profile_id": "task_transfer_adt_all_rows_v1",
+  "created_at_iso": "2026-02-28T12:30:00Z",
+  "description": "Warehouse task-solving transfer preset with ADT prior merged from target pilot rollouts, validated against the stable near-universe Q-transfer baseline.",
+  "driver": "tools/run_fixed_seed_benchmark.py",
+  "config": {
+    "runs_root": "runs",
+    "report_dir": "models/validation/fixed_seed_tasktransfer_adt_all_rows_v1",
+    "out_json": "models/validation/fixed_seed_tasktransfer_adt_all_rows_v1/summary.json",
+    "target_verse": "warehouse_world",
+    "episodes": 40,
+    "max_steps": 120,
+    "transfer_algo": "q",
+    "baseline_algo": "q",
+    "seeds": "7,19,31,43,55",
+    "promotion_gate": true,
+    "promotion_gate_min_success_delta": 0.02,
+    "promotion_gate_min_hazard_gain_per_1k": 40.0,
+    "promotion_gate_min_return_delta": 2.0,
+    "challenge_args": [
+      "--source_dna=models/expert_datasets/near_source_bank/warehouse_world/grid_world.jsonl",
+      "--source_dna=models/expert_datasets/near_source_bank/warehouse_world/labyrinth_world.jsonl",
+      "--source_dna=models/expert_datasets/near_source_bank/warehouse_world/park_world.jsonl",
+      "--source_dna=models/expert_datasets/near_source_bank/warehouse_world/pursuit_world.jsonl",
+      "--source_verse=grid_world",
+      "--source_verse=labyrinth_world",
+      "--source_verse=park_world",
+      "--source_verse=pursuit_world",
+      "--no-far_lane_enabled",
+      "--source_attribution_enabled",
+      "--source_attribution_pilot_episodes=20",
+      "--source_attribution_num_seeds=2",
+      "--source_attribution_min_rows=20",
+      "--robust_transfer_selector",
+      "--robust_selector_pilot_episodes=20",
+      "--robust_selector_num_seeds=2",
+      "--transfer_q_warehouse_obs_key_mode=task_lite",
+      "--baseline_q_warehouse_obs_key_mode=task_lite",
+      "--transfer_filter_min_confidence=0.45",
+      "--transfer_warmstart_max_rows=96",
+      "--transfer_warmstart_balance_actions",
+      "--transfer_warmstart_action_balance_max_share=0.5",
+      "--transfer_warmstart_use_transfer_score",
+      "--transfer_warmstart_transfer_score_min=0.25",
+      "--transfer_warmstart_transfer_score_max=1.2",
+      "--transfer_warmstart_reward_scale=0.005",
+      "--adt_prior_enabled",
+      "--no-adt_prior_success_only",
+      "--adt_prior_episodes=8",
+      "--adt_prior_max_rows=64",
+      "--adt_prior_min_rows=4",
+      "--adt_prior_warmstart_reward_scale=0.01"
+    ]
+  },
+  "canonical_artifact": "models/validation/fixed_seed_tasktransfer_adt_all_rows_v1/summary.json",
+  "expected_aggregate": {
+    "num_seeds": 5,
+    "win_rate": 0.4,
+    "mean_hazard_improvement_pct": 48.236738491157055,
+    "mean_hazard_gain_per_1k": 216.71573531086415,
+    "mean_delta_return": 20.613999999999947,
+    "mean_delta_success": 0.355
+  },
+  "promotion_gate_reference": {
+    "ok": true,
+    "ci95_success_delta": [
+      0.29500000000000004,
+      0.41500000000000004
+    ],
+    "ci95_hazard_gain_per_1k": [
+      162.28994972257203,
+      262.36852339122123
+    ],
+    "ci95_return_delta": [
+      15.095999999999945,
+      25.90899999999995
+    ]
+  }
+}
