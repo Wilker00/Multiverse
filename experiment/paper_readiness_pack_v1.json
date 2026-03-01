@@ -1,6 +1,7 @@
 {
   "schema_version": "v1",
   "name": "paper_readiness_pack_v1",
+  "fixed_seed_profile": "experiment/task_transfer_stable_profile_v1.json",
   "benchmark_gate": {
     "enabled": true,
     "suite_path": "benchmark_suite.yaml",

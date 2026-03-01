@@ -22,10 +22,12 @@ TAXONOMY: Dict[str, List[str]] = {
         "swamp_world",
         "escape_world",
         "memory_vault_world",
+        "maze_world",
+        "wind_master_world",
     ],
-    "strategy_games": ["chess_world", "go_world", "uno_world"],
-    "board_control": ["chess_world", "go_world"],
-    "card_strategy": ["uno_world"],
+    "strategy_games": ["chess_world", "go_world", "uno_world", "chess_world_v2", "go_world_v2", "uno_world_v2"],
+    "board_control": ["chess_world", "go_world", "chess_world_v2", "go_world_v2"],
+    "card_strategy": ["uno_world", "uno_world_v2"],
     "complex_navigation": ["labyrinth_world", "swamp_world", "escape_world"],
     "physics": ["pursuit_world", "labyrinth_world"],
     "interaction": ["park_world"],
@@ -41,6 +43,7 @@ TAXONOMY: Dict[str, List[str]] = {
     "scheduling": ["factory_world"],
     "economics": ["trade_world"],
     "memory_diagnostics": ["memory_vault_world", "rule_flip_world"],
+    "tutorial": ["risk_tutorial_world"],
 }
 
 
@@ -146,6 +149,14 @@ VERSE_TAGS: Dict[str, List[str]] = {
         "sequential_memory",
         "risk_sensitive",
     ],
+    "maze_world": [
+        "navigation",
+        "2d",
+        "maze",
+        "exploration",
+        "discrete_grid",
+        "risk_sensitive",
+    ],
     "rule_flip_world": [
         "navigation",
         "1d",
@@ -154,6 +165,41 @@ VERSE_TAGS: Dict[str, List[str]] = {
         "rule_shift",
         "adaptive_control",
         "sequential_decision",
+    ],
+    "risk_tutorial_world": [
+        "tutorial",
+        "risk_sensitive",
+        "sequential_decision",
+        "adaptive_control",
+    ],
+    "wind_master_world": [
+        "navigation",
+        "2d",
+        "discrete_grid",
+        "risk_sensitive",
+        "dynamic_hazards",
+        "time_pressure",
+    ],
+    "chess_world_v2": [
+        "strategy_games",
+        "board_control",
+        "chess_like",
+        "transferable_logic",
+        "turn_based",
+    ],
+    "go_world_v2": [
+        "strategy_games",
+        "board_control",
+        "go_like",
+        "transferable_logic",
+        "turn_based",
+    ],
+    "uno_world_v2": [
+        "strategy_games",
+        "card_strategy",
+        "uno_like",
+        "transferable_logic",
+        "turn_based",
     ],
 }
 
@@ -176,13 +222,116 @@ VERSE_MEMORY_TYPES: Dict[str, str] = {
     "chess_world": "declarative_strategic",
     "go_world": "declarative_strategic",
     "uno_world": "declarative_strategic",
+    "chess_world_v2": "declarative_strategic",
+    "go_world_v2": "declarative_strategic",
+    "uno_world_v2": "declarative_strategic",
     "memory_vault_world": "spatial_procedural",
     "rule_flip_world": "declarative_adaptive",
+    "maze_world": "spatial_procedural",
+    "wind_master_world": "spatial_procedural",
+    "risk_tutorial_world": "declarative_adaptive",
+}
+
+
+# Universe system: similarity partitions for verses where positive competence
+# transfer is expected to be more likely than negative transfer.
+UNIVERSE_RUBRIC: Dict[str, str] = {
+    "action_semantics": "Core action meanings are the same or can be mapped without ambiguity.",
+    "state_structure": "Observations expose comparable task-relevant structure (position, goal, hazards, resources).",
+    "success_condition": "Success/termination semantics are similar enough for competence transfer metrics to align.",
+    "failure_modes": "Primary hazards/failure patterns overlap (e.g., collisions, cliffs, resource depletion).",
+    "control_strategy": "A shared policy prior or dynamics prior should improve solving more often than harm it.",
+}
+
+VERSE_UNIVERSES: Dict[str, str] = {
+    # Navigation core (clean spatial goal-seeking)
+    "line_world": "navigation_core",
+    "grid_world": "navigation_core",
+    "maze_world": "navigation_core",
+    # Navigation with explicit risk/stochastic hazards
+    "cliff_world": "navigation_risk",
+    "bridge_world": "navigation_risk",
+    "swamp_world": "navigation_risk",
+    "risk_tutorial_world": "navigation_risk",
+    "wind_master_world": "navigation_risk",
+    # Navigation with moving entities/opponents / dynamic interaction
+    "park_world": "navigation_dynamic",
+    "pursuit_world": "navigation_dynamic",
+    "escape_world": "navigation_dynamic",
+    # Logistics / operations-like environments (routing + constraints / process structure)
+    "warehouse_world": "logistics_ops",
+    "labyrinth_world": "logistics_ops",
+    "factory_world": "logistics_ops",
+    # Strategy games (turn-based symbolic planning)
+    "chess_world": "strategy_games",
+    "go_world": "strategy_games",
+    "uno_world": "strategy_games",
+    "chess_world_v2": "strategy_games",
+    "go_world_v2": "strategy_games",
+    "uno_world_v2": "strategy_games",
+    # Resource / economy style tasks
+    "harvest_world": "resource_economy",
+    "trade_world": "resource_economy",
+    # Memory / rule-shift tasks
+    "memory_vault_world": "memory_rule_tasks",
+    "rule_flip_world": "memory_rule_tasks",
+}
+
+# Optional adjacency lets tooling distinguish near cross-universe transfer from far transfer.
+UNIVERSE_ADJACENCY: Dict[str, List[str]] = {
+    "navigation_core": ["navigation_risk", "navigation_dynamic", "logistics_ops", "memory_rule_tasks"],
+    "navigation_risk": ["navigation_core", "navigation_dynamic", "logistics_ops"],
+    "navigation_dynamic": ["navigation_core", "navigation_risk", "logistics_ops"],
+    "logistics_ops": ["navigation_core", "navigation_risk", "navigation_dynamic", "resource_economy"],
+    "strategy_games": ["resource_economy", "memory_rule_tasks"],
+    "resource_economy": ["logistics_ops", "strategy_games", "memory_rule_tasks"],
+    "memory_rule_tasks": ["navigation_core", "strategy_games", "resource_economy"],
 }
 
 
 def _norm(x: str) -> str:
     return str(x).strip().lower()
+
+
+def universe_for_verse(verse_name: str) -> str:
+    return str(VERSE_UNIVERSES.get(_norm(verse_name), "unknown"))
+
+
+def all_universes() -> List[str]:
+    seen: Set[str] = set()
+    out: List[str] = []
+    for u in VERSE_UNIVERSES.values():
+        uu = _norm(u)
+        if not uu or uu in seen:
+            continue
+        seen.add(uu)
+        out.append(uu)
+    return out
+
+
+def universe_members(universe_name: str) -> List[str]:
+    u = _norm(universe_name)
+    out = [v for v, uu in VERSE_UNIVERSES.items() if _norm(uu) == u]
+    return sorted(out)
+
+
+def same_universe(source_verse: str, target_verse: str) -> bool:
+    su = universe_for_verse(source_verse)
+    tu = universe_for_verse(target_verse)
+    return bool(su != "unknown" and su == tu)
+
+
+def universe_relation(source_verse: str, target_verse: str) -> str:
+    su = universe_for_verse(source_verse)
+    tu = universe_for_verse(target_verse)
+    if su == "unknown" or tu == "unknown":
+        return "unknown"
+    if su == tu:
+        return f"same_universe:{su}"
+    near = set(_norm(x) for x in UNIVERSE_ADJACENCY.get(su, []))
+    if tu in near:
+        return f"adjacent_universe:{su}->{tu}"
+    return f"cross_universe:{su}->{tu}"
 
 
 def parent_domains(verse_name: str) -> Set[str]:
@@ -197,6 +346,9 @@ def parent_domains(verse_name: str) -> Set[str]:
 def tags_for_verse(verse_name: str) -> List[str]:
     verse = _norm(verse_name)
     base = list(VERSE_TAGS.get(verse, ["unknown"]))
+    uni = universe_for_verse(verse)
+    if uni != "unknown":
+        base.append(f"universe:{uni}")
     cog = cognitive_tags_for_verse(verse)
     merged: List[str] = []
     seen: Set[str] = set()
@@ -254,6 +406,8 @@ def can_bridge(source_verse: str, target_verse: str) -> bool:
     dst = _norm(target_verse)
     if src == dst:
         return True
+    if same_universe(src, dst):
+        return True
     if shared_parent(src, dst) is not None:
         return True
 
@@ -292,6 +446,8 @@ def bridge_reason(source_verse: str, target_verse: str) -> str:
     dst = _norm(target_verse)
     if src == dst:
         return "same_verse"
+    if same_universe(src, dst):
+        return universe_relation(src, dst)
     parent = shared_parent(src, dst)
     if parent is None:
         src_tags = set(tags_for_verse(src))

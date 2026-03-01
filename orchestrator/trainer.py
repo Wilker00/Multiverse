@@ -305,6 +305,12 @@ class Trainer:
             on_demand_memory_root=str(runtime_cfg.get("on_demand_memory_root", "central_memory")),
             on_demand_query_budget=int(runtime_cfg.get("on_demand_query_budget", 8)),
             on_demand_min_interval=int(runtime_cfg.get("on_demand_min_interval", 2)),
+            on_demand_recall_ablation_prob=float(runtime_cfg.get("on_demand_recall_ablation_prob", 0.0)),
+            on_demand_recall_ablation_seed=(
+                None
+                if runtime_cfg.get("on_demand_recall_ablation_seed") is None
+                else int(runtime_cfg.get("on_demand_recall_ablation_seed"))
+            ),
         )
 
 
