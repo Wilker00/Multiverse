@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -m tools.benchmark_batch_queries:*)"
+      "Bash(python -m tools.benchmark_batch_queries:*)",
+      "Bash(python -m pytest:*)"
     ]
   }
 }
