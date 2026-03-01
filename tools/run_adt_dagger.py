@@ -180,7 +180,8 @@ def _collect_dagger_labels(
                                 cfg=mem_cfg,
                                 top_k=req.get("top_k", 3),
                                 verse_name=req.get("verse_name"),
-                                min_score=req.get("min_score", -1.0)
+                                min_score=req.get("min_score", -1.0),
+                                trajectory_window=20
                             )
                             match_rows = []
                             for m in matches:
@@ -189,6 +190,7 @@ def _collect_dagger_labels(
                                     "action": getattr(m, "action", None),
                                     "source_greedy_action": getattr(m, "source_greedy_action", None),
                                     "verse_name": getattr(m, "verse_name", None),
+                                    "trajectory": getattr(m, "trajectory", None),
                                 })
                             bundle = {"matches": match_rows, "query_step_idx": step_idx, "reason": req.get("reason", "")}
                             hint = {"memory_recall": bundle}

@@ -135,6 +135,26 @@ def main():
             
             _append_jsonl(args.dagger_dataset_path, rows)
             
+            # Ingest round results into Central Memory for later recall
+            try:
+                from memory.central_repository import CentralMemoryConfig, ingest_run
+                import tempfile
+                import shutil
+                with tempfile.TemporaryDirectory() as td:
+                    # Ingest expects run_id-based directory structure with events.jsonl
+                    run_dir = os.path.join(td, f"dagger_round_{r}_{verse_name}")
+                    os.makedirs(run_dir, exist_ok=True)
+                    events_path = os.path.join(run_dir, "events.jsonl")
+                    # We only want this round's rows, but 'rows' is still in memory from _collect_dagger_labels
+                    with open(events_path, "w", encoding="utf-8") as f:
+                        for row in rows:
+                            f.write(json.dumps(row) + "\n")
+                    
+                    mem_cfg = CentralMemoryConfig(root_dir="central_memory")
+                    ingest_run(run_dir=run_dir, cfg=mem_cfg)
+            except Exception as e:
+                print(f"      Warning: Memory ingestion failed: {e}")
+
             verse.close()
             learner.close()
             expert.close()
