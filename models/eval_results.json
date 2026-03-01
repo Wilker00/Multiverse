@@ -1,6 +1,6 @@
 {
   "model_a": {
-    "path": "models/dt_generalist_v2.pt",
+    "path": "models/dt_generalist.pt",
     "results": {
       "line_world": {
         "success_rate": 0.0,
@@ -9,33 +9,40 @@
         "min_return": -1.0860025812534393,
         "max_return": -1.0860025812534393,
         "episodes": 5.0,
-        "elapsed_s": 16.6
+        "elapsed_s": 14.6
       },
       "grid_world": {
         "success_rate": 0.0,
-        "mean_return": -5.970000000000004,
+        "mean_return": -0.6000000000000003,
         "mean_steps": 60.0,
-        "min_return": -9.600000000000005,
+        "min_return": -0.6000000000000003,
         "max_return": -0.6000000000000003,
         "episodes": 5.0,
-        "elapsed_s": 8.5
-      },
-      "cliff_world": {
-        "success_rate": 0.0,
-        "mean_return": -5430.012906267204,
-        "mean_steps": 60.0,
-        "min_return": -5430.012906267204,
-        "max_return": -5430.012906267204,
-        "episodes": 5.0,
-        "elapsed_s": 18.5
+        "elapsed_s": 15.8
       }
     }
   },
   "model_b": {
-    "path": "models/dt_nav_recovered.pt",
+    "path": "models/dt_omega_test.pt",
     "results": {
       "line_world": {
         "success_rate": 1.0,
         "mean_return": 0.8732996988537653,
         "mean_steps": 8.0,
-        "min_return": 0.8732996988537653,
+        "min_return": 0.8732996988537653,
+        "max_return": 0.8732996988537653,
+        "episodes": 5.0,
+        "elapsed_s": 6.6
+      },
+      "grid_world": {
+        "success_rate": 0.4,
+        "mean_return": -1.9360000000000017,
+        "mean_steps": 39.0,
+        "min_return": -9.450000000000006,
+        "max_return": 0.94,
+        "episodes": 5.0,
+        "elapsed_s": 25.9
+      }
+    }
+  }
+}
