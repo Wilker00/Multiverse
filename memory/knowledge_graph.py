@@ -12,7 +12,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
-from memory.task_taxonomy import tags_for_verse
+from memory.task_taxonomy import all_universes, tags_for_verse, universe_for_verse
 
 
 @dataclass
@@ -118,6 +118,78 @@ def _default_graph() -> Dict[str, Any]:
     }
 
 
+def _universe_node_name(universe_name: str) -> str:
+    return f"universe_{str(universe_name).strip().lower()}"
+
+
+def _with_universe_overlay(graph: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Inject universe nodes/edges/tag aliases into an existing graph payload.
+    This keeps older persisted graphs compatible while enabling universe-aware relatedness.
+    """
+    out = dict(graph) if isinstance(graph, dict) else _default_graph()
+    nodes_raw = out.get("nodes")
+    edges_raw = out.get("edges")
+    aliases_raw = out.get("tag_aliases")
+    nodes = list(nodes_raw) if isinstance(nodes_raw, list) else []
+    edges = list(edges_raw) if isinstance(edges_raw, list) else []
+    aliases = dict(aliases_raw) if isinstance(aliases_raw, dict) else {}
+
+    node_set = {str(n).strip() for n in nodes if str(n).strip()}
+    edge_set = set()
+    for e in edges:
+        if not isinstance(e, dict):
+            continue
+        c = str(e.get("child", "")).strip()
+        p = str(e.get("parent", "")).strip()
+        if c and p:
+            edge_set.add((c, p))
+
+    def _add_node(n: str) -> None:
+        nn = str(n).strip()
+        if not nn or nn in node_set:
+            return
+        node_set.add(nn)
+        nodes.append(nn)
+
+    def _add_edge(child: str, parent: str) -> None:
+        c = str(child).strip()
+        p = str(parent).strip()
+        if not c or not p or (c, p) in edge_set:
+            return
+        edge_set.add((c, p))
+        edges.append({"child": c, "parent": p})
+
+    _add_node("verse_universe")
+    _add_edge("verse_universe", "environment")
+
+    for u in all_universes():
+        unode = _universe_node_name(u)
+        _add_node(unode)
+        _add_edge(unode, "verse_universe")
+        tag_key = f"universe:{str(u).strip().lower()}"
+        mapped = aliases.get(tag_key)
+        mapped_list = [str(x).strip() for x in mapped] if isinstance(mapped, list) else []
+        if unode not in mapped_list:
+            mapped_list.append(unode)
+        aliases[tag_key] = [m for m in mapped_list if m]
+
+    # Add verse->universe edges for known verses. This works even when the graph
+    # file predates newer verses.
+    for n in list(node_set):
+        if not n.endswith("_world") and "_world_" not in n:
+            continue
+        u = universe_for_verse(n)
+        if not u or u == "unknown":
+            continue
+        _add_edge(n, _universe_node_name(u))
+
+    out["nodes"] = nodes
+    out["edges"] = edges
+    out["tag_aliases"] = aliases
+    return out
+
+
 def ensure_graph(cfg: Optional[KnowledgeGraphConfig] = None) -> str:
     if cfg is None:
         cfg = KnowledgeGraphConfig()
@@ -136,10 +208,10 @@ def load_graph(cfg: Optional[KnowledgeGraphConfig] = None) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, dict):
-        return _default_graph()
+        return _with_universe_overlay(_default_graph())
     if "edges" not in data or not isinstance(data.get("edges"), list):
-        return _default_graph()
-    return data
+        return _with_universe_overlay(_default_graph())
+    return _with_universe_overlay(data)
 
 
 def _parent_map(graph: Dict[str, Any]) -> Dict[str, Set[str]]:

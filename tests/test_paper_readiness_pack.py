@@ -4,7 +4,9 @@ from tools.run_paper_readiness_pack import (
     _build_fixed_seed_cmd,
     _build_promote_cmd,
     _build_theory_cmd,
+    _merge_fixed_seed_with_profile,
     _normalize_pack,
+    _normalize_fixed_seed_profile,
 )
 
 
@@ -15,6 +17,7 @@ def test_normalize_pack_defaults() -> None:
     assert pack["benchmark_gate"]["suite_path"] == "benchmark_suite.yaml"
     assert pack["benchmark_gate"]["candidate_config"] == []
     assert pack["benchmark_gate"]["baseline_config"] == []
+    assert pack["fixed_seed_profile"] == ""
     assert pack["fixed_seed_transfer"]["seeds"] == "123,223,337"
     assert pack["theory_validation"]["transfer_lambda"] == "auto"
 
@@ -87,3 +90,31 @@ def test_build_fixed_seed_and_theory_cmds() -> None:
     )
     assert "--safety_events_jsonl" in theory_cmd
     assert "runs/example/events.jsonl" in theory_cmd
+
+
+def test_normalize_and_merge_fixed_seed_profile() -> None:
+    fixed = {
+        "enabled": True,
+        "target_verse": "warehouse_world",
+        "episodes": 60,
+        "max_steps": 100,
+        "seeds": "123,223,337",
+        "challenge_args": ["--foo", "bar"],
+    }
+    profile = _normalize_fixed_seed_profile(
+        {
+            "config": {
+                "target_verse": "warehouse_world",
+                "episodes": 40,
+                "max_steps": 120,
+                "seeds": "7,19,31,43,55",
+                "challenge_args": ["--x=1", "--y=2"],
+            }
+        }
+    )
+    merged = _merge_fixed_seed_with_profile(fixed, profile)
+    assert merged["target_verse"] == "warehouse_world"
+    assert merged["episodes"] == 40
+    assert merged["max_steps"] == 120
+    assert merged["seeds"] == "7,19,31,43,55"
+    assert merged["challenge_args"] == ["--x=1", "--y=2"]

@@ -1,0 +1,65 @@
+{
+  "version": "v1",
+  "description": "Universe assignments partition verses by transfer-relevant similarity. Same-universe pairs are the default candidates for task-solving transfer.",
+  "rubric": {
+    "action_semantics": "Core action meanings are the same or can be mapped without ambiguity.",
+    "state_structure": "Observations expose comparable task-relevant structure (position, goal, hazards, resources).",
+    "success_condition": "Success/termination semantics are similar enough for competence transfer metrics to align.",
+    "failure_modes": "Primary hazards/failure patterns overlap (e.g., collisions, cliffs, resource depletion).",
+    "control_strategy": "A shared policy prior or dynamics prior should improve solving more often than harm it."
+  },
+  "policy": {
+    "same_universe_default": "task_solving_transfer_candidate",
+    "adjacent_universe_default": "safety_or_optimization_transfer_first",
+    "cross_universe_default": "semantic_bridge_or_demo_only_until_proven"
+  },
+  "universes": {
+    "navigation_core": [
+      "line_world",
+      "grid_world",
+      "maze_world"
+    ],
+    "navigation_risk": [
+      "cliff_world",
+      "bridge_world",
+      "swamp_world",
+      "risk_tutorial_world",
+      "wind_master_world"
+    ],
+    "navigation_dynamic": [
+      "park_world",
+      "pursuit_world",
+      "escape_world"
+    ],
+    "logistics_ops": [
+      "warehouse_world",
+      "labyrinth_world",
+      "factory_world"
+    ],
+    "strategy_games": [
+      "chess_world",
+      "go_world",
+      "uno_world",
+      "chess_world_v2",
+      "go_world_v2",
+      "uno_world_v2"
+    ],
+    "resource_economy": [
+      "harvest_world",
+      "trade_world"
+    ],
+    "memory_rule_tasks": [
+      "memory_vault_world",
+      "rule_flip_world"
+    ]
+  },
+  "adjacency": {
+    "navigation_core": ["navigation_risk", "navigation_dynamic", "logistics_ops", "memory_rule_tasks"],
+    "navigation_risk": ["navigation_core", "navigation_dynamic", "logistics_ops"],
+    "navigation_dynamic": ["navigation_core", "navigation_risk", "logistics_ops"],
+    "logistics_ops": ["navigation_core", "navigation_risk", "navigation_dynamic", "resource_economy"],
+    "strategy_games": ["resource_economy", "memory_rule_tasks"],
+    "resource_economy": ["logistics_ops", "strategy_games", "memory_rule_tasks"],
+    "memory_rule_tasks": ["navigation_core", "strategy_games", "resource_economy"]
+  }
+}

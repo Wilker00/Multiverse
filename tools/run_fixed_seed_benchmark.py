@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import statistics
 import subprocess
 import sys
@@ -72,6 +73,12 @@ def extract_seed_metrics(report: Dict[str, Any]) -> Dict[str, Any]:
     ds_diag = report.get("transfer_dataset_diagnostics", {}) if isinstance(report.get("transfer_dataset_diagnostics"), dict) else {}
     score_diag = ds_diag.get("score_distribution", {}) if isinstance(ds_diag.get("score_distribution"), dict) else {}
     score_dist = score_diag.get("transfer_score", {}) if isinstance(score_diag.get("transfer_score"), dict) else {}
+    transfer_hazard_per_1k = float(_safe_float(safety.get("transfer_hazard_per_1k", 0.0), 0.0))
+    baseline_hazard_per_1k = float(_safe_float(safety.get("baseline_hazard_per_1k", 0.0), 0.0))
+    transfer_mean_return = float(_safe_float(transfer_eval.get("mean_return", 0.0), 0.0))
+    baseline_mean_return = float(_safe_float(baseline_eval.get("mean_return", 0.0), 0.0))
+    transfer_success_rate = float(_safe_float(transfer_eval.get("success_rate", 0.0), 0.0))
+    baseline_success_rate = float(_safe_float(baseline_eval.get("success_rate", 0.0), 0.0))
     return {
         "transfer_wins_convergence": bool(cmp.get("transfer_wins_convergence", False)),
         "transfer_speedup_ratio": (
@@ -80,8 +87,9 @@ def extract_seed_metrics(report: Dict[str, Any]) -> Dict[str, Any]:
             else float(_safe_float(cmp.get("transfer_speedup_ratio"), 0.0))
         ),
         "hazard_improvement_pct": float(_safe_float(cmp.get("hazard_improvement_pct", 0.0), 0.0)),
-        "transfer_hazard_per_1k": float(_safe_float(safety.get("transfer_hazard_per_1k", 0.0), 0.0)),
-        "baseline_hazard_per_1k": float(_safe_float(safety.get("baseline_hazard_per_1k", 0.0), 0.0)),
+        "transfer_hazard_per_1k": float(transfer_hazard_per_1k),
+        "baseline_hazard_per_1k": float(baseline_hazard_per_1k),
+        "hazard_gain_per_1k": float(baseline_hazard_per_1k - transfer_hazard_per_1k),
         "transfer_mcts_veto_rate": float(_safe_float(safety.get("transfer_mcts_veto_rate", 0.0), 0.0)),
         "baseline_mcts_veto_rate": float(_safe_float(safety.get("baseline_mcts_veto_rate", 0.0), 0.0)),
         "transfer_health_score": (
@@ -96,10 +104,12 @@ def extract_seed_metrics(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "transfer_health_status": str(transfer_h.get("status", "")),
         "baseline_health_status": str(baseline_h.get("status", "")),
-        "transfer_mean_return": float(_safe_float(transfer_eval.get("mean_return", 0.0), 0.0)),
-        "baseline_mean_return": float(_safe_float(baseline_eval.get("mean_return", 0.0), 0.0)),
-        "transfer_success_rate": float(_safe_float(transfer_eval.get("success_rate", 0.0), 0.0)),
-        "baseline_success_rate": float(_safe_float(baseline_eval.get("success_rate", 0.0), 0.0)),
+        "transfer_mean_return": float(transfer_mean_return),
+        "baseline_mean_return": float(baseline_mean_return),
+        "return_delta": float(transfer_mean_return - baseline_mean_return),
+        "transfer_success_rate": float(transfer_success_rate),
+        "baseline_success_rate": float(baseline_success_rate),
+        "success_delta": float(transfer_success_rate - baseline_success_rate),
         "transfer_early_mean_return": (
             None if transfer_early.get("mean_return") is None else float(_safe_float(transfer_early.get("mean_return"), 0.0))
         ),
@@ -145,6 +155,7 @@ def aggregate_seed_metrics(seed_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "win_rate": 0.0,
             "mean_speedup_ratio": None,
             "mean_hazard_improvement_pct": 0.0,
+            "mean_hazard_gain_per_1k": 0.0,
             "mean_transfer_hazard_per_1k": 0.0,
             "mean_baseline_hazard_per_1k": 0.0,
             "mean_transfer_health_score": None,
@@ -158,6 +169,22 @@ def aggregate_seed_metrics(seed_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "mean_transfer_score_p10": None,
             "mean_transfer_score_p50": None,
             "mean_transfer_score_p90": None,
+            "hazard_gain_per_1k_stats": {
+                "mean": 0.0,
+                "stdev": None,
+                "cv": None,
+                "min": None,
+                "max": None,
+                "range": None,
+            },
+            "hazard_improvement_pct_stats": {
+                "mean": 0.0,
+                "stdev": None,
+                "cv": None,
+                "min": None,
+                "max": None,
+                "range": None,
+            },
             "transfer_status_counts": {},
             "baseline_status_counts": {},
         }
@@ -168,6 +195,10 @@ def aggregate_seed_metrics(seed_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     wins = sum(1 for r in seed_rows if bool(r.get("transfer_wins_convergence", False)))
     speedups = [float(r["transfer_speedup_ratio"]) for r in seed_rows if isinstance(r.get("transfer_speedup_ratio"), (int, float))]
     haz_gain = [float(_safe_float(r.get("hazard_improvement_pct", 0.0), 0.0)) for r in seed_rows]
+    haz_gain_1k = [
+        float(_safe_float(r.get("hazard_gain_per_1k", 0.0), _safe_float(r.get("baseline_hazard_per_1k", 0.0), 0.0) - _safe_float(r.get("transfer_hazard_per_1k", 0.0), 0.0)))
+        for r in seed_rows
+    ]
     tr_haz = [float(_safe_float(r.get("transfer_hazard_per_1k", 0.0), 0.0)) for r in seed_rows]
     bl_haz = [float(_safe_float(r.get("baseline_hazard_per_1k", 0.0), 0.0)) for r in seed_rows]
     tr_hs = [float(r["transfer_health_score"]) for r in seed_rows if isinstance(r.get("transfer_health_score"), (int, float))]
@@ -192,12 +223,37 @@ def aggregate_seed_metrics(seed_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         if bs:
             bl_status[bs] = int(bl_status.get(bs, 0)) + 1
 
+    def _dispersion(vals: List[float]) -> Dict[str, Optional[float]]:
+        if not vals:
+            return {
+                "mean": None,
+                "stdev": None,
+                "cv": None,
+                "min": None,
+                "max": None,
+                "range": None,
+            }
+        m = _mean(vals)
+        mn = float(min(vals))
+        mx = float(max(vals))
+        st = float(statistics.stdev(vals)) if len(vals) > 1 else 0.0
+        cv = float(st / float(max(1e-9, abs(m)))) if len(vals) > 1 else 0.0
+        return {
+            "mean": float(m),
+            "stdev": float(st),
+            "cv": float(cv),
+            "min": float(mn),
+            "max": float(mx),
+            "range": float(mx - mn),
+        }
+
     out = {
         "num_seeds": int(n),
         "win_rate": float(wins / float(max(1, n))),
         "mean_speedup_ratio": (None if not speedups else _mean(speedups)),
         "median_speedup_ratio": (None if not speedups else float(statistics.median(speedups))),
         "mean_hazard_improvement_pct": _mean(haz_gain),
+        "mean_hazard_gain_per_1k": _mean(haz_gain_1k),
         "mean_transfer_hazard_per_1k": _mean(tr_haz),
         "mean_baseline_hazard_per_1k": _mean(bl_haz),
         "mean_transfer_health_score": (None if not tr_hs else _mean(tr_hs)),
@@ -211,10 +267,101 @@ def aggregate_seed_metrics(seed_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "mean_transfer_score_p10": (None if not tr_sc_p10 else _mean(tr_sc_p10)),
         "mean_transfer_score_p50": (None if not tr_sc_p50 else _mean(tr_sc_p50)),
         "mean_transfer_score_p90": (None if not tr_sc_p90 else _mean(tr_sc_p90)),
+        "hazard_gain_per_1k_stats": _dispersion(haz_gain_1k),
+        "hazard_improvement_pct_stats": _dispersion(haz_gain),
         "transfer_status_counts": tr_status,
         "baseline_status_counts": bl_status,
     }
     return out
+
+
+def _bootstrap_ci95(values: List[float], *, n_boot: int, seed: int) -> List[Optional[float]]:
+    arr = [float(v) for v in values]
+    if not arr:
+        return [None, None]
+    if len(arr) == 1:
+        return [float(arr[0]), float(arr[0])]
+    n = max(200, int(n_boot))
+    rng = random.Random(int(seed))
+    m = len(arr)
+    means: List[float] = []
+    for _ in range(n):
+        s = 0.0
+        for _k in range(m):
+            s += float(arr[rng.randrange(m)])
+        means.append(float(s / float(m)))
+    means.sort()
+    lo_idx = max(0, min(len(means) - 1, int(0.025 * len(means))))
+    hi_idx = max(0, min(len(means) - 1, int(0.975 * len(means)) - 1))
+    return [float(means[lo_idx]), float(means[hi_idx])]
+
+
+def compute_transfer_promotion_gate(
+    *,
+    seed_rows: List[Dict[str, Any]],
+    n_boot: int,
+    seed: int,
+    min_success_delta: float,
+    min_hazard_gain_per_1k: float,
+    min_return_delta: float,
+) -> Dict[str, Any]:
+    success_deltas: List[float] = []
+    hazard_gains: List[float] = []
+    return_deltas: List[float] = []
+    for row in seed_rows:
+        m = row.get("metrics", {}) if isinstance(row.get("metrics"), dict) else {}
+        success_deltas.append(
+            float(_safe_float(m.get("transfer_success_rate", 0.0), 0.0))
+            - float(_safe_float(m.get("baseline_success_rate", 0.0), 0.0))
+        )
+        hazard_gains.append(
+            float(_safe_float(m.get("baseline_hazard_per_1k", 0.0), 0.0))
+            - float(_safe_float(m.get("transfer_hazard_per_1k", 0.0), 0.0))
+        )
+        return_deltas.append(
+            float(_safe_float(m.get("transfer_mean_return", 0.0), 0.0))
+            - float(_safe_float(m.get("baseline_mean_return", 0.0), 0.0))
+        )
+
+    def _mean(vals: List[float]) -> Optional[float]:
+        if not vals:
+            return None
+        return float(sum(vals) / float(len(vals)))
+
+    ci_success = _bootstrap_ci95(success_deltas, n_boot=int(n_boot), seed=int(seed) + 11)
+    ci_hazard = _bootstrap_ci95(hazard_gains, n_boot=int(n_boot), seed=int(seed) + 29)
+    ci_return = _bootstrap_ci95(return_deltas, n_boot=int(n_boot), seed=int(seed) + 47)
+    lo_s = ci_success[0]
+    lo_h = ci_hazard[0]
+    lo_r = ci_return[0]
+    pass_success = bool((lo_s is not None) and (float(lo_s) > float(min_success_delta)))
+    pass_hazard = bool((lo_h is not None) and (float(lo_h) >= float(min_hazard_gain_per_1k)))
+    pass_return = bool((lo_r is not None) and (float(lo_r) >= float(min_return_delta)))
+    ok = bool(pass_success and pass_hazard and pass_return)
+    return {
+        "ok": bool(ok),
+        "num_seeds": int(len(seed_rows)),
+        "thresholds": {
+            "min_success_delta": float(min_success_delta),
+            "min_hazard_gain_per_1k": float(min_hazard_gain_per_1k),
+            "min_return_delta": float(min_return_delta),
+        },
+        "means": {
+            "success_delta": _mean(success_deltas),
+            "hazard_gain_per_1k": _mean(hazard_gains),
+            "return_delta": _mean(return_deltas),
+        },
+        "ci95": {
+            "success_delta": ci_success,
+            "hazard_gain_per_1k": ci_hazard,
+            "return_delta": ci_return,
+        },
+        "checks": {
+            "success_delta_ci95_low_gt_threshold": bool(pass_success),
+            "hazard_gain_ci95_low_ge_threshold": bool(pass_hazard),
+            "return_delta_ci95_low_ge_threshold": bool(pass_return),
+        },
+    }
 
 
 def _read_json(path: str) -> Dict[str, Any]:
@@ -223,6 +370,20 @@ def _read_json(path: str) -> Dict[str, Any]:
     if not isinstance(obj, dict):
         raise ValueError(f"Expected object JSON: {path}")
     return obj
+
+
+def _load_existing_seed_row(*, seed: int, report_out: str, overlap_out: str) -> Optional[Dict[str, Any]]:
+    if not os.path.isfile(report_out):
+        return None
+    rep = _read_json(report_out)
+    metrics = extract_seed_metrics(rep)
+    return {
+        "seed": int(seed),
+        "report_out": str(report_out).replace("\\", "/"),
+        "overlap_out": str(overlap_out).replace("\\", "/"),
+        "metrics": metrics,
+        "resumed": True,
+    }
 
 
 def _run_cmd(cmd: List[str], *, cwd: str) -> None:
@@ -450,6 +611,14 @@ def main() -> None:
     ap.add_argument("--auto_bridge_tune_hazard_keep_ratios", type=str, default="1.0")
     ap.add_argument("--auto_bridge_tune_probe_episodes", type=int, default=12)
     ap.add_argument("--auto_bridge_tune_probe_max_steps", type=int, default=80)
+    ap.add_argument("--promotion_gate", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--promotion_gate_bootstrap_samples", type=int, default=5000)
+    ap.add_argument("--promotion_gate_seed", type=int, default=7)
+    ap.add_argument("--promotion_gate_min_success_delta", type=float, default=0.02)
+    ap.add_argument("--promotion_gate_min_hazard_gain_per_1k", type=float, default=40.0)
+    ap.add_argument("--promotion_gate_min_return_delta", type=float, default=2.0)
+    ap.add_argument("--fail_on_promotion_gate", action="store_true")
+    ap.add_argument("--resume_existing", action=argparse.BooleanOptionalAction, default=False)
     ap.add_argument("--out_json", type=str, default="")
     args = ap.parse_args()
 
@@ -484,6 +653,22 @@ def main() -> None:
     for seed in seeds:
         report_out = os.path.join(root, f"transfer_seed_{int(seed)}.json")
         overlap_out = os.path.join(root, f"transfer_seed_{int(seed)}_overlap.json")
+        if bool(args.resume_existing):
+            resumed = _load_existing_seed_row(
+                seed=int(seed),
+                report_out=report_out,
+                overlap_out=overlap_out,
+            )
+            if isinstance(resumed, dict):
+                per_seed.append(resumed)
+                metrics = resumed.get("metrics", {}) if isinstance(resumed.get("metrics"), dict) else {}
+                print(
+                    f"[seed={seed}] resumed existing report "
+                    f"win={bool(metrics.get('transfer_wins_convergence', False))} "
+                    f"hazard_gain_pct={float(_safe_float(metrics.get('hazard_improvement_pct', 0.0), 0.0)):.2f} "
+                    f"transfer_health={metrics.get('transfer_health_status', '')}"
+                )
+                continue
         cmd = _build_challenge_cmd(
             py=py,
             runs_root=str(args.runs_root),
@@ -509,6 +694,7 @@ def main() -> None:
                 "report_out": report_out.replace("\\", "/"),
                 "overlap_out": overlap_out.replace("\\", "/"),
                 "metrics": metrics,
+                "resumed": False,
             }
         )
         print(
@@ -518,6 +704,16 @@ def main() -> None:
         )
 
     agg = aggregate_seed_metrics([dict(x.get("metrics", {})) for x in per_seed])
+    promotion_gate = None
+    if bool(args.promotion_gate):
+        promotion_gate = compute_transfer_promotion_gate(
+            seed_rows=per_seed,
+            n_boot=max(200, int(args.promotion_gate_bootstrap_samples)),
+            seed=int(args.promotion_gate_seed),
+            min_success_delta=float(args.promotion_gate_min_success_delta),
+            min_hazard_gain_per_1k=float(args.promotion_gate_min_hazard_gain_per_1k),
+            min_return_delta=float(args.promotion_gate_min_return_delta),
+        )
     summary = {
         "created_at_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "target_verse": str(args.target_verse),
@@ -530,6 +726,7 @@ def main() -> None:
         "auto_bridge_tune": auto_tune_info,
         "aggregate": agg,
         "per_seed": per_seed,
+        "promotion_gate": promotion_gate,
     }
 
     out_json = str(args.out_json).strip()
@@ -548,6 +745,14 @@ def main() -> None:
         f"win_rate={float(_safe_float(agg.get('win_rate', 0.0), 0.0)):.3f} "
         f"mean_hazard_gain_pct={float(_safe_float(agg.get('mean_hazard_improvement_pct', 0.0), 0.0)):.2f}"
     )
+    if isinstance(promotion_gate, dict):
+        print(
+            f"promotion_gate_ok={bool(promotion_gate.get('ok', False))} "
+            f"ci_success={promotion_gate.get('ci95', {}).get('success_delta')} "
+            f"ci_hazard={promotion_gate.get('ci95', {}).get('hazard_gain_per_1k')}"
+        )
+        if bool(args.fail_on_promotion_gate) and (not bool(promotion_gate.get("ok", False))):
+            raise SystemExit(2)
 
 
 if __name__ == "__main__":

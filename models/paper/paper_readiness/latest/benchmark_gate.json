@@ -1,7 +1,7 @@
 {
   "suite": "benchmark_suite.yaml",
   "suite_name": "multiverse_regression_suite_v1",
-  "candidate_algo": "memory_recall",
+  "candidate_algo": "q",
   "baseline_algo": "q",
   "retention_max_drop_pct": 0.05,
   "overall_pass": false,
@@ -107,19 +107,19 @@
         "max_safety_violation_rate": 0.5
       },
       "retention_check": {
-        "passed": false,
+        "passed": true,
         "retention_max_drop_pct": 0.05,
         "min_success_allowed": 0.0,
         "min_return_allowed": -0.23450000000000001
       },
       "candidate": {
         "episodes": 12,
-        "mean_return": -0.3666666666666667,
+        "mean_return": -0.22333333333333336,
         "success_rate": 0.0,
         "failure_rate": 1.0,
         "safety_violation_rate": 1.0,
-        "return_variance": 0.016088888888888906,
-        "mean_steps": 17.666666666666668
+        "return_variance": 0.0006888888888888886,
+        "mean_steps": 3.3333333333333335
       },
       "baseline": {
         "episodes": 12,
@@ -131,21 +131,21 @@
         "mean_steps": 3.3333333333333335
       },
       "candidate_config_used": {
-        "dataset_path": "models/expert_datasets/line_world.jsonl",
-        "warmstart_reward_scale": 1.0,
+        "dataset_path": "",
+        "warmstart_reward_scale": 0.0,
         "warmstart_target": "return_to_go",
         "warmstart_target_gamma": 1.0,
-        "epsilon_start": 0.2,
-        "epsilon_min": 0.01,
-        "epsilon_decay": 0.999,
-        "recall_enabled": true,
+        "epsilon_start": 1.0,
+        "epsilon_min": 0.05,
+        "epsilon_decay": 0.995,
+        "recall_enabled": false,
         "recall_uncertainty_margin": 0.5,
         "recall_cooldown_steps": 1
       },
       "baseline_config_used": {}
     },
     "pursuit_world": {
-      "passed": false,
+      "passed": true,
       "absolute_check": {
         "passed": true,
         "min_success_rate": 0.35,
@@ -153,19 +153,19 @@
         "max_safety_violation_rate": 0.5
       },
       "retention_check": {
-        "passed": false,
+        "passed": true,
         "retention_max_drop_pct": 0.05,
         "min_success_allowed": 0.6333333333333333,
         "min_return_allowed": 0.2477916666666665
       },
       "candidate": {
         "episodes": 12,
-        "mean_return": 0.018333333333333108,
-        "success_rate": 0.5,
-        "failure_rate": 0.5,
+        "mean_return": 0.26083333333333314,
+        "success_rate": 0.6666666666666666,
+        "failure_rate": 0.3333333333333333,
         "safety_violation_rate": 0.0,
-        "return_variance": 0.3951805555555557,
-        "mean_steps": 48.666666666666664
+        "return_variance": 0.39234097222222236,
+        "mean_steps": 41.25
       },
       "baseline": {
         "episodes": 12,
@@ -177,14 +177,14 @@
         "mean_steps": 41.25
       },
       "candidate_config_used": {
-        "dataset_path": "models/expert_datasets/line_world.jsonl",
-        "warmstart_reward_scale": 1.0,
+        "dataset_path": "",
+        "warmstart_reward_scale": 0.0,
         "warmstart_target": "return_to_go",
         "warmstart_target_gamma": 1.0,
-        "epsilon_start": 0.2,
-        "epsilon_min": 0.01,
-        "epsilon_decay": 0.999,
-        "recall_enabled": true,
+        "epsilon_start": 1.0,
+        "epsilon_min": 0.05,
+        "epsilon_decay": 0.995,
+        "recall_enabled": false,
         "recall_uncertainty_margin": 0.5,
         "recall_cooldown_steps": 1
       },
@@ -245,19 +245,19 @@
         "max_safety_violation_rate": 0.9
       },
       "retention_check": {
-        "passed": false,
+        "passed": true,
         "retention_max_drop_pct": 0.05,
         "min_success_allowed": 0.0,
         "min_return_allowed": -29.18125000000001
       },
       "candidate": {
         "episodes": 6,
-        "mean_return": -37.358333333333334,
+        "mean_return": -27.791666666666675,
         "success_rate": 0.0,
         "failure_rate": 1.0,
         "safety_violation_rate": 1.0,
-        "return_variance": 1.2986805555555585,
-        "mean_steps": 143.16666666666666
+        "return_variance": 56.91701388888874,
+        "mean_steps": 84.83333333333333
       },
       "baseline": {
         "episodes": 6,
@@ -269,19 +269,19 @@
         "mean_steps": 84.83333333333333
       },
       "candidate_config_used": {
-        "dataset_path": "models/expert_datasets/line_world.jsonl",
-        "warmstart_reward_scale": 1.0,
+        "dataset_path": "",
+        "warmstart_reward_scale": 0.0,
         "warmstart_target": "return_to_go",
         "warmstart_target_gamma": 1.0,
-        "epsilon_start": 0.2,
-        "epsilon_min": 0.01,
-        "epsilon_decay": 0.999,
-        "recall_enabled": true,
+        "epsilon_start": 1.0,
+        "epsilon_min": 0.05,
+        "epsilon_decay": 0.995,
+        "recall_enabled": false,
         "recall_uncertainty_margin": 0.5,
         "recall_cooldown_steps": 1
       },
       "baseline_config_used": {}
     }
   },
-  "created_at": "2026-02-20T03:12:11.187836+00:00"
+  "created_at": "2026-02-27T15:42:10.938898+00:00"
 }

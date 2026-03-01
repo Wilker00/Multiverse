@@ -184,6 +184,76 @@ def _extract_success_dna_from_events(
     return written
 
 
+def _extract_top_return_dna_from_events(
+    *,
+    run_dir: str,
+    out_path: str,
+    max_rows: int = 5000,
+    top_return_pct: float = 0.25,
+) -> int:
+    events_path = os.path.join(run_dir, "events.jsonl")
+    if not os.path.isfile(events_path):
+        return 0
+    by_ep: Dict[str, List[Dict[str, Any]]] = {}
+    order: List[str] = []
+    for ev in _iter_jsonl(events_path):
+        ep = str(ev.get("episode_id", "")).strip()
+        if not ep:
+            continue
+        if ep not in by_ep:
+            by_ep[ep] = []
+            order.append(ep)
+        by_ep[ep].append(ev)
+    if not order:
+        return 0
+
+    episode_scores: List[Tuple[float, int, str]] = []
+    for idx, ep in enumerate(order):
+        rows = by_ep.get(ep, [])
+        ret = float(sum(_safe_float(r.get("reward", 0.0), 0.0) for r in rows if isinstance(r, dict)))
+        success = 1 if any(bool((r.get("info") or {}).get("reached_goal", False)) for r in rows if isinstance(r, dict)) else 0
+        # Prefer higher-return episodes; break ties toward successful episodes and earlier order.
+        episode_scores.append((float(ret), int(success), str(ep)))
+    episode_scores.sort(key=lambda x: (float(x[0]), int(x[1])), reverse=True)
+    keep_pct = max(0.0, min(1.0, float(top_return_pct)))
+    keep_eps = max(1, int(math.ceil(float(len(episode_scores)) * keep_pct)))
+    selected = set(str(ep) for _, _, ep in episode_scores[:keep_eps])
+    if not selected:
+        return 0
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    written = 0
+    with open(out_path, "w", encoding="utf-8") as out:
+        for ep in order:
+            if ep not in selected:
+                continue
+            rows = by_ep.get(ep, [])
+            rows.sort(key=lambda r: _safe_int(r.get("step_idx", 0), 0))
+            for i, ev in enumerate(rows):
+                if written >= int(max_rows):
+                    return written
+                obs = ev.get("obs")
+                action = ev.get("action")
+                try:
+                    a = int(action)
+                except Exception:
+                    continue
+                next_obs = rows[i + 1].get("obs") if i + 1 < len(rows) else obs
+                row = {
+                    "episode_id": str(ev.get("episode_id", "")),
+                    "step_idx": _safe_int(ev.get("step_idx", i), i),
+                    "verse_name": str(ev.get("verse_name", "")),
+                    "obs": obs,
+                    "action": int(a),
+                    "reward": _safe_float(ev.get("reward", 0.0), 0.0),
+                    "done": bool(ev.get("done", False) or ev.get("truncated", False)),
+                    "next_obs": next_obs,
+                }
+                out.write(json.dumps(row, ensure_ascii=False) + "\n")
+                written += 1
+    return written
+
+
 @dataclass
 class _SourceDNA:
     verse_name: str
@@ -268,21 +338,24 @@ def _discover_transfer_sources(
                     )
                 )
 
-    # Fallback to curated expert datasets if run discovery is empty.
-    if not out:
-        for verse_name in all_targets:
-            p = os.path.join("models", "expert_datasets", f"{verse_name}.jsonl")
-            if os.path.isfile(p):
-                out.append(
-                    _SourceDNA(
-                        verse_name=verse_name,
-                        path=p,
-                        run_id="expert_dataset",
-                        source_kind="fallback",
-                        source_lane=("near_universe" if verse_name in near_set else "far_universe"),
-                        source_universe=(primary_universe_for_verse(verse_name) or ""),
-                    )
+    # Backfill missing planned sources from curated expert datasets.
+    # This avoids a far-only pool when near-universe runs are sparse.
+    seen_verses = set(str(s.verse_name).strip().lower() for s in out if str(s.verse_name).strip())
+    for verse_name in all_targets:
+        if verse_name in seen_verses:
+            continue
+        p = os.path.join("models", "expert_datasets", f"{verse_name}.jsonl")
+        if os.path.isfile(p):
+            out.append(
+                _SourceDNA(
+                    verse_name=verse_name,
+                    path=p,
+                    run_id="expert_dataset",
+                    source_kind="fallback",
+                    source_lane=("near_universe" if verse_name in near_set else "far_universe"),
+                    source_universe=(primary_universe_for_verse(verse_name) or ""),
                 )
+            )
     return out
 
 
@@ -568,7 +641,9 @@ def _normalize_target_obs(target_verse: str, obs: Any) -> Optional[Dict[str, Any
         nearest = max(-1, min(25, _safe_int(obs.get("nearest_charger_dist", -1), -1)))
         t = max(0, _safe_int(obs.get("t", 0), 0))
         on_conveyor = max(0, min(1, _safe_int(obs.get("on_conveyor", 0), 0)))
-        patrol_dist = max(0, min(25, _safe_int(obs.get("patrol_dist", 4), 4)))
+        # Preserve unknown patrol distance as -1 so task-lite keying does not
+        # misclassify all rows as "patrol near".
+        patrol_dist = max(-1, min(25, _safe_int(obs.get("patrol_dist", 4), 4)))
         raw_lidar = obs.get("lidar")
         lidar: List[int] = []
         if isinstance(raw_lidar, list):
@@ -739,6 +814,7 @@ def _filter_transfer_dataset(
     dedupe: bool,
     max_rows: int,
     hazard_keep_ratio: float = 1.0,
+    min_transfer_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     if not os.path.isfile(path):
         return {
@@ -757,7 +833,9 @@ def _filter_transfer_dataset(
     dropped_invalid = 0
     dropped_dup = 0
     dropped_hazard = 0
+    dropped_low_confidence = 0
     hz_ratio = max(0.0, min(1.0, float(hazard_keep_ratio)))
+    min_conf = max(0.0, min(1.0, float(min_transfer_confidence)))
     hazard_keys = {
         "hit_wall",
         "hit_obstacle",
@@ -789,6 +867,12 @@ def _filter_transfer_dataset(
             if action < 0 or action >= int(action_n):
                 dropped_invalid += 1
                 continue
+            conf = row.get("transfer_confidence")
+            if conf is not None:
+                conf_f = _safe_float(conf, -1.0)
+                if conf_f < float(min_conf):
+                    dropped_low_confidence += 1
+                    continue
             reward = _safe_float(row.get("reward", 0.0), 0.0)
             if not math.isfinite(float(reward)) or abs(float(reward)) > 1e6:
                 dropped_invalid += 1
@@ -846,7 +930,9 @@ def _filter_transfer_dataset(
         "dropped_invalid": int(dropped_invalid),
         "dropped_duplicates": int(dropped_dup),
         "dropped_hazard": int(dropped_hazard),
+        "dropped_low_confidence": int(dropped_low_confidence),
         "hazard_keep_ratio": float(hz_ratio),
+        "min_transfer_confidence": float(min_conf),
         "dedupe": bool(dedupe),
         "action_space_n": int(action_n),
     }
@@ -1548,6 +1634,39 @@ def _train_td_diagnostics(run_dir: str, *, early_episodes: int) -> Dict[str, Any
     }
 
 
+def _collect_run_eval(
+    run_dir: str,
+    *,
+    early_episodes: int,
+    action_first_k: int,
+) -> Dict[str, Any]:
+    if (not os.path.isdir(run_dir)) or (not os.path.isfile(os.path.join(run_dir, "events.jsonl"))):
+        from orchestrator.evaluator import RunStats
+
+        stats = RunStats(
+            run_id=os.path.basename(os.path.normpath(run_dir)),
+            episodes=0,
+            total_steps=0,
+            mean_return=0.0,
+            mean_steps=0.0,
+            success_rate=None,
+            episode_stats=[],
+        )
+        curve: List[Dict[str, Any]] = []
+    else:
+        stats = evaluate_run(run_dir)
+        curve = _episode_curve(run_dir)
+    return {
+        "stats": stats,
+        "curve": curve,
+        "aggregate": _aggregate_curve(curve),
+        "safety_trend": _safety_trend(curve),
+        "early_window": _early_window(curve, episodes=early_episodes),
+        "action_agreement": _action_agreement_diagnostics(run_dir, first_k_steps=action_first_k),
+        "td_error": _train_td_diagnostics(run_dir, early_episodes=early_episodes),
+    }
+
+
 def _speedup_summary(
     *,
     transfer_first_passable: Optional[int],
@@ -1577,6 +1696,282 @@ def _speedup_summary(
         "transfer_wins_convergence": bool(transfer_wins_convergence),
         "hazard_improvement_per_1k_steps": float(hazard_improvement_abs),
         "hazard_improvement_pct": float(hazard_improvement_pct),
+    }
+
+
+def _disable_transfer_warmstart(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(cfg)
+    out["warmstart_reward_scale"] = 0.0
+    out["dynamic_transfer_mix_enabled"] = False
+    out["transfer_mix_start"] = 0.0
+    out["transfer_mix_end"] = 0.0
+    out["transfer_mix_decay_steps"] = 1
+    out["transfer_replay_reward_scale"] = 0.0
+    return out
+
+
+def _adt_prior_rollback_decision(
+    *,
+    candidate_success_rate: float,
+    candidate_mean_return: float,
+    candidate_hazard_per_1k: float,
+    baseline_success_rate: float,
+    baseline_mean_return: float,
+    baseline_hazard_per_1k: float,
+    min_success_delta: float,
+    min_return_delta: float,
+    max_hazard_regression_per_1k: float,
+    success_weight: float = 100.0,
+    return_weight: float = 1.0,
+    hazard_weight: float = 0.02,
+) -> Dict[str, Any]:
+    comp = _transfer_mode_utility(
+        candidate_success_rate=float(candidate_success_rate),
+        candidate_mean_return=float(candidate_mean_return),
+        candidate_hazard_per_1k=float(candidate_hazard_per_1k),
+        scratch_success_rate=float(baseline_success_rate),
+        scratch_mean_return=float(baseline_mean_return),
+        scratch_hazard_per_1k=float(baseline_hazard_per_1k),
+        success_weight=float(success_weight),
+        return_weight=float(return_weight),
+        hazard_weight=float(hazard_weight),
+    )
+    hazard_regression_ok = bool(
+        float(comp.get("hazard_gain_per_1k", 0.0)) >= -float(max_hazard_regression_per_1k)
+    )
+    keep_prior = bool(
+        float(comp.get("success_delta", 0.0)) >= float(min_success_delta)
+        and float(comp.get("return_delta", 0.0)) >= float(min_return_delta)
+        and hazard_regression_ok
+    )
+    return {
+        "keep_prior": bool(keep_prior),
+        "rollback": bool(not keep_prior),
+        "hazard_regression_ok": bool(hazard_regression_ok),
+        "thresholds": {
+            "min_success_delta": float(min_success_delta),
+            "min_return_delta": float(min_return_delta),
+            "max_hazard_regression_per_1k": float(max_hazard_regression_per_1k),
+        },
+        "comparison": comp,
+    }
+
+
+def _align_with_baseline_scratch_schedule(
+    cfg: Dict[str, Any], baseline_cfg: Dict[str, Any]
+) -> Dict[str, Any]:
+    out = dict(cfg)
+    if isinstance(baseline_cfg, dict):
+        for key in ("epsilon_start", "epsilon_min", "epsilon_decay", "warehouse_obs_key_mode"):
+            if key in baseline_cfg:
+                out[key] = baseline_cfg.get(key)
+    return out
+
+
+def _transfer_mode_utility(
+    *,
+    candidate_success_rate: float,
+    candidate_mean_return: float,
+    candidate_hazard_per_1k: float,
+    scratch_success_rate: float,
+    scratch_mean_return: float,
+    scratch_hazard_per_1k: float,
+    success_weight: float,
+    return_weight: float,
+    hazard_weight: float,
+) -> Dict[str, float]:
+    ds = float(candidate_success_rate - scratch_success_rate)
+    dr = float(candidate_mean_return - scratch_mean_return)
+    hg = float(scratch_hazard_per_1k - candidate_hazard_per_1k)
+    utility = (
+        float(success_weight) * float(ds)
+        + float(return_weight) * float(dr)
+        + float(hazard_weight) * float(hg)
+    )
+    return {
+        "success_delta": float(ds),
+        "return_delta": float(dr),
+        "hazard_gain_per_1k": float(hg),
+        "utility": float(utility),
+    }
+
+
+def _pick_robust_transfer_mode(
+    *,
+    pilot_rows: List[Dict[str, Any]],
+    min_utility: float,
+    min_success_delta: float,
+    min_hazard_gain_per_1k: float,
+    max_hazard_regression_per_1k: float,
+    success_weight: float,
+    return_weight: float,
+    hazard_weight: float,
+    scratch_mode: str = "scratch_control",
+) -> Dict[str, Any]:
+    rows = [dict(r) for r in pilot_rows if isinstance(r, dict)]
+    scratch = next((r for r in rows if str(r.get("mode")) == str(scratch_mode)), None)
+    if scratch is None:
+        return {
+            "selected_mode": str(scratch_mode),
+            "reason": "missing_scratch_control",
+            "scored": [],
+        }
+    s_sr = _safe_float(scratch.get("success_rate", 0.0), 0.0)
+    s_ret = _safe_float(scratch.get("mean_return", 0.0), 0.0)
+    s_haz = _safe_float(scratch.get("hazard_per_1k", 0.0), 0.0)
+
+    scored: List[Dict[str, Any]] = []
+    for row in rows:
+        mode = str(row.get("mode", "")).strip()
+        if not mode or mode == str(scratch_mode):
+            continue
+        comp = _transfer_mode_utility(
+            candidate_success_rate=_safe_float(row.get("success_rate", 0.0), 0.0),
+            candidate_mean_return=_safe_float(row.get("mean_return", 0.0), 0.0),
+            candidate_hazard_per_1k=_safe_float(row.get("hazard_per_1k", 0.0), 0.0),
+            scratch_success_rate=float(s_sr),
+            scratch_mean_return=float(s_ret),
+            scratch_hazard_per_1k=float(s_haz),
+            success_weight=float(success_weight),
+            return_weight=float(return_weight),
+            hazard_weight=float(hazard_weight),
+        )
+        hazard_regression_ok = bool(
+            float(comp["hazard_gain_per_1k"]) >= -float(max_hazard_regression_per_1k)
+        )
+        gate_ok = bool(
+            float(comp["utility"]) >= float(min_utility)
+            and float(comp["success_delta"]) >= float(min_success_delta)
+            and float(comp["hazard_gain_per_1k"]) >= float(min_hazard_gain_per_1k)
+            and hazard_regression_ok
+        )
+        merged = dict(row)
+        merged.update(
+            {
+                "utility": float(comp["utility"]),
+                "success_delta_vs_scratch": float(comp["success_delta"]),
+                "return_delta_vs_scratch": float(comp["return_delta"]),
+                "hazard_gain_vs_scratch_per_1k": float(comp["hazard_gain_per_1k"]),
+                "gate_ok": bool(gate_ok),
+                "hazard_regression_ok": bool(hazard_regression_ok),
+            }
+        )
+        scored.append(merged)
+
+    if not scored:
+        return {
+            "selected_mode": str(scratch_mode),
+            "reason": "no_transfer_candidates",
+            "scored": [],
+        }
+
+    scored.sort(
+        key=lambda r: (
+            1 if bool(r.get("gate_ok", False)) else 0,
+            float(_safe_float(r.get("utility", 0.0), 0.0)),
+            float(_safe_float(r.get("success_delta_vs_scratch", 0.0), 0.0)),
+            float(_safe_float(r.get("hazard_gain_vs_scratch_per_1k", 0.0), 0.0)),
+            float(_safe_float(r.get("return_delta_vs_scratch", 0.0), 0.0)),
+        ),
+        reverse=True,
+    )
+    best = scored[0]
+    if bool(best.get("gate_ok", False)):
+        return {
+            "selected_mode": str(best.get("mode", scratch_mode)),
+            "reason": "best_gated_utility",
+            "selected": best,
+            "scored": scored,
+            "scratch_control": {
+                "mode": str(scratch_mode),
+                "success_rate": float(s_sr),
+                "mean_return": float(s_ret),
+                "hazard_per_1k": float(s_haz),
+            },
+        }
+    return {
+        "selected_mode": str(scratch_mode),
+        "reason": "no_candidate_passed_gate",
+        "selected": best,
+        "scored": scored,
+        "scratch_control": {
+            "mode": str(scratch_mode),
+            "success_rate": float(s_sr),
+            "mean_return": float(s_ret),
+            "hazard_per_1k": float(s_haz),
+        },
+    }
+
+
+def _source_id(src: _SourceDNA) -> str:
+    return f"{str(src.verse_name)}|{str(src.run_id)}|{str(src.source_kind)}|{str(src.path)}"
+
+
+def _pick_sources_from_attribution(
+    *,
+    all_sources: List[_SourceDNA],
+    attribution_rows: List[Dict[str, Any]],
+    min_keep_sources: int,
+    keep_unscored: bool,
+) -> Dict[str, Any]:
+    row_by_source: Dict[str, Dict[str, Any]] = {}
+    for row in attribution_rows:
+        sid = str(row.get("source_id", "")).strip()
+        if sid:
+            row_by_source[sid] = dict(row)
+
+    scored_ids = set(row_by_source.keys())
+    keep_ids: List[str] = []
+    for sid, row in row_by_source.items():
+        if bool(row.get("gate_ok", False)):
+            keep_ids.append(sid)
+
+    ranked = sorted(
+        [dict(r) for r in attribution_rows if str(r.get("source_id", "")).strip()],
+        key=lambda r: (
+            1 if bool(r.get("gate_ok", False)) else 0,
+            float(_safe_float(r.get("utility", 0.0), 0.0)),
+            float(_safe_float(r.get("success_delta_vs_scratch", 0.0), 0.0)),
+            float(_safe_float(r.get("hazard_gain_vs_scratch_per_1k", 0.0), 0.0)),
+            float(_safe_float(r.get("return_delta_vs_scratch", 0.0), 0.0)),
+        ),
+        reverse=True,
+    )
+    keep_set = set(keep_ids)
+    for row in ranked:
+        if len(keep_set) >= max(0, int(min_keep_sources)):
+            break
+        sid = str(row.get("source_id", "")).strip()
+        if sid and sid not in keep_set:
+            keep_set.add(sid)
+
+    kept_sources: List[_SourceDNA] = []
+    dropped_sources: List[_SourceDNA] = []
+    for src in all_sources:
+        sid = _source_id(src)
+        if sid in keep_set:
+            kept_sources.append(src)
+            continue
+        if bool(keep_unscored) and sid not in scored_ids:
+            kept_sources.append(src)
+            continue
+        dropped_sources.append(src)
+
+    if not kept_sources:
+        kept_sources = list(all_sources)
+        dropped_sources = []
+        reason = "fallback_keep_all_no_kept_sources"
+    elif len(kept_sources) == len(all_sources):
+        reason = "no_pruning_effective"
+    else:
+        reason = "pruned_by_source_attribution"
+
+    return {
+        "kept_sources": kept_sources,
+        "dropped_sources": dropped_sources,
+        "kept_source_ids": [str(_source_id(s)) for s in kept_sources],
+        "dropped_source_ids": [str(_source_id(s)) for s in dropped_sources],
+        "reason": str(reason),
     }
 
 
@@ -1986,6 +2381,12 @@ def main() -> None:
         default=1.0,
         help="Deterministic keep ratio for hazard-labeled synthetic rows (0..1).",
     )
+    ap.add_argument(
+        "--transfer_filter_min_confidence",
+        type=float,
+        default=0.0,
+        help="Optional filter to drop translated rows below transfer_confidence (0..1).",
+    )
     ap.add_argument("--transfer_filter_max_rows", type=int, default=0)
     ap.add_argument(
         "--transfer_dataset_out",
@@ -1993,20 +2394,68 @@ def main() -> None:
         default=os.path.join("models", "expert_datasets", "transfer_strategy_to_warehouse.jsonl"),
     )
     ap.add_argument("--transfer_warmstart_reward_scale", type=float, default=0.01)
+    ap.add_argument("--transfer_warmstart_max_rows", type=int, default=192)
+    ap.add_argument(
+        "--transfer_warmstart_balance_actions",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    ap.add_argument(
+        "--transfer_warmstart_action_balance_max_share",
+        type=float,
+        default=0.60,
+    )
     ap.add_argument("--transfer_warmstart_use_transfer_score", action=argparse.BooleanOptionalAction, default=False)
+    ap.add_argument(
+        "--transfer_warmstart_target",
+        type=str,
+        default="immediate",
+        choices=["immediate", "return_to_go"],
+    )
+    ap.add_argument("--transfer_warmstart_target_gamma", type=float, default=0.99)
     ap.add_argument("--transfer_warmstart_transfer_score_min", type=float, default=0.0)
     ap.add_argument("--transfer_warmstart_transfer_score_max", type=float, default=2.0)
     ap.add_argument(
         "--transfer_q_warehouse_obs_key_mode",
         type=str,
         default="direction_only",
-        choices=["direction_only"],
+        choices=["direction_only", "task_lite"],
     )
     ap.add_argument("--transfer_epsilon_start", type=float, default=0.70)
     ap.add_argument("--transfer_epsilon_min", type=float, default=0.03)
     ap.add_argument("--transfer_epsilon_decay", type=float, default=0.996)
     ap.add_argument("--transfer_learn_hazard_penalty", type=float, default=0.0)
     ap.add_argument("--transfer_learn_success_bonus", type=float, default=0.0)
+    ap.add_argument("--adt_prior_enabled", action=argparse.BooleanOptionalAction, default=False)
+    ap.add_argument(
+        "--adt_prior_model_path",
+        type=str,
+        default=os.path.join("models", "dt_generalist.pt"),
+    )
+    ap.add_argument(
+        "--adt_prior_cfg",
+        action="append",
+        default=None,
+        help="Extra ADT pilot config override in key=value form (repeatable).",
+    )
+    ap.add_argument("--adt_prior_episodes", type=int, default=16)
+    ap.add_argument("--adt_prior_max_steps", type=int, default=0, help="0 => match --max_steps")
+    ap.add_argument(
+        "--adt_prior_row_mode",
+        type=str,
+        default="",
+        choices=["", "success_only", "top_return", "all_rows"],
+        help="ADT pilot row selection policy. Empty preserves legacy --adt_prior_success_only behavior.",
+    )
+    ap.add_argument("--adt_prior_success_only", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--adt_prior_top_return_pct", type=float, default=0.25)
+    ap.add_argument("--adt_prior_max_rows", type=int, default=96)
+    ap.add_argument("--adt_prior_min_rows", type=int, default=8)
+    ap.add_argument("--adt_prior_warmstart_reward_scale", type=float, default=0.01)
+    ap.add_argument("--adt_prior_auto_rollback", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--adt_prior_rollback_min_success_delta", type=float, default=0.0)
+    ap.add_argument("--adt_prior_rollback_min_return_delta", type=float, default=0.0)
+    ap.add_argument("--adt_prior_rollback_max_hazard_regression_per_1k", type=float, default=25.0)
     ap.add_argument("--dynamic_transfer_mix", action=argparse.BooleanOptionalAction, default=False)
     ap.add_argument("--transfer_mix_start", type=float, default=1.0)
     ap.add_argument("--transfer_mix_end", type=float, default=0.0)
@@ -2018,6 +2467,57 @@ def main() -> None:
     )
     ap.add_argument("--transfer_mix_min_rows", type=int, default=32)
     ap.add_argument("--transfer_replay_reward_scale", type=float, default=0.8)
+    ap.add_argument(
+        "--robust_transfer_selector",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Run short pilot runs (scratch / near-lane / all-lanes) and keep transfer only "
+            "when early utility indicates task-solving lift."
+        ),
+    )
+    ap.add_argument("--robust_selector_pilot_episodes", type=int, default=24)
+    ap.add_argument(
+        "--robust_selector_num_seeds",
+        type=int,
+        default=2,
+        help="Number of shared pilot seeds used for each selector candidate.",
+    )
+    ap.add_argument(
+        "--robust_selector_pilot_max_steps",
+        type=int,
+        default=0,
+        help="0 => match --max_steps for selector pilots",
+    )
+    ap.add_argument("--robust_selector_seed_stride", type=int, default=17)
+    ap.add_argument("--robust_selector_success_weight", type=float, default=100.0)
+    ap.add_argument("--robust_selector_return_weight", type=float, default=1.0)
+    ap.add_argument("--robust_selector_hazard_weight", type=float, default=0.02)
+    ap.add_argument("--robust_selector_min_utility", type=float, default=0.0)
+    ap.add_argument("--robust_selector_min_success_delta", type=float, default=0.0)
+    ap.add_argument("--robust_selector_min_hazard_gain_per_1k", type=float, default=30.0)
+    ap.add_argument("--robust_selector_max_hazard_regression_per_1k", type=float, default=50.0)
+    ap.add_argument(
+        "--source_attribution_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Pilot each source independently and auto-prune sources that fail utility/safety gates.",
+    )
+    ap.add_argument("--source_attribution_top_k_sources", type=int, default=0, help="0 => evaluate all sources.")
+    ap.add_argument("--source_attribution_pilot_episodes", type=int, default=20)
+    ap.add_argument("--source_attribution_pilot_max_steps", type=int, default=0, help="0 => match --max_steps")
+    ap.add_argument("--source_attribution_num_seeds", type=int, default=2)
+    ap.add_argument("--source_attribution_seed_stride", type=int, default=29)
+    ap.add_argument("--source_attribution_min_rows", type=int, default=64)
+    ap.add_argument("--source_attribution_success_weight", type=float, default=100.0)
+    ap.add_argument("--source_attribution_return_weight", type=float, default=1.0)
+    ap.add_argument("--source_attribution_hazard_weight", type=float, default=0.02)
+    ap.add_argument("--source_attribution_min_utility", type=float, default=0.0)
+    ap.add_argument("--source_attribution_min_success_delta", type=float, default=0.0)
+    ap.add_argument("--source_attribution_min_hazard_gain_per_1k", type=float, default=0.0)
+    ap.add_argument("--source_attribution_max_hazard_regression_per_1k", type=float, default=50.0)
+    ap.add_argument("--source_attribution_min_keep_sources", type=int, default=1)
+    ap.add_argument("--source_attribution_keep_unscored_sources", action=argparse.BooleanOptionalAction, default=False)
     ap.add_argument("--safe_transfer", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--safe_baseline", action=argparse.BooleanOptionalAction, default=False)
     ap.add_argument("--safe_adaptive_veto", action=argparse.BooleanOptionalAction, default=True)
@@ -2035,7 +2535,8 @@ def main() -> None:
     ap.add_argument("--safe_adaptive_veto_failure_guard", type=float, default=0.20)
     ap.add_argument("--safe_danger_threshold", type=float, default=0.85)
     ap.add_argument("--safe_min_action_confidence", type=float, default=0.10)
-    ap.add_argument("--safe_prefer_fallback_on_veto", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument("--safe_prefer_fallback_on_veto", action=argparse.BooleanOptionalAction, default=False)
+    ap.add_argument("--safe_fallback_horizon_steps", type=int, default=0)
     ap.add_argument("--safe_fallback_algo", type=str, default="gateway")
     ap.add_argument(
         "--safe_fallback_manifest_path",
@@ -2060,7 +2561,7 @@ def main() -> None:
         "--baseline_q_warehouse_obs_key_mode",
         type=str,
         default="direction_only",
-        choices=["direction_only"],
+        choices=["direction_only", "task_lite"],
     )
     ap.add_argument("--chart_stride", type=int, default=5)
     ap.add_argument(
@@ -2166,6 +2667,7 @@ def main() -> None:
             dedupe=bool(args.transfer_filter_dedupe),
             max_rows=max(0, int(args.transfer_filter_max_rows)),
             hazard_keep_ratio=max(0.0, min(1.0, float(args.transfer_filter_hazard_keep_ratio))),
+            min_transfer_confidence=max(0.0, min(1.0, float(args.transfer_filter_min_confidence))),
         )
         ds["filter_stats"] = fs
         ds["transfer_dataset_rows"] = int(fs.get("kept_rows", ds.get("transfer_dataset_rows", 0)))
@@ -2280,6 +2782,7 @@ def main() -> None:
             "adaptive_veto_warmup_steps": max(0, int(args.safe_adaptive_veto_warmup_steps)),
             "adaptive_veto_failure_guard": max(1e-6, float(args.safe_adaptive_veto_failure_guard)),
             "prefer_fallback_on_veto": bool(args.safe_prefer_fallback_on_veto),
+            "fallback_horizon_steps": max(0, int(args.safe_fallback_horizon_steps)),
             "fallback_algo": str(fallback_algo),
             "fallback_config": dict(fallback_cfg),
             "planner_enabled": True,
@@ -2317,7 +2820,14 @@ def main() -> None:
         "train": True,
         "dataset_path": str(ds["transfer_dataset_path"]),
         "warmstart_reward_scale": float(args.transfer_warmstart_reward_scale),
+        "warmstart_max_rows": max(0, int(args.transfer_warmstart_max_rows)),
+        "warmstart_balance_actions": bool(args.transfer_warmstart_balance_actions),
+        "warmstart_action_balance_max_share": max(
+            0.0, min(1.0, float(args.transfer_warmstart_action_balance_max_share))
+        ),
         "warmstart_use_transfer_score": bool(args.transfer_warmstart_use_transfer_score),
+        "warmstart_target": str(args.transfer_warmstart_target),
+        "warmstart_target_gamma": max(0.0, min(1.0, float(args.transfer_warmstart_target_gamma))),
         "warmstart_transfer_score_min": float(args.transfer_warmstart_transfer_score_min),
         "warmstart_transfer_score_max": float(args.transfer_warmstart_transfer_score_max),
         "warehouse_obs_key_mode": str(args.transfer_q_warehouse_obs_key_mode),
@@ -2358,8 +2868,701 @@ def main() -> None:
         transfer_cfg["transfer_mix_decay_steps"] = 1
         transfer_cfg["transfer_mix_min_rows"] = max(1, int(args.transfer_mix_min_rows))
         transfer_cfg["transfer_replay_reward_scale"] = 0.0
+        transfer_cfg = _align_with_baseline_scratch_schedule(transfer_cfg, baseline_cfg)
     if transfer_safe_cfg:
         transfer_cfg["safe_executor"] = transfer_safe_cfg
+
+    source_attribution_report: Dict[str, Any] = {
+        "enabled": bool(args.source_attribution_enabled),
+        "applied": False,
+        "reason": "disabled",
+        "evaluated_sources": [],
+        "selection": {},
+    }
+    if bool(args.source_attribution_enabled) and (not empty_transfer_dataset) and sources:
+        attr_eps = max(1, min(int(args.episodes), int(max(1, args.source_attribution_pilot_episodes))))
+        attr_max_steps = int(args.source_attribution_pilot_max_steps)
+        if attr_max_steps <= 0:
+            attr_max_steps = max(1, int(args.max_steps))
+        attr_seed_count = max(1, int(args.source_attribution_num_seeds))
+        attr_seed_stride = max(1, int(args.source_attribution_seed_stride))
+        attr_seed_list = [int(args.seed) + (attr_seed_stride * (i + 1)) for i in range(attr_seed_count)]
+        ranked_sources = sorted(
+            list(sources),
+            key=lambda s: (
+                1 if str(s.source_lane or "") == "near_universe" else 0,
+                1 if str(s.source_kind or "") == "dna_good" else 0,
+                str(s.verse_name),
+            ),
+            reverse=True,
+        )
+        top_k = max(0, int(args.source_attribution_top_k_sources))
+        eval_sources = ranked_sources[:top_k] if top_k > 0 else ranked_sources
+        if len(eval_sources) <= 0:
+            source_attribution_report = {
+                "enabled": True,
+                "applied": False,
+                "reason": "no_sources_selected",
+                "evaluated_sources": [],
+                "selection": {},
+            }
+        else:
+            trainer_attr = Trainer(run_root=str(args.runs_root), schema_version="v1", auto_register_builtin=True)
+            scratch_rows: List[Dict[str, Any]] = []
+            for j, seed_j in enumerate(attr_seed_list):
+                run_id = _run_agent(
+                    trainer=trainer_attr,
+                    role="source_attr_scratch",
+                    verse_name=str(args.target_verse),
+                    episodes=int(attr_eps),
+                    max_steps=int(attr_max_steps),
+                    seed=int(seed_j),
+                    algo=str(args.baseline_algo),
+                    policy_id=f"source_attr_scratch_{args.baseline_algo}_{args.target_verse}_s{j}",
+                    cfg=dict(baseline_cfg),
+                )
+                run_dir = os.path.join(str(args.runs_root), run_id)
+                st = evaluate_run(run_dir)
+                agg = _aggregate_curve(_episode_curve(run_dir))
+                scratch_rows.append(
+                    {
+                        "run_id": str(run_id),
+                        "run_dir": str(run_dir).replace("\\", "/"),
+                        "seed": int(seed_j),
+                        "success_rate": float(_safe_float(st.success_rate, 0.0)),
+                        "mean_return": float(_safe_float(st.mean_return, 0.0)),
+                        "hazard_per_1k": float(_safe_float(agg.get("hazard_events_per_1k_steps", 0.0), 0.0)),
+                    }
+                )
+            scratch_sr = float(
+                sum(_safe_float(r.get("success_rate", 0.0), 0.0) for r in scratch_rows) / float(max(1, len(scratch_rows)))
+            )
+            scratch_ret = float(
+                sum(_safe_float(r.get("mean_return", 0.0), 0.0) for r in scratch_rows) / float(max(1, len(scratch_rows)))
+            )
+            scratch_haz = float(
+                sum(_safe_float(r.get("hazard_per_1k", 0.0), 0.0) for r in scratch_rows) / float(max(1, len(scratch_rows)))
+            )
+
+            attr_rows: List[Dict[str, Any]] = []
+            ds_base = os.path.splitext(str(args.transfer_dataset_out))[0]
+            for idx, src in enumerate(eval_sources):
+                src_tag = f"{str(src.verse_name)}_{str(src.run_id)}_{idx}"
+                src_out = f"{ds_base}.source_attr.{src_tag}.jsonl"
+                src_ds = _build_transfer_dataset(
+                    sources=[src],
+                    target_verse=str(args.target_verse),
+                    out_path=str(src_out),
+                    max_rows_per_source=max(0, int(args.max_rows_per_source)),
+                    near_lane_max_rows_per_source=max(0, int(args.near_lane_max_rows_per_source)),
+                    far_lane_max_rows_per_source=max(0, int(args.far_lane_max_rows_per_source)),
+                    near_lane_enabled=bool(args.near_lane_enabled),
+                    far_lane_enabled=bool(args.far_lane_enabled),
+                    universe_adapter_enabled=bool(args.universe_adapter_enabled),
+                    far_lane_score_weight_enabled=bool(args.far_lane_score_weight_enabled),
+                    far_lane_score_weight_strength=max(0.0, min(1.0, float(args.far_lane_score_weight_strength))),
+                    far_lane_min_universe_feature_score=max(
+                        0.0, min(1.0, float(args.far_lane_min_universe_feature_score))
+                    ),
+                    bridge_synthetic_reward_blend=max(0.0, min(1.0, float(args.bridge_synthetic_reward_blend))),
+                    bridge_synthetic_done_union=bool(args.bridge_synthetic_done_union),
+                    bridge_confidence_threshold=max(0.0, min(1.0, float(args.bridge_confidence_threshold))),
+                    bridge_label_cfg=bridge_label_cfg,
+                    bridge_behavioral_enabled=bool(args.bridge_behavioral_enabled),
+                    bridge_behavioral_score_weight=max(0.0, min(1.0, float(args.bridge_behavioral_score_weight))),
+                    bridge_behavioral_max_prototype_rows=max(1, int(args.bridge_behavioral_max_prototype_rows)),
+                )
+                if bool(args.transfer_filter):
+                    src_fs = _filter_transfer_dataset(
+                        path=str(src_ds["transfer_dataset_path"]),
+                        target_verse=str(args.target_verse),
+                        dedupe=bool(args.transfer_filter_dedupe),
+                        max_rows=max(0, int(args.transfer_filter_max_rows)),
+                        hazard_keep_ratio=max(0.0, min(1.0, float(args.transfer_filter_hazard_keep_ratio))),
+                        min_transfer_confidence=max(0.0, min(1.0, float(args.transfer_filter_min_confidence))),
+                    )
+                    src_ds["filter_stats"] = src_fs
+                    src_ds["transfer_dataset_rows"] = int(src_fs.get("kept_rows", src_ds.get("transfer_dataset_rows", 0)))
+                src_rows = int(src_ds.get("transfer_dataset_rows", 0))
+                row: Dict[str, Any] = {
+                    "source_id": str(_source_id(src)),
+                    "verse_name": str(src.verse_name),
+                    "run_id": str(src.run_id),
+                    "source_kind": str(src.source_kind),
+                    "source_lane": str(src.source_lane),
+                    "source_universe": str(src.source_universe),
+                    "dataset_path": str(src_ds.get("transfer_dataset_path", "")),
+                    "dataset_rows": int(src_rows),
+                    "evaluated": False,
+                    "gate_ok": False,
+                    "skip_reason": "",
+                }
+                if src_rows < max(1, int(args.source_attribution_min_rows)):
+                    row["skip_reason"] = "insufficient_rows"
+                    attr_rows.append(row)
+                    continue
+
+                src_cfg = dict(transfer_cfg)
+                src_cfg["dataset_path"] = str(src_ds["transfer_dataset_path"])
+                if bool(src_cfg.get("dynamic_transfer_mix_enabled", False)) and int(args.transfer_mix_decay_steps) <= 0:
+                    src_cfg["transfer_mix_decay_steps"] = int(
+                        _auto_transfer_mix_decay_steps(
+                            episodes=max(1, int(args.episodes)),
+                            max_steps=max(1, int(args.max_steps)),
+                            transfer_rows=max(0, int(src_rows)),
+                            mix_start=max(0.0, min(1.0, float(args.transfer_mix_start))),
+                            mix_end=max(0.0, min(1.0, float(args.transfer_mix_end))),
+                        )
+                    )
+                src_seed_rows: List[Dict[str, Any]] = []
+                for j, seed_j in enumerate(attr_seed_list):
+                    run_id = _run_agent(
+                        trainer=trainer_attr,
+                        role=f"source_attr_{idx}",
+                        verse_name=str(args.target_verse),
+                        episodes=int(attr_eps),
+                        max_steps=int(attr_max_steps),
+                        seed=int(seed_j),
+                        algo=str(args.transfer_algo),
+                        policy_id=f"source_attr_{idx}_{args.transfer_algo}_{args.target_verse}_s{j}",
+                        cfg=dict(src_cfg),
+                    )
+                    run_dir = os.path.join(str(args.runs_root), run_id)
+                    st = evaluate_run(run_dir)
+                    agg = _aggregate_curve(_episode_curve(run_dir))
+                    src_seed_rows.append(
+                        {
+                            "run_id": str(run_id),
+                            "run_dir": str(run_dir).replace("\\", "/"),
+                            "seed": int(seed_j),
+                            "success_rate": float(_safe_float(st.success_rate, 0.0)),
+                            "mean_return": float(_safe_float(st.mean_return, 0.0)),
+                            "hazard_per_1k": float(_safe_float(agg.get("hazard_events_per_1k_steps", 0.0), 0.0)),
+                        }
+                    )
+                cand_sr = float(
+                    sum(_safe_float(r.get("success_rate", 0.0), 0.0) for r in src_seed_rows) / float(max(1, len(src_seed_rows)))
+                )
+                cand_ret = float(
+                    sum(_safe_float(r.get("mean_return", 0.0), 0.0) for r in src_seed_rows) / float(max(1, len(src_seed_rows)))
+                )
+                cand_haz = float(
+                    sum(_safe_float(r.get("hazard_per_1k", 0.0), 0.0) for r in src_seed_rows) / float(max(1, len(src_seed_rows)))
+                )
+                comp = _transfer_mode_utility(
+                    candidate_success_rate=float(cand_sr),
+                    candidate_mean_return=float(cand_ret),
+                    candidate_hazard_per_1k=float(cand_haz),
+                    scratch_success_rate=float(scratch_sr),
+                    scratch_mean_return=float(scratch_ret),
+                    scratch_hazard_per_1k=float(scratch_haz),
+                    success_weight=float(args.source_attribution_success_weight),
+                    return_weight=float(args.source_attribution_return_weight),
+                    hazard_weight=float(args.source_attribution_hazard_weight),
+                )
+                hazard_regression_ok = bool(
+                    float(comp["hazard_gain_per_1k"]) >= -float(args.source_attribution_max_hazard_regression_per_1k)
+                )
+                gate_ok = bool(
+                    float(comp["utility"]) >= float(args.source_attribution_min_utility)
+                    and float(comp["success_delta"]) >= float(args.source_attribution_min_success_delta)
+                    and float(comp["hazard_gain_per_1k"]) >= float(args.source_attribution_min_hazard_gain_per_1k)
+                    and hazard_regression_ok
+                )
+                row.update(
+                    {
+                        "evaluated": True,
+                        "success_rate": float(cand_sr),
+                        "mean_return": float(cand_ret),
+                        "hazard_per_1k": float(cand_haz),
+                        "utility": float(comp["utility"]),
+                        "success_delta_vs_scratch": float(comp["success_delta"]),
+                        "return_delta_vs_scratch": float(comp["return_delta"]),
+                        "hazard_gain_vs_scratch_per_1k": float(comp["hazard_gain_per_1k"]),
+                        "hazard_regression_ok": bool(hazard_regression_ok),
+                        "gate_ok": bool(gate_ok),
+                        "per_seed": src_seed_rows,
+                    }
+                )
+                attr_rows.append(row)
+
+            selection = _pick_sources_from_attribution(
+                all_sources=list(sources),
+                attribution_rows=attr_rows,
+                min_keep_sources=max(0, int(args.source_attribution_min_keep_sources)),
+                keep_unscored=bool(args.source_attribution_keep_unscored_sources),
+            )
+            original_sources = list(sources)
+            selected_sources = list(selection.get("kept_sources") or [])
+            if selected_sources and len(selected_sources) < len(original_sources):
+                prev_ds = dict(ds)
+                sources = list(selected_sources)
+                ds = _build_transfer_dataset(
+                    sources=sources,
+                    target_verse=str(args.target_verse),
+                    out_path=str(args.transfer_dataset_out),
+                    max_rows_per_source=max(0, int(args.max_rows_per_source)),
+                    near_lane_max_rows_per_source=max(0, int(args.near_lane_max_rows_per_source)),
+                    far_lane_max_rows_per_source=max(0, int(args.far_lane_max_rows_per_source)),
+                    near_lane_enabled=bool(args.near_lane_enabled),
+                    far_lane_enabled=bool(args.far_lane_enabled),
+                    universe_adapter_enabled=bool(args.universe_adapter_enabled),
+                    far_lane_score_weight_enabled=bool(args.far_lane_score_weight_enabled),
+                    far_lane_score_weight_strength=max(0.0, min(1.0, float(args.far_lane_score_weight_strength))),
+                    far_lane_min_universe_feature_score=max(
+                        0.0, min(1.0, float(args.far_lane_min_universe_feature_score))
+                    ),
+                    bridge_synthetic_reward_blend=max(0.0, min(1.0, float(args.bridge_synthetic_reward_blend))),
+                    bridge_synthetic_done_union=bool(args.bridge_synthetic_done_union),
+                    bridge_confidence_threshold=max(0.0, min(1.0, float(args.bridge_confidence_threshold))),
+                    bridge_label_cfg=bridge_label_cfg,
+                    bridge_behavioral_enabled=bool(args.bridge_behavioral_enabled),
+                    bridge_behavioral_score_weight=max(0.0, min(1.0, float(args.bridge_behavioral_score_weight))),
+                    bridge_behavioral_max_prototype_rows=max(1, int(args.bridge_behavioral_max_prototype_rows)),
+                )
+                if bool(args.transfer_filter):
+                    fs = _filter_transfer_dataset(
+                        path=str(ds["transfer_dataset_path"]),
+                        target_verse=str(args.target_verse),
+                        dedupe=bool(args.transfer_filter_dedupe),
+                        max_rows=max(0, int(args.transfer_filter_max_rows)),
+                        hazard_keep_ratio=max(0.0, min(1.0, float(args.transfer_filter_hazard_keep_ratio))),
+                        min_transfer_confidence=max(0.0, min(1.0, float(args.transfer_filter_min_confidence))),
+                    )
+                    ds["filter_stats"] = fs
+                    ds["transfer_dataset_rows"] = int(fs.get("kept_rows", ds.get("transfer_dataset_rows", 0)))
+                if int(ds.get("transfer_dataset_rows", 0)) <= 0:
+                    sources = original_sources
+                    ds = prev_ds
+                    selection["reason"] = "reverted_prune_empty_dataset"
+                else:
+                    transfer_cfg["dataset_path"] = str(ds["transfer_dataset_path"])
+                    if bool(transfer_cfg.get("dynamic_transfer_mix_enabled", False)) and int(args.transfer_mix_decay_steps) <= 0:
+                        transfer_cfg["transfer_mix_decay_steps"] = int(
+                            _auto_transfer_mix_decay_steps(
+                                episodes=max(1, int(args.episodes)),
+                                max_steps=max(1, int(args.max_steps)),
+                                transfer_rows=max(0, int(ds.get("transfer_dataset_rows", 0))),
+                                mix_start=max(0.0, min(1.0, float(args.transfer_mix_start))),
+                                mix_end=max(0.0, min(1.0, float(args.transfer_mix_end))),
+                            )
+                        )
+            source_attribution_report = {
+                "enabled": True,
+                "applied": True,
+                "reason": str(selection.get("reason", "evaluated")),
+                "pilot": {
+                    "episodes": int(attr_eps),
+                    "max_steps": int(attr_max_steps),
+                    "num_seeds": int(attr_seed_count),
+                    "seed_stride": int(attr_seed_stride),
+                    "seed_list": [int(s) for s in attr_seed_list],
+                    "scratch_rows": scratch_rows,
+                    "scratch_mean": {
+                        "success_rate": float(scratch_sr),
+                        "mean_return": float(scratch_ret),
+                        "hazard_per_1k": float(scratch_haz),
+                    },
+                    "weights": {
+                        "success_weight": float(args.source_attribution_success_weight),
+                        "return_weight": float(args.source_attribution_return_weight),
+                        "hazard_weight": float(args.source_attribution_hazard_weight),
+                    },
+                    "gates": {
+                        "min_utility": float(args.source_attribution_min_utility),
+                        "min_success_delta": float(args.source_attribution_min_success_delta),
+                        "min_hazard_gain_per_1k": float(args.source_attribution_min_hazard_gain_per_1k),
+                        "max_hazard_regression_per_1k": float(args.source_attribution_max_hazard_regression_per_1k),
+                    },
+                },
+                "evaluated_sources": attr_rows,
+                "selection": {
+                    "kept_source_ids": list(selection.get("kept_source_ids") or []),
+                    "dropped_source_ids": list(selection.get("dropped_source_ids") or []),
+                    "kept_count": int(len(selection.get("kept_source_ids") or [])),
+                    "dropped_count": int(len(selection.get("dropped_source_ids") or [])),
+                },
+            }
+
+    selected_transfer_algo = str(args.transfer_algo)
+    robust_selector_report: Dict[str, Any] = {
+        "enabled": bool(args.robust_transfer_selector),
+        "applied": False,
+        "selected_algo": str(selected_transfer_algo),
+        "selected_mode": ("scratch_control" if empty_transfer_dataset else "transfer_all_lanes"),
+        "reason": ("empty_transfer_dataset" if empty_transfer_dataset else "not_run"),
+        "pilot": {},
+    }
+    if bool(args.robust_transfer_selector) and (not empty_transfer_dataset):
+        pilot_eps = max(1, min(int(args.episodes), int(max(1, args.robust_selector_pilot_episodes))))
+        pilot_max_steps = int(args.robust_selector_pilot_max_steps)
+        if pilot_max_steps <= 0:
+            pilot_max_steps = max(1, int(args.max_steps))
+        pilot_seed_stride = max(1, int(args.robust_selector_seed_stride))
+        pilot_candidates: List[Dict[str, Any]] = [
+            {
+                "mode": "scratch_control",
+                "algo": str(args.baseline_algo),
+                "cfg": dict(baseline_cfg),
+                "dataset_path": "",
+                "dataset_rows": 0,
+            },
+            {
+                "mode": "transfer_all_lanes",
+                "algo": str(args.transfer_algo),
+                "cfg": dict(transfer_cfg),
+                "dataset_path": str(ds.get("transfer_dataset_path", "")),
+                "dataset_rows": int(ds.get("transfer_dataset_rows", 0)),
+            },
+        ]
+
+        near_sources = [s for s in sources if str(s.source_lane or "") == "near_universe"]
+        near_ds: Optional[Dict[str, Any]] = None
+        if bool(args.near_lane_enabled) and near_sources:
+            near_out = os.path.splitext(str(args.transfer_dataset_out))[0] + ".near_lane_only.jsonl"
+            near_ds = _build_transfer_dataset(
+                sources=near_sources,
+                target_verse=str(args.target_verse),
+                out_path=str(near_out),
+                max_rows_per_source=max(0, int(args.max_rows_per_source)),
+                near_lane_max_rows_per_source=max(0, int(args.near_lane_max_rows_per_source)),
+                far_lane_max_rows_per_source=max(0, int(args.far_lane_max_rows_per_source)),
+                near_lane_enabled=True,
+                far_lane_enabled=False,
+                universe_adapter_enabled=bool(args.universe_adapter_enabled),
+                far_lane_score_weight_enabled=bool(args.far_lane_score_weight_enabled),
+                far_lane_score_weight_strength=max(0.0, min(1.0, float(args.far_lane_score_weight_strength))),
+                far_lane_min_universe_feature_score=max(
+                    0.0, min(1.0, float(args.far_lane_min_universe_feature_score))
+                ),
+                bridge_synthetic_reward_blend=max(0.0, min(1.0, float(args.bridge_synthetic_reward_blend))),
+                bridge_synthetic_done_union=bool(args.bridge_synthetic_done_union),
+                bridge_confidence_threshold=max(0.0, min(1.0, float(args.bridge_confidence_threshold))),
+                bridge_label_cfg=bridge_label_cfg,
+                bridge_behavioral_enabled=bool(args.bridge_behavioral_enabled),
+                bridge_behavioral_score_weight=max(0.0, min(1.0, float(args.bridge_behavioral_score_weight))),
+                bridge_behavioral_max_prototype_rows=max(1, int(args.bridge_behavioral_max_prototype_rows)),
+            )
+            if bool(args.transfer_filter):
+                near_fs = _filter_transfer_dataset(
+                    path=str(near_ds["transfer_dataset_path"]),
+                    target_verse=str(args.target_verse),
+                    dedupe=bool(args.transfer_filter_dedupe),
+                    max_rows=max(0, int(args.transfer_filter_max_rows)),
+                    hazard_keep_ratio=max(0.0, min(1.0, float(args.transfer_filter_hazard_keep_ratio))),
+                    min_transfer_confidence=max(0.0, min(1.0, float(args.transfer_filter_min_confidence))),
+                )
+                near_ds["filter_stats"] = near_fs
+                near_ds["transfer_dataset_rows"] = int(
+                    near_fs.get("kept_rows", near_ds.get("transfer_dataset_rows", 0))
+                )
+            if int(near_ds.get("transfer_dataset_rows", 0)) > 0:
+                near_cfg = dict(transfer_cfg)
+                near_cfg["dataset_path"] = str(near_ds["transfer_dataset_path"])
+                if bool(near_cfg.get("dynamic_transfer_mix_enabled", False)) and int(args.transfer_mix_decay_steps) <= 0:
+                    near_cfg["transfer_mix_decay_steps"] = int(
+                        _auto_transfer_mix_decay_steps(
+                            episodes=max(1, int(args.episodes)),
+                            max_steps=max(1, int(args.max_steps)),
+                            transfer_rows=max(0, int(near_ds.get("transfer_dataset_rows", 0))),
+                            mix_start=max(0.0, min(1.0, float(args.transfer_mix_start))),
+                            mix_end=max(0.0, min(1.0, float(args.transfer_mix_end))),
+                        )
+                    )
+                pilot_candidates.append(
+                    {
+                        "mode": "transfer_near_lane",
+                        "algo": str(args.transfer_algo),
+                        "cfg": near_cfg,
+                        "dataset_path": str(near_ds.get("transfer_dataset_path", "")),
+                        "dataset_rows": int(near_ds.get("transfer_dataset_rows", 0)),
+                    }
+                )
+
+        if int(len(pilot_candidates)) > 1:
+            trainer = Trainer(run_root=str(args.runs_root), schema_version="v1", auto_register_builtin=True)
+            pilot_rows: List[Dict[str, Any]] = []
+            pilot_seed_count = max(1, int(args.robust_selector_num_seeds))
+            pilot_seed_list = [
+                int(args.seed) + (pilot_seed_stride * (j + 1)) for j in range(pilot_seed_count)
+            ]
+            for i, cand in enumerate(pilot_candidates):
+                mode = str(cand.get("mode", "")).strip() or f"candidate_{i}"
+                per_seed_rows: List[Dict[str, Any]] = []
+                for j, mode_seed in enumerate(pilot_seed_list):
+                    pilot_algo = str(cand.get("algo", args.transfer_algo))
+                    run_id = _run_agent(
+                        trainer=trainer,
+                        role=f"pilot_{mode}",
+                        verse_name=str(args.target_verse),
+                        episodes=int(pilot_eps),
+                        max_steps=int(pilot_max_steps),
+                        seed=int(mode_seed),
+                        algo=str(pilot_algo),
+                        policy_id=f"pilot_{mode}_{pilot_algo}_{args.target_verse}_s{j}",
+                        cfg=dict(cand.get("cfg") or {}),
+                    )
+                    run_dir = os.path.join(str(args.runs_root), run_id)
+                    st = evaluate_run(run_dir)
+                    agg = _aggregate_curve(_episode_curve(run_dir))
+                    per_seed_rows.append(
+                        {
+                            "run_id": str(run_id),
+                            "run_dir": str(run_dir).replace("\\", "/"),
+                            "seed": int(mode_seed),
+                            "algo": str(pilot_algo),
+                            "success_rate": float(_safe_float(st.success_rate, 0.0)),
+                            "mean_return": float(_safe_float(st.mean_return, 0.0)),
+                            "hazard_per_1k": float(
+                                _safe_float(agg.get("hazard_events_per_1k_steps", 0.0), 0.0)
+                            ),
+                        }
+                    )
+                mean_success = (
+                    float(sum(_safe_float(r.get("success_rate", 0.0), 0.0) for r in per_seed_rows) / float(len(per_seed_rows)))
+                    if per_seed_rows
+                    else 0.0
+                )
+                mean_return = (
+                    float(sum(_safe_float(r.get("mean_return", 0.0), 0.0) for r in per_seed_rows) / float(len(per_seed_rows)))
+                    if per_seed_rows
+                    else 0.0
+                )
+                mean_hazard = (
+                    float(sum(_safe_float(r.get("hazard_per_1k", 0.0), 0.0) for r in per_seed_rows) / float(len(per_seed_rows)))
+                    if per_seed_rows
+                    else 0.0
+                )
+                pilot_rows.append(
+                    {
+                        "mode": str(mode),
+                        "run_id": (str(per_seed_rows[0]["run_id"]) if per_seed_rows else ""),
+                        "run_dir": (str(per_seed_rows[0]["run_dir"]) if per_seed_rows else ""),
+                        "seed": (int(per_seed_rows[0]["seed"]) if per_seed_rows else int(args.seed)),
+                        "seed_list": [int(s) for s in pilot_seed_list],
+                        "num_seeds": int(len(per_seed_rows)),
+                        "algo": str(cand.get("algo", args.transfer_algo)),
+                        "episodes": int(pilot_eps),
+                        "max_steps": int(pilot_max_steps),
+                        "success_rate": float(mean_success),
+                        "mean_return": float(mean_return),
+                        "hazard_per_1k": float(mean_hazard),
+                        "dataset_path": str(cand.get("dataset_path", "")),
+                        "dataset_rows": int(cand.get("dataset_rows", 0) or 0),
+                        "per_seed": per_seed_rows,
+                    }
+                )
+
+            mode_pick = _pick_robust_transfer_mode(
+                pilot_rows=pilot_rows,
+                min_utility=float(args.robust_selector_min_utility),
+                min_success_delta=float(args.robust_selector_min_success_delta),
+                min_hazard_gain_per_1k=float(args.robust_selector_min_hazard_gain_per_1k),
+                max_hazard_regression_per_1k=float(args.robust_selector_max_hazard_regression_per_1k),
+                success_weight=float(args.robust_selector_success_weight),
+                return_weight=float(args.robust_selector_return_weight),
+                hazard_weight=float(args.robust_selector_hazard_weight),
+                scratch_mode="scratch_control",
+            )
+            selected_mode = str(mode_pick.get("selected_mode", "scratch_control"))
+            robust_selector_report = {
+                "enabled": True,
+                "applied": True,
+                "selected_algo": str(selected_transfer_algo),
+                "selected_mode": str(selected_mode),
+                "reason": str(mode_pick.get("reason", "selected")),
+                "pilot": {
+                    "episodes": int(pilot_eps),
+                    "max_steps": int(pilot_max_steps),
+                    "seed_stride": int(pilot_seed_stride),
+                    "num_seeds": int(pilot_seed_count),
+                    "seed_list": [int(s) for s in pilot_seed_list],
+                    "rows": pilot_rows,
+                    "decision": mode_pick,
+                    "selector_weights": {
+                        "success_weight": float(args.robust_selector_success_weight),
+                        "return_weight": float(args.robust_selector_return_weight),
+                        "hazard_weight": float(args.robust_selector_hazard_weight),
+                    },
+                    "selector_gates": {
+                        "min_utility": float(args.robust_selector_min_utility),
+                        "min_success_delta": float(args.robust_selector_min_success_delta),
+                        "min_hazard_gain_per_1k": float(args.robust_selector_min_hazard_gain_per_1k),
+                        "max_hazard_regression_per_1k": float(args.robust_selector_max_hazard_regression_per_1k),
+                    },
+                },
+            }
+            if selected_mode == "transfer_near_lane" and isinstance(near_ds, dict):
+                ds = dict(near_ds)
+                transfer_cfg["dataset_path"] = str(ds["transfer_dataset_path"])
+                if bool(transfer_cfg.get("dynamic_transfer_mix_enabled", False)) and int(args.transfer_mix_decay_steps) <= 0:
+                    transfer_cfg["transfer_mix_decay_steps"] = int(
+                        _auto_transfer_mix_decay_steps(
+                            episodes=max(1, int(args.episodes)),
+                            max_steps=max(1, int(args.max_steps)),
+                            transfer_rows=max(0, int(ds.get("transfer_dataset_rows", 0))),
+                            mix_start=max(0.0, min(1.0, float(args.transfer_mix_start))),
+                            mix_end=max(0.0, min(1.0, float(args.transfer_mix_end))),
+                        )
+                    )
+            elif selected_mode == "scratch_control":
+                selected_transfer_algo = str(args.baseline_algo)
+                transfer_cfg = dict(baseline_cfg)
+                robust_selector_report["selected_algo"] = str(selected_transfer_algo)
+        else:
+            robust_selector_report = {
+                "enabled": True,
+                "applied": False,
+                "selected_algo": str(selected_transfer_algo),
+                "selected_mode": "transfer_all_lanes",
+                "reason": "insufficient_candidates",
+                "pilot": {"candidate_count": int(len(pilot_candidates))},
+            }
+
+    base_transfer_cfg = dict(transfer_cfg)
+    base_selected_transfer_algo = str(selected_transfer_algo)
+    adt_prior_report: Dict[str, Any] = {
+        "enabled": bool(args.adt_prior_enabled),
+        "applied": False,
+        "reason": "disabled",
+        "model_path": str(args.adt_prior_model_path),
+        "pilot": {},
+        "dataset": {},
+        "rollback": {},
+    }
+    if bool(args.adt_prior_enabled):
+        if empty_transfer_dataset:
+            adt_prior_report["reason"] = "empty_transfer_dataset"
+        elif str(base_selected_transfer_algo).strip().lower() != "q":
+            adt_prior_report["reason"] = "selected_transfer_algo_not_q"
+        else:
+            adt_model_path = str(args.adt_prior_model_path or "").strip()
+            if not adt_model_path or not os.path.isfile(adt_model_path):
+                adt_prior_report["reason"] = "model_path_missing"
+            else:
+                adt_eps = max(1, min(int(args.episodes), int(max(1, args.adt_prior_episodes))))
+                adt_max_steps = int(args.adt_prior_max_steps)
+                if adt_max_steps <= 0:
+                    adt_max_steps = max(1, int(args.max_steps))
+                adt_cfg: Dict[str, Any] = {
+                    "model_path": str(adt_model_path),
+                    "verse_name": str(args.target_verse),
+                    "train": False,
+                    "online_enabled": False,
+                    "target_return_auto": True,
+                }
+                adt_cfg.update(_parse_cfg_overrides(args.adt_prior_cfg))
+                trainer_adt = Trainer(run_root=str(args.runs_root), schema_version="v1", auto_register_builtin=True)
+                adt_run = _run_agent(
+                    trainer=trainer_adt,
+                    role="adt_prior",
+                    verse_name=str(args.target_verse),
+                    episodes=int(adt_eps),
+                    max_steps=int(adt_max_steps),
+                    seed=int(args.seed),
+                    algo="adt",
+                    policy_id=f"adt_prior_{args.target_verse}",
+                    cfg=dict(adt_cfg),
+                )
+                adt_run_dir = os.path.join(str(args.runs_root), adt_run)
+                adt_eval = _collect_run_eval(
+                    adt_run_dir,
+                    early_episodes=max(1, int(args.diagnostic_early_episodes)),
+                    action_first_k=max(1, int(args.diagnostic_action_agreement_first_k)),
+                )
+                adt_success_path = os.path.splitext(str(args.transfer_dataset_out))[0] + ".adt_prior_success.jsonl"
+                adt_row_mode = str(args.adt_prior_row_mode or "").strip().lower()
+                if not adt_row_mode:
+                    adt_row_mode = "success_only" if bool(args.adt_prior_success_only) else "all_rows"
+                adt_rows = 0
+                if str(adt_row_mode) == "success_only":
+                    adt_rows = int(
+                        _extract_success_dna_from_events(
+                            run_dir=adt_run_dir,
+                            out_path=adt_success_path,
+                            max_rows=max(1, int(args.adt_prior_max_rows)),
+                        )
+                    )
+                elif str(adt_row_mode) == "top_return":
+                    adt_rows = int(
+                        _extract_top_return_dna_from_events(
+                            run_dir=adt_run_dir,
+                            out_path=adt_success_path,
+                            max_rows=max(1, int(args.adt_prior_max_rows)),
+                            top_return_pct=max(0.0, min(1.0, float(args.adt_prior_top_return_pct))),
+                        )
+                    )
+                else:
+                    adt_rows = int(
+                        _merge_jsonl(
+                            [os.path.join(adt_run_dir, "events.jsonl")],
+                            adt_success_path,
+                            max_rows_per_file=max(1, int(args.adt_prior_max_rows)),
+                        )
+                    )
+                adt_prior_report["pilot"] = {
+                    "run_id": str(adt_run),
+                    "run_dir": str(adt_run_dir).replace("\\", "/"),
+                    "episodes": int(adt_eps),
+                    "max_steps": int(adt_max_steps),
+                    "algo": "adt",
+                    "config_overrides": _parse_cfg_overrides(args.adt_prior_cfg),
+                    "eval": {
+                        "mean_return": float(adt_eval["stats"].mean_return),
+                        "success_rate": float(adt_eval["stats"].success_rate or 0.0),
+                        "mean_steps": float(adt_eval["stats"].mean_steps),
+                    },
+                    "curve_aggregate": adt_eval["aggregate"],
+                }
+                adt_prior_report["dataset"] = {
+                    "path": str(adt_success_path).replace("\\", "/"),
+                    "rows": int(adt_rows),
+                    "row_mode": str(adt_row_mode),
+                    "success_only": bool(str(adt_row_mode) == "success_only"),
+                    "top_return_pct": float(max(0.0, min(1.0, float(args.adt_prior_top_return_pct)))),
+                    "max_rows": int(max(1, int(args.adt_prior_max_rows))),
+                }
+                if adt_rows < max(1, int(args.adt_prior_min_rows)):
+                    adt_prior_report["reason"] = "insufficient_prior_rows"
+                else:
+                    merged_path = os.path.splitext(str(args.transfer_dataset_out))[0] + ".with_adt_prior.jsonl"
+                    merged_rows = _merge_jsonl(
+                        [str(ds["transfer_dataset_path"]), str(adt_success_path)],
+                        merged_path,
+                        max_rows_per_file=0,
+                    )
+                    ds = dict(ds)
+                    ds["base_transfer_dataset_path"] = str(ds.get("transfer_dataset_path", ""))
+                    ds["base_transfer_dataset_rows"] = int(ds.get("transfer_dataset_rows", 0))
+                    ds["transfer_dataset_path"] = str(merged_path)
+                    ds["transfer_dataset_rows"] = int(merged_rows)
+                    ds["adt_prior"] = {
+                        "pilot_run_id": str(adt_run),
+                        "prior_rows": int(adt_rows),
+                        "merged_rows": int(merged_rows),
+                    }
+                    transfer_cfg = dict(transfer_cfg)
+                    transfer_cfg["dataset_path"] = str(merged_path)
+                    transfer_cfg["warmstart_reward_scale"] = max(
+                        float(_safe_float(transfer_cfg.get("warmstart_reward_scale", 0.0), 0.0)),
+                        float(args.adt_prior_warmstart_reward_scale),
+                    )
+                    if bool(transfer_cfg.get("dynamic_transfer_mix_enabled", False)) and int(args.transfer_mix_decay_steps) <= 0:
+                        transfer_cfg["transfer_mix_decay_steps"] = int(
+                            _auto_transfer_mix_decay_steps(
+                                episodes=max(1, int(args.episodes)),
+                                max_steps=max(1, int(args.max_steps)),
+                                transfer_rows=max(0, int(ds.get("transfer_dataset_rows", 0))),
+                                mix_start=max(0.0, min(1.0, float(args.transfer_mix_start))),
+                                mix_end=max(0.0, min(1.0, float(args.transfer_mix_end))),
+                            )
+                        )
+                    adt_prior_report["applied"] = True
+                    adt_prior_report["reason"] = (
+                        "merged_successful_adt_target_rollouts"
+                        if str(adt_row_mode) == "success_only"
+                        else ("merged_top_return_adt_target_rollouts" if str(adt_row_mode) == "top_return" else "merged_adt_target_rollouts")
+                    )
 
     trainer = Trainer(run_root=str(args.runs_root), schema_version="v1", auto_register_builtin=True)
     transfer_run = _run_agent(
@@ -2369,8 +3572,8 @@ def main() -> None:
         episodes=max(1, int(args.episodes)),
         max_steps=max(1, int(args.max_steps)),
         seed=int(args.seed),
-        algo=str(args.transfer_algo),
-        policy_id=f"transfer_{args.transfer_algo}_{args.target_verse}",
+        algo=str(selected_transfer_algo),
+        policy_id=f"transfer_{selected_transfer_algo}_{args.target_verse}",
         cfg=transfer_cfg,
     )
     baseline_run = _run_agent(
@@ -2388,13 +3591,89 @@ def main() -> None:
     transfer_run_dir = os.path.join(str(args.runs_root), transfer_run)
     baseline_run_dir = os.path.join(str(args.runs_root), baseline_run)
 
-    transfer_stats = evaluate_run(transfer_run_dir)
-    baseline_stats = evaluate_run(baseline_run_dir)
-    transfer_curve = _episode_curve(transfer_run_dir)
-    baseline_curve = _episode_curve(baseline_run_dir)
     early_episodes = max(1, int(args.diagnostic_early_episodes))
     action_first_k = max(1, int(args.diagnostic_action_agreement_first_k))
+    baseline_eval = _collect_run_eval(
+        baseline_run_dir,
+        early_episodes=early_episodes,
+        action_first_k=action_first_k,
+    )
+    transfer_eval = _collect_run_eval(
+        transfer_run_dir,
+        early_episodes=early_episodes,
+        action_first_k=action_first_k,
+    )
 
+    if bool(adt_prior_report.get("applied", False)) and bool(args.adt_prior_auto_rollback):
+        rb = _adt_prior_rollback_decision(
+            candidate_success_rate=float(_safe_float(transfer_eval["early_window"].get("success_rate", 0.0), 0.0)),
+            candidate_mean_return=float(_safe_float(transfer_eval["early_window"].get("mean_return", 0.0), 0.0)),
+            candidate_hazard_per_1k=float(
+                _safe_float(transfer_eval["early_window"].get("hazard_events_per_1k_steps", 0.0), 0.0)
+            ),
+            baseline_success_rate=float(_safe_float(baseline_eval["early_window"].get("success_rate", 0.0), 0.0)),
+            baseline_mean_return=float(_safe_float(baseline_eval["early_window"].get("mean_return", 0.0), 0.0)),
+            baseline_hazard_per_1k=float(
+                _safe_float(baseline_eval["early_window"].get("hazard_events_per_1k_steps", 0.0), 0.0)
+            ),
+            min_success_delta=float(args.adt_prior_rollback_min_success_delta),
+            min_return_delta=float(args.adt_prior_rollback_min_return_delta),
+            max_hazard_regression_per_1k=float(args.adt_prior_rollback_max_hazard_regression_per_1k),
+        )
+        adt_prior_report["rollback"] = dict(rb)
+        if bool(rb.get("rollback", False)):
+            fallback_transfer_run = _run_agent(
+                trainer=trainer,
+                role="transfer_rollback",
+                verse_name=str(args.target_verse),
+                episodes=max(1, int(args.episodes)),
+                max_steps=max(1, int(args.max_steps)),
+                seed=int(args.seed),
+                algo=str(base_selected_transfer_algo),
+                policy_id=f"transfer_rollback_{base_selected_transfer_algo}_{args.target_verse}",
+                cfg=dict(base_transfer_cfg),
+            )
+            transfer_run = str(fallback_transfer_run)
+            transfer_run_dir = os.path.join(str(args.runs_root), transfer_run)
+            transfer_eval = _collect_run_eval(
+                transfer_run_dir,
+                early_episodes=early_episodes,
+                action_first_k=action_first_k,
+            )
+            transfer_cfg = dict(base_transfer_cfg)
+            if isinstance(ds.get("base_transfer_dataset_path"), str) and str(ds.get("base_transfer_dataset_path")):
+                ds["transfer_dataset_path"] = str(ds.get("base_transfer_dataset_path"))
+                ds["transfer_dataset_rows"] = int(_safe_int(ds.get("base_transfer_dataset_rows", 0), 0))
+            if isinstance(ds.get("adt_prior"), dict):
+                ds["adt_prior"]["rolled_back"] = True
+            adt_prior_report["rollback"].update(
+                {
+                    "applied": True,
+                    "fallback_run_id": str(fallback_transfer_run),
+                    "fallback_run_dir": str(transfer_run_dir).replace("\\", "/"),
+                    "fallback_algo": str(base_selected_transfer_algo),
+                    "reason": "early_quality_gate_failed",
+                }
+            )
+        else:
+            adt_prior_report["rollback"].update({"applied": False, "reason": "early_quality_gate_passed"})
+    elif bool(adt_prior_report.get("applied", False)):
+        adt_prior_report["rollback"] = {"applied": False, "reason": "disabled"}
+
+    transfer_stats = transfer_eval["stats"]
+    baseline_stats = baseline_eval["stats"]
+    transfer_curve = transfer_eval["curve"]
+    baseline_curve = baseline_eval["curve"]
+    agg_transfer = transfer_eval["aggregate"]
+    agg_baseline = baseline_eval["aggregate"]
+    transfer_safety_trend = transfer_eval["safety_trend"]
+    baseline_safety_trend = baseline_eval["safety_trend"]
+    transfer_early = transfer_eval["early_window"]
+    baseline_early = baseline_eval["early_window"]
+    transfer_action_agreement = transfer_eval["action_agreement"]
+    baseline_action_agreement = baseline_eval["action_agreement"]
+    transfer_td_diag = transfer_eval["td_error"]
+    baseline_td_diag = baseline_eval["td_error"]
     transfer_first = _first_passable_episode(
         transfer_curve,
         window=max(1, int(args.passable_window)),
@@ -2407,21 +3686,6 @@ def main() -> None:
         passable_success_rate=float(args.passable_success_rate),
         passable_mean_return=float(args.passable_mean_return),
     )
-
-    agg_transfer = _aggregate_curve(transfer_curve)
-    agg_baseline = _aggregate_curve(baseline_curve)
-    transfer_safety_trend = _safety_trend(transfer_curve)
-    baseline_safety_trend = _safety_trend(baseline_curve)
-    transfer_early = _early_window(transfer_curve, episodes=early_episodes)
-    baseline_early = _early_window(baseline_curve, episodes=early_episodes)
-    transfer_action_agreement = _action_agreement_diagnostics(
-        transfer_run_dir, first_k_steps=action_first_k
-    )
-    baseline_action_agreement = _action_agreement_diagnostics(
-        baseline_run_dir, first_k_steps=action_first_k
-    )
-    transfer_td_diag = _train_td_diagnostics(transfer_run_dir, early_episodes=early_episodes)
-    baseline_td_diag = _train_td_diagnostics(baseline_run_dir, early_episodes=early_episodes)
     transfer_score_diag = _transfer_score_diagnostics(str(ds["transfer_dataset_path"]))
     comparison = _speedup_summary(
         transfer_first_passable=transfer_first,
@@ -2474,6 +3738,9 @@ def main() -> None:
             sources=sources,
         ),
         "transfer_dataset": ds,
+        "source_attribution": dict(source_attribution_report),
+        "robust_selector": dict(robust_selector_report),
+        "adt_prior": dict(adt_prior_report),
         "transfer_dataset_diagnostics": {
             "score_distribution": transfer_score_diag,
             "lane_summary": dict(ds.get("lane_merge", {})) if isinstance(ds.get("lane_merge"), dict) else {},
@@ -2502,12 +3769,21 @@ def main() -> None:
             "label_cfg": dict(bridge_label_cfg),
         },
         "transfer_agent": {
-            "algo": str(args.transfer_algo),
+            "algo": str(selected_transfer_algo),
+            "requested_algo": str(args.transfer_algo),
+            "selected_mode": str(robust_selector_report.get("selected_mode", "transfer_all_lanes")),
             "warehouse_obs_key_mode": str(args.transfer_q_warehouse_obs_key_mode),
             "config_overrides": _parse_cfg_overrides(args.transfer_cfg),
             "warmstart": {
                 "reward_scale": float(args.transfer_warmstart_reward_scale),
+                "max_rows": int(max(0, int(args.transfer_warmstart_max_rows))),
+                "balance_actions": bool(args.transfer_warmstart_balance_actions),
+                "action_balance_max_share": float(
+                    max(0.0, min(1.0, float(args.transfer_warmstart_action_balance_max_share)))
+                ),
                 "use_transfer_score": bool(args.transfer_warmstart_use_transfer_score),
+                "target_mode": str(args.transfer_warmstart_target),
+                "target_gamma": float(max(0.0, min(1.0, float(args.transfer_warmstart_target_gamma)))),
                 "transfer_score_min": float(args.transfer_warmstart_transfer_score_min),
                 "transfer_score_max": float(args.transfer_warmstart_transfer_score_max),
             },
@@ -2616,6 +3892,10 @@ def main() -> None:
     print(
         f"speedup_ratio={report['comparison']['transfer_speedup_ratio']} "
         f"hazard_gain_pct={float(report['comparison']['hazard_improvement_pct']):.2f}"
+    )
+    print(
+        f"robust_selector_mode={str((report.get('robust_selector', {}) or {}).get('selected_mode', 'transfer_all_lanes'))} "
+        f"reason={str((report.get('robust_selector', {}) or {}).get('reason', 'n/a'))}"
     )
     hs = (report.get("health_scorecard", {}).get("by_role", {}) if isinstance(report.get("health_scorecard"), dict) else {})
     transfer_health = hs.get("transfer") if isinstance(hs, dict) else None

@@ -14,6 +14,7 @@ Requirements:
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,12 +30,20 @@ def obs_key(
     obs: JSONValue,
     *,
     warehouse_mode: str = "direction_only",
+    labyrinth_mode: str = "task_lite",
+    maze_mode: str = "task_lite",
     grid_mode: str = "full",
 ) -> str:
     if isinstance(obs, dict):
         wk = _warehouse_obs_key(obs, mode=warehouse_mode)
         if wk is not None:
             return json.dumps(wk, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        lk = _labyrinth_obs_key(obs, mode=labyrinth_mode)
+        if lk is not None:
+            return json.dumps(lk, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        mk = _maze_obs_key(obs, mode=maze_mode)
+        if mk is not None:
+            return json.dumps(mk, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         gk = _grid_obs_key(obs, mode=grid_mode)
         if gk is not None:
             return json.dumps(gk, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -85,12 +94,89 @@ def _warehouse_obs_key(obs: Dict[str, Any], *, mode: str = "direction_only") -> 
     gy = _safe_int(obs.get("goal_y", 0), 0)
     dx = gx - x
     dy = gy - y
-    _ = str(mode or "direction_only").strip().lower()
+    mode_n = str(mode or "direction_only").strip().lower()
+    if mode_n in {"task_lite", "task", "transfer_task"}:
+        battery = _safe_int(obs.get("battery", 0), 0)
+        nearby = _safe_int(obs.get("nearby_obstacles", 0), 0)
+        patrol_dist = _safe_int(obs.get("patrol_dist", -1), -1)
+        on_conveyor = _safe_int(obs.get("on_conveyor", 0), 0)
+        return {
+            "_schema": "warehouse_key_task_lite_v1",
+            "dx_dir": int(_sgn(dx)),
+            "dy_dir": int(_sgn(dy)),
+            "battery_bin": int(max(0, min(4, battery // 5))),
+            "nearby_obstacles": int(max(0, min(4, nearby))),
+            "patrol_near": int(1 if (patrol_dist >= 0 and patrol_dist <= 2) else 0),
+            "on_conveyor": int(1 if on_conveyor else 0),
+        }
     return {
         "_schema": "warehouse_key_direction_only_v1",
         "dx_dir": int(_sgn(dx)),
         "dy_dir": int(_sgn(dy)),
     }
+
+
+def _labyrinth_obs_key(obs: Dict[str, Any], *, mode: str = "task_lite") -> Optional[Dict[str, Any]]:
+    mode_n = str(mode or "task_lite").strip().lower()
+    if mode_n in {"", "full", "raw"}:
+        return None
+    needed = {"x", "y", "goal_x", "goal_y", "battery"}
+    if not needed.issubset(set(str(k) for k in obs.keys())):
+        return None
+    x = _safe_int(obs.get("x", 0), 0)
+    y = _safe_int(obs.get("y", 0), 0)
+    gx = _safe_int(obs.get("goal_x", 0), 0)
+    gy = _safe_int(obs.get("goal_y", 0), 0)
+    battery = _safe_int(obs.get("battery", 0), 0)
+    if mode_n in {"direction_only", "delta_dir"}:
+        return {
+            "_schema": "labyrinth_key_direction_only_v1",
+            "dx_dir": int(_sgn(gx - x)),
+            "dy_dir": int(_sgn(gy - y)),
+        }
+    if mode_n in {"task_lite", "task", "transfer_task"}:
+        return {
+            "_schema": "labyrinth_key_task_lite_v1",
+            "dx_dir": int(_sgn(gx - x)),
+            "dy_dir": int(_sgn(gy - y)),
+            "battery_bin": int(max(0, min(7, battery // 10))),
+            "nearby_walls": int(max(0, min(4, _safe_int(obs.get("nearby_walls", 0), 0)))),
+            "nearby_pits": int(max(0, min(3, _safe_int(obs.get("nearby_pits", 0), 0)))),
+            "laser_nearby": int(1 if _safe_int(obs.get("laser_nearby", 0), 0) > 0 else 0),
+            "charger_bin": int(max(0, min(4, _safe_int(obs.get("nearest_charger_dist", 0), 0) // 2))),
+        }
+    return None
+
+
+def _maze_obs_key(obs: Dict[str, Any], *, mode: str = "task_lite") -> Optional[Dict[str, Any]]:
+    mode_n = str(mode or "task_lite").strip().lower()
+    if mode_n in {"", "full", "raw"}:
+        return None
+    needed = {"x", "y"}
+    if not needed.issubset(set(str(k) for k in obs.keys())):
+        return None
+    ex = _safe_int(obs.get("exit_x", obs.get("goal_x", 0)), 0)
+    ey = _safe_int(obs.get("exit_y", obs.get("goal_y", 0)), 0)
+    x = _safe_int(obs.get("x", 0), 0)
+    y = _safe_int(obs.get("y", 0), 0)
+    if mode_n in {"direction_only", "delta_dir"}:
+        return {
+            "_schema": "maze_key_direction_only_v1",
+            "dx_dir": int(_sgn(ex - x)),
+            "dy_dir": int(_sgn(ey - y)),
+        }
+    if mode_n in {"task_lite", "task", "transfer_task"}:
+        return {
+            "_schema": "maze_key_task_lite_v1",
+            "dx_dir": int(_sgn(ex - x)),
+            "dy_dir": int(_sgn(ey - y)),
+            "wall_n": int(1 if _safe_int(obs.get("wall_n", 0), 0) else 0),
+            "wall_s": int(1 if _safe_int(obs.get("wall_s", 0), 0) else 0),
+            "wall_w": int(1 if _safe_int(obs.get("wall_w", 0), 0) else 0),
+            "wall_e": int(1 if _safe_int(obs.get("wall_e", 0), 0) else 0),
+            "stagnation_bin": int(max(0, min(4, _safe_int(obs.get("steps_since_new", 0), 0) // 3))),
+        }
+    return None
 
 
 def _grid_obs_key(obs: Dict[str, Any], *, mode: str = "full") -> Optional[Dict[str, Any]]:
@@ -172,12 +258,20 @@ class QLearningAgent:
             0.0, float(_safe_float(cfg.get("transfer_replay_score_sampling_power", 1.0), 1.0))
         )
         self.warehouse_obs_key_mode = str(cfg.get("warehouse_obs_key_mode", "direction_only")).strip().lower()
+        self.labyrinth_obs_key_mode = str(cfg.get("labyrinth_obs_key_mode", "task_lite")).strip().lower()
+        self.maze_obs_key_mode = str(cfg.get("maze_obs_key_mode", "task_lite")).strip().lower()
         self.grid_obs_key_mode = str(cfg.get("grid_obs_key_mode", "full")).strip().lower()
         self.warmstart_use_transfer_score = _safe_bool(cfg.get("warmstart_use_transfer_score", False), False)
         self.warmstart_target = str(cfg.get("warmstart_target", "immediate")).strip().lower()
         self.warmstart_target_gamma = max(
             0.0,
             min(1.0, float(_safe_float(cfg.get("warmstart_target_gamma", self.gamma), self.gamma))),
+        )
+        self.warmstart_max_rows = max(0, int(_safe_int(cfg.get("warmstart_max_rows", 0), 0)))
+        self.warmstart_balance_actions = _safe_bool(cfg.get("warmstart_balance_actions", True), True)
+        self.warmstart_action_balance_max_share = max(
+            0.0,
+            min(1.0, float(_safe_float(cfg.get("warmstart_action_balance_max_share", 0.60), 0.60))),
         )
         self.warmstart_transfer_score_min = max(
             0.0, float(_safe_float(cfg.get("warmstart_transfer_score_min", 0.0), 0.0))
@@ -366,6 +460,7 @@ class QLearningAgent:
         warmstart_target_rows = int(
             self._assign_warmstart_targets(rows_raw, mode=target_mode, gamma=target_gamma)
         )
+        rows_raw = self._select_warmstart_rows(rows_raw)
 
         rows = 0
         transfer_score_rows = 0
@@ -413,6 +508,10 @@ class QLearningAgent:
             "warmstart_target_mode": str(target_mode),
             "warmstart_target_gamma": float(target_gamma),
             "warmstart_target_rows": int(warmstart_target_rows),
+            "warmstart_rows_selected": int(len(rows_raw)),
+            "warmstart_max_rows": int(self.warmstart_max_rows),
+            "warmstart_balance_actions": bool(self.warmstart_balance_actions),
+            "warmstart_action_balance_max_share": float(self.warmstart_action_balance_max_share),
             "warmstart_transfer_score_weighted": bool(self.warmstart_use_transfer_score),
             "warmstart_transfer_score_rows": int(transfer_score_rows),
             "warmstart_transfer_score_mean": (
@@ -496,6 +595,54 @@ class QLearningAgent:
                 row["warmstart_target"] = float(running)
         return int(len(rows))
 
+    def _warmstart_row_priority(self, row: Dict[str, Any]) -> float:
+        src = row.get("source")
+        src = src if isinstance(src, dict) else {}
+        transfer_conf = _safe_float(src.get("transfer_confidence", 0.5), 0.5)
+        transfer_score = _safe_float(src.get("transfer_score", 1.0), 1.0)
+        reward = abs(_safe_float(row.get("reward", 0.0), 0.0))
+        # Confidence-dominant ranking with mild score/reward tie-breakers.
+        return float((2.0 * transfer_conf) + (0.25 * transfer_score) + (0.10 * reward))
+
+    def _select_warmstart_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not rows:
+            return rows
+        # Keep legacy behavior (dataset order, all rows) unless an explicit cap is set.
+        if int(self.warmstart_max_rows) <= 0:
+            return rows
+        target_n = int(len(rows))
+        target_n = min(target_n, int(self.warmstart_max_rows))
+        if target_n <= 0:
+            return []
+
+        ranked = sorted(rows, key=self._warmstart_row_priority, reverse=True)
+        if not bool(self.warmstart_balance_actions) or self.n_actions <= 1:
+            return ranked[:target_n]
+
+        max_share = float(max(0.0, min(1.0, self.warmstart_action_balance_max_share)))
+        if max_share <= 0.0:
+            return ranked[:target_n]
+        per_action_cap = max(1, int(math.ceil(max_share * float(target_n))))
+        counts: Dict[int, int] = {}
+        kept: List[Dict[str, Any]] = []
+        overflow: List[Dict[str, Any]] = []
+        for row in ranked:
+            a = int(_safe_int(row.get("action", -1), -1))
+            if a < 0 or a >= int(self.n_actions):
+                continue
+            c = int(counts.get(a, 0))
+            if c < per_action_cap:
+                kept.append(row)
+                counts[a] = c + 1
+            else:
+                overflow.append(row)
+            if len(kept) >= target_n:
+                return kept
+        if len(kept) < target_n:
+            need = target_n - len(kept)
+            kept.extend(overflow[:need])
+        return kept
+
     def save(self, path: str) -> None:
         os.makedirs(path, exist_ok=True)
 
@@ -547,6 +694,8 @@ class QLearningAgent:
         return obs_key(
             obs,
             warehouse_mode=self.warehouse_obs_key_mode,
+            labyrinth_mode=self.labyrinth_obs_key_mode,
+            maze_mode=self.maze_obs_key_mode,
             grid_mode=self.grid_obs_key_mode,
         )
 
