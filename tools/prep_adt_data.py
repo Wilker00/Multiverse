@@ -161,11 +161,21 @@ def _load_jsonl_into_episodes(
             if obs is None:
                 continue
 
-            try:
-                action = int(row.get("action"))
-            except (TypeError, ValueError):
-                continue
-            if action < 0:
+            action_raw = row.get("action")
+            action = None
+            if isinstance(action_raw, (list, tuple)):
+                try:
+                    action = [float(x) for x in action_raw]
+                except (TypeError, ValueError):
+                    pass
+            else:
+                try:
+                    action_val = int(action_raw)
+                    if action_val >= 0:
+                        action = action_val
+                except (TypeError, ValueError):
+                    pass
+            if action is None:
                 continue
 
             reward = _safe_float(row.get("reward", 0.0), 0.0)
@@ -266,6 +276,7 @@ def prepare_adt_data(
     action_balance_max_ratio: float = 3.0,
     action_balance_seed: int = 123,
     min_action_dim: int = 0,
+    verse_to_id: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     verse_allow = None
     if verse_filter:
@@ -316,14 +327,28 @@ def prepare_adt_data(
     episodes_after_top_return = int(len(episode_rows))
 
     action_dim = 0
+    action_space_type = "discrete"
+    bos_token_id = 0
     for ep in episode_rows:
-        for step in ep.steps:
-            action_dim = max(int(action_dim), int(step.action) + 1)
-    action_dim = max(int(action_dim), max(0, int(min_action_dim)))
-    if action_dim <= 0:
-        raise RuntimeError("action_dim inferred as 0; no valid discrete actions found")
+        if ep.steps:
+            if isinstance(ep.steps[0].action, (list, tuple)):
+                action_space_type = "continuous"
+                action_dim = len(ep.steps[0].action)
+            break
 
-    bos_token_id = int(action_dim)
+    if action_space_type == "discrete":
+        for ep in episode_rows:
+            for step in ep.steps:
+                try:
+                    action_dim = max(int(action_dim), int(step.action) + 1)
+                except Exception:
+                    pass
+        action_dim = max(int(action_dim), max(0, int(min_action_dim)))
+        if action_dim <= 0:
+            raise RuntimeError("action_dim inferred as 0; no valid discrete actions found")
+        bos_token_id = int(action_dim)
+    else:
+        bos_token_id = [0.0] * action_dim
     K = max(1, int(context_len))
     stride = int(chunk_stride)
     if stride <= 0:
@@ -331,12 +356,22 @@ def prepare_adt_data(
     max_t = max(1, int(max_timestep))
     gamma = max(0.0, min(1.0, float(gamma)))
 
+    # Build verse_to_id mapping
+    if verse_to_id is not None:
+        v2id = dict(verse_to_id)
+    else:
+        all_verse_names = sorted({ep.verse_name for ep in episode_rows if ep.verse_name})
+        v2id = {name: idx for idx, name in enumerate(all_verse_names)}
+    
+    verse_to_id = v2id # maintain variable name for downstream loop 
+
     states_all: List[List[List[float]]] = []
     rtg_all: List[List[float]] = []
     prev_actions_all: List[List[int]] = []
     actions_all: List[List[int]] = []
     timesteps_all: List[List[int]] = []
     mask_all: List[List[float]] = []
+    verse_ids_all: List[int] = []
 
     for ep in episode_rows:
         rewards = [float(s.reward) for s in ep.steps]
@@ -353,8 +388,12 @@ def prepare_adt_data(
 
             cur_states = [[0.0] * int(state_dim) for _ in range(K)]
             cur_rtg = [0.0 for _ in range(K)]
-            cur_prev = [int(bos_token_id) for _ in range(K)]
-            cur_actions = [-100 for _ in range(K)]
+            if action_space_type == "continuous":
+                cur_prev = [list(bos_token_id) for _ in range(K)]
+                cur_actions = [[-100.0] * action_dim for _ in range(K)]
+            else:
+                cur_prev = [int(bos_token_id) for _ in range(K)]
+                cur_actions = [-100 for _ in range(K)]
             cur_t = [0 for _ in range(K)]
             cur_mask = [0.0 for _ in range(K)]
 
@@ -362,8 +401,12 @@ def prepare_adt_data(
                 idx = start + j
                 cur_states[j] = list(states[idx])
                 cur_rtg[j] = float(rtg[idx])
-                cur_actions[j] = int(actions[idx])
-                cur_prev[j] = int(bos_token_id) if idx == 0 else int(actions[idx - 1])
+                if action_space_type == "continuous":
+                    cur_actions[j] = list(actions[idx])
+                    cur_prev[j] = list(bos_token_id) if idx == 0 else list(actions[idx - 1])
+                else:
+                    cur_actions[j] = int(actions[idx])
+                    cur_prev[j] = int(bos_token_id) if idx == 0 else int(actions[idx - 1])
                 cur_t[j] = min(max_t - 1, max(0, int(step_indices[idx])))
                 cur_mask[j] = 1.0
 
@@ -373,6 +416,7 @@ def prepare_adt_data(
             actions_all.append(cur_actions)
             timesteps_all.append(cur_t)
             mask_all.append(cur_mask)
+            verse_ids_all.append(verse_to_id.get(ep.verse_name, 0))
 
     if not states_all:
         raise RuntimeError("prepared dataset is empty after chunking")
@@ -420,6 +464,7 @@ def prepare_adt_data(
                 actions_all = [actions_all[i] for i in keep]
                 timesteps_all = [timesteps_all[i] for i in keep]
                 mask_all = [mask_all[i] for i in keep]
+                verse_ids_all = [verse_ids_all[i] for i in keep]
                 action_balance_meta["action_balance_applied"] = True
                 action_balance_meta["action_balance_cap"] = int(cap)
                 action_balance_meta["action_balance_kept_samples"] = int(len(keep))
@@ -431,11 +476,13 @@ def prepare_adt_data(
     payload = {
         "states": torch.tensor(states_all, dtype=torch.float32),
         "returns_to_go": torch.tensor(rtg_all, dtype=torch.float32),
-        "prev_actions": torch.tensor(prev_actions_all, dtype=torch.long),
-        "actions": torch.tensor(actions_all, dtype=torch.long),
+        "verse_ids": torch.tensor(verse_ids_all, dtype=torch.long),
+        "prev_actions": torch.tensor(prev_actions_all, dtype=torch.float32 if action_space_type == "continuous" else torch.long),
+        "actions": torch.tensor(actions_all, dtype=torch.float32 if action_space_type == "continuous" else torch.long),
         "timesteps": torch.tensor(timesteps_all, dtype=torch.long),
         "attention_mask": torch.tensor(mask_all, dtype=torch.float32),
         "meta": {
+            "action_space_type": str(action_space_type),
             "state_dim": int(state_dim),
             "action_dim": int(action_dim),
             "bos_token_id": int(bos_token_id),
@@ -445,6 +492,8 @@ def prepare_adt_data(
             "gamma": float(gamma),
             "episodes": int(len(episode_rows)),
             "samples": int(len(states_all)),
+            "n_verses": int(len(verse_to_id)),
+            "verse_to_id": dict(verse_to_id),
             "runs_root": str(runs_root),
             "run_event_paths": [str(p).replace("\\", "/") for p in run_event_paths],
             "dataset_paths": [str(p).replace("\\", "/") for p in discovered_datasets],

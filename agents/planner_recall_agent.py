@@ -47,6 +47,9 @@ class PlannerRecallAgent(MemoryRecallAgent):
 
         if bool(self._planner_force_recall):
             step = int(step_idx)
+            if step < int(self._last_query_step):
+                # New episode: rollout step counter resets.
+                self._last_query_step = -10**9
             if (step - int(self._last_query_step)) < int(self._recall_cooldown_steps):
                 return None
             req = {

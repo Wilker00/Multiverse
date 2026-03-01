@@ -1,0 +1,1304 @@
+{
+  "target_verse": "warehouse_world",
+  "episodes": 40,
+  "max_steps": 120,
+  "seed": 19,
+  "sources": [
+    {
+      "verse_name": "grid_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/grid_world.jsonl",
+      "run_id": "warehouse_world",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    },
+    {
+      "verse_name": "labyrinth_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/labyrinth_world.jsonl",
+      "run_id": "warehouse_world",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    },
+    {
+      "verse_name": "park_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/park_world.jsonl",
+      "run_id": "warehouse_world",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    },
+    {
+      "verse_name": "pursuit_world",
+      "path": "models/expert_datasets/near_source_bank/warehouse_world/pursuit_world.jsonl",
+      "run_id": "warehouse_world",
+      "source_kind": "explicit",
+      "source_lane": "near_universe",
+      "source_universe": "logistics_universe"
+    }
+  ],
+  "source_selection": {
+    "target_verse": "warehouse_world",
+    "target_universe": "logistics_universe",
+    "planned_near_sources": [
+      "factory_world",
+      "harvest_world",
+      "grid_world",
+      "bridge_world",
+      "trade_world",
+      "park_world",
+      "pursuit_world",
+      "labyrinth_world",
+      "escape_world"
+    ],
+    "planned_far_sources": [
+      "chess_world",
+      "go_world",
+      "uno_world"
+    ],
+    "counts_by_lane": {
+      "near_universe": 4
+    },
+    "counts_by_verse": {
+      "grid_world": 1,
+      "labyrinth_world": 1,
+      "park_world": 1,
+      "pursuit_world": 1
+    }
+  },
+  "transfer_dataset": {
+    "transfer_dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.jsonl",
+    "transfer_dataset_rows": 1421,
+    "translated_files": [
+      "models\\expert_datasets\\synthetic_transfer_grid_world_to_warehouse_world_warehouse_world_grid_world.jsonl",
+      "models\\expert_datasets\\synthetic_transfer_labyrinth_world_to_warehouse_world_warehouse_world_labyrinth_world.jsonl",
+      "models\\expert_datasets\\synthetic_transfer_park_world_to_warehouse_world_warehouse_world_park_world.jsonl",
+      "models\\expert_datasets\\synthetic_transfer_pursuit_world_to_warehouse_world_warehouse_world_pursuit_world.jsonl"
+    ],
+    "translated_lane_annotation_stats": [
+      {
+        "path": "models\\expert_datasets\\synthetic_transfer_grid_world_to_warehouse_world_warehouse_world_grid_world.jsonl",
+        "updated_rows": 1198,
+        "adapter_rows": 1198,
+        "lane": "near_universe",
+        "dropped_rows": 0,
+        "far_lane_weighted_rows": 0,
+        "universe_feature_score": {
+          "mean": 0.5095892435994988,
+          "p10": 0.4444444444444445,
+          "p50": 0.5157142857142858,
+          "p90": 0.5602380952380952
+        }
+      },
+      {
+        "path": "models\\expert_datasets\\synthetic_transfer_labyrinth_world_to_warehouse_world_warehouse_world_labyrinth_world.jsonl",
+        "updated_rows": 4000,
+        "adapter_rows": 4000,
+        "lane": "near_universe",
+        "dropped_rows": 0,
+        "far_lane_weighted_rows": 0,
+        "universe_feature_score": {
+          "mean": 0.3442177663606235,
+          "p10": 0.28928571428571426,
+          "p50": 0.3192857142857143,
+          "p90": 0.4185714285714286
+        }
+      },
+      {
+        "path": "models\\expert_datasets\\synthetic_transfer_park_world_to_warehouse_world_warehouse_world_park_world.jsonl",
+        "updated_rows": 728,
+        "adapter_rows": 728,
+        "lane": "near_universe",
+        "dropped_rows": 0,
+        "far_lane_weighted_rows": 0,
+        "universe_feature_score": {
+          "mean": 0.5465226227853779,
+          "p10": 0.5085714285714286,
+          "p50": 0.5407142857142857,
+          "p90": 0.5878571428571429
+        }
+      },
+      {
+        "path": "models\\expert_datasets\\synthetic_transfer_pursuit_world_to_warehouse_world_warehouse_world_pursuit_world.jsonl",
+        "updated_rows": 4000,
+        "adapter_rows": 4000,
+        "lane": "near_universe",
+        "dropped_rows": 0,
+        "far_lane_weighted_rows": 0,
+        "universe_feature_score": {
+          "mean": 0.44030346088435374,
+          "p10": 0.35714285714285715,
+          "p50": 0.43380952380952376,
+          "p90": 0.5321428571428571
+        }
+      }
+    ],
+    "lane_merge": {
+      "rows_written": 6926,
+      "lane_file_counts": {
+        "near_universe": 4
+      },
+      "lane_rows_written": {
+        "near_universe": 6926
+      },
+      "per_source_rows_written": [
+        {
+          "verse_name": "grid_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 1198,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_grid_world_to_warehouse_world_warehouse_world_grid_world.jsonl"
+        },
+        {
+          "verse_name": "labyrinth_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 2500,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_labyrinth_world_to_warehouse_world_warehouse_world_labyrinth_world.jsonl"
+        },
+        {
+          "verse_name": "park_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 728,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_park_world_to_warehouse_world_warehouse_world_park_world.jsonl"
+        },
+        {
+          "verse_name": "pursuit_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 2500,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_pursuit_world_to_warehouse_world_warehouse_world_pursuit_world.jsonl"
+        }
+      ],
+      "lane_controls": {
+        "near_lane_enabled": true,
+        "far_lane_enabled": false,
+        "max_rows_per_source": 2500,
+        "near_lane_max_rows_per_source": 0,
+        "far_lane_max_rows_per_source": 0,
+        "far_lane_default_cap_if_zero": 1250
+      }
+    },
+    "lane_weighting": {
+      "far_lane_score_weight_enabled": true,
+      "far_lane_score_weight_strength": 0.35,
+      "far_lane_min_universe_feature_score": 0.0,
+      "universe_adapter_enabled": true
+    },
+    "bridge_stats": [
+      {
+        "source_verse": "grid_world",
+        "source_path": "models/expert_datasets/near_source_bank/warehouse_world/grid_world.jsonl",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "run_id": "warehouse_world",
+        "output_path": "models\\expert_datasets\\synthetic_transfer_grid_world_to_warehouse_world_warehouse_world_grid_world.jsonl",
+        "input_rows": 1198,
+        "translated_rows": 1198,
+        "dropped_rows": 0,
+        "learned_bridge_enabled": false,
+        "learned_bridge_model_path": null,
+        "learned_scored_rows": 0,
+        "behavioral_bridge_enabled": true,
+        "behavioral_scored_rows": 1198,
+        "behavioral_prototype_rows": 1198,
+        "bridge_reason": "shared_parent:navigation"
+      },
+      {
+        "source_verse": "labyrinth_world",
+        "source_path": "models/expert_datasets/near_source_bank/warehouse_world/labyrinth_world.jsonl",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "run_id": "warehouse_world",
+        "output_path": "models\\expert_datasets\\synthetic_transfer_labyrinth_world_to_warehouse_world_warehouse_world_labyrinth_world.jsonl",
+        "input_rows": 4000,
+        "translated_rows": 4000,
+        "dropped_rows": 0,
+        "learned_bridge_enabled": false,
+        "learned_bridge_model_path": null,
+        "learned_scored_rows": 0,
+        "behavioral_bridge_enabled": true,
+        "behavioral_scored_rows": 4000,
+        "behavioral_prototype_rows": 4000,
+        "bridge_reason": "same_universe:logistics_ops"
+      },
+      {
+        "source_verse": "park_world",
+        "source_path": "models/expert_datasets/near_source_bank/warehouse_world/park_world.jsonl",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "run_id": "warehouse_world",
+        "output_path": "models\\expert_datasets\\synthetic_transfer_park_world_to_warehouse_world_warehouse_world_park_world.jsonl",
+        "input_rows": 728,
+        "translated_rows": 728,
+        "dropped_rows": 0,
+        "learned_bridge_enabled": false,
+        "learned_bridge_model_path": null,
+        "learned_scored_rows": 0,
+        "behavioral_bridge_enabled": true,
+        "behavioral_scored_rows": 728,
+        "behavioral_prototype_rows": 728,
+        "bridge_reason": "shared_parent:navigation"
+      },
+      {
+        "source_verse": "pursuit_world",
+        "source_path": "models/expert_datasets/near_source_bank/warehouse_world/pursuit_world.jsonl",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "run_id": "warehouse_world",
+        "output_path": "models\\expert_datasets\\synthetic_transfer_pursuit_world_to_warehouse_world_warehouse_world_pursuit_world.jsonl",
+        "input_rows": 4000,
+        "translated_rows": 4000,
+        "dropped_rows": 0,
+        "learned_bridge_enabled": false,
+        "learned_bridge_model_path": null,
+        "learned_scored_rows": 0,
+        "behavioral_bridge_enabled": true,
+        "behavioral_scored_rows": 4000,
+        "behavioral_prototype_rows": 4000,
+        "bridge_reason": "shared_parent:navigation"
+      }
+    ],
+    "filter_stats": {
+      "enabled": true,
+      "path": "models\\expert_datasets\\transfer_strategy_to_warehouse.jsonl",
+      "input_rows": 6926,
+      "kept_rows": 1421,
+      "dropped_invalid": 0,
+      "dropped_duplicates": 5501,
+      "dropped_hazard": 0,
+      "dropped_low_confidence": 4,
+      "hazard_keep_ratio": 1.0,
+      "min_transfer_confidence": 0.45,
+      "dedupe": true,
+      "action_space_n": 5
+    }
+  },
+  "source_attribution": {
+    "enabled": true,
+    "applied": true,
+    "reason": "no_pruning_effective",
+    "pilot": {
+      "episodes": 20,
+      "max_steps": 120,
+      "num_seeds": 2,
+      "seed_stride": 29,
+      "seed_list": [
+        48,
+        77
+      ],
+      "scratch_rows": [
+        {
+          "run_id": "run_f6eae847b8f34f539e909002e277d94e",
+          "run_dir": "runs/run_f6eae847b8f34f539e909002e277d94e",
+          "seed": 48,
+          "success_rate": 0.0,
+          "mean_return": -52.164999999999985,
+          "hazard_per_1k": 531.4926660914582
+        },
+        {
+          "run_id": "run_615a69ea81eb4849b0c80996b727323b",
+          "run_dir": "runs/run_615a69ea81eb4849b0c80996b727323b",
+          "seed": 77,
+          "success_rate": 0.0,
+          "mean_return": -53.07499999999995,
+          "hazard_per_1k": 453.89473684210526
+        }
+      ],
+      "scratch_mean": {
+        "success_rate": 0.0,
+        "mean_return": -52.61999999999997,
+        "hazard_per_1k": 492.6937014667817
+      },
+      "weights": {
+        "success_weight": 100.0,
+        "return_weight": 1.0,
+        "hazard_weight": 0.02
+      },
+      "gates": {
+        "min_utility": 0.0,
+        "min_success_delta": 0.0,
+        "min_hazard_gain_per_1k": 0.0,
+        "max_hazard_regression_per_1k": 50.0
+      }
+    },
+    "evaluated_sources": [
+      {
+        "source_id": "pursuit_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/pursuit_world.jsonl",
+        "verse_name": "pursuit_world",
+        "run_id": "warehouse_world",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.source_attr.pursuit_world_warehouse_world_0.jsonl",
+        "dataset_rows": 400,
+        "evaluated": true,
+        "gate_ok": true,
+        "skip_reason": "",
+        "success_rate": 0.375,
+        "mean_return": -28.822500000000005,
+        "hazard_per_1k": 186.490158929919,
+        "utility": 67.42157085073723,
+        "success_delta_vs_scratch": 0.375,
+        "return_delta_vs_scratch": 23.797499999999964,
+        "hazard_gain_vs_scratch_per_1k": 306.2035425368627,
+        "hazard_regression_ok": true,
+        "per_seed": [
+          {
+            "run_id": "run_75d1e58fc6544dd8966fb021ef345fa0",
+            "run_dir": "runs/run_75d1e58fc6544dd8966fb021ef345fa0",
+            "seed": 48,
+            "success_rate": 0.45,
+            "mean_return": -22.885,
+            "hazard_per_1k": 167.23549488054607
+          },
+          {
+            "run_id": "run_19a30a011a8c49809ceec5a941b23c63",
+            "run_dir": "runs/run_19a30a011a8c49809ceec5a941b23c63",
+            "seed": 77,
+            "success_rate": 0.3,
+            "mean_return": -34.760000000000005,
+            "hazard_per_1k": 205.7448229792919
+          }
+        ]
+      },
+      {
+        "source_id": "park_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/park_world.jsonl",
+        "verse_name": "park_world",
+        "run_id": "warehouse_world",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.source_attr.park_world_warehouse_world_1.jsonl",
+        "dataset_rows": 36,
+        "evaluated": true,
+        "gate_ok": true,
+        "skip_reason": "",
+        "success_rate": 0.32499999999999996,
+        "mean_return": -30.665000000000006,
+        "hazard_per_1k": 191.20304358040772,
+        "utility": 60.48481315772744,
+        "success_delta_vs_scratch": 0.32499999999999996,
+        "return_delta_vs_scratch": 21.954999999999963,
+        "hazard_gain_vs_scratch_per_1k": 301.490657886374,
+        "hazard_regression_ok": true,
+        "per_seed": [
+          {
+            "run_id": "run_0916206aa8994dd7b0c12ebd8e05a52d",
+            "run_dir": "runs/run_0916206aa8994dd7b0c12ebd8e05a52d",
+            "seed": 48,
+            "success_rate": 0.35,
+            "mean_return": -26.570000000000004,
+            "hazard_per_1k": 176.6612641815235
+          },
+          {
+            "run_id": "run_7ea03ffab4d640d19c4db08e74c20151",
+            "run_dir": "runs/run_7ea03ffab4d640d19c4db08e74c20151",
+            "seed": 77,
+            "success_rate": 0.3,
+            "mean_return": -34.760000000000005,
+            "hazard_per_1k": 205.7448229792919
+          }
+        ]
+      },
+      {
+        "source_id": "labyrinth_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/labyrinth_world.jsonl",
+        "verse_name": "labyrinth_world",
+        "run_id": "warehouse_world",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.source_attr.labyrinth_world_warehouse_world_2.jsonl",
+        "dataset_rows": 20,
+        "evaluated": true,
+        "gate_ok": true,
+        "skip_reason": "",
+        "success_rate": 0.15,
+        "mean_return": -36.08000000000001,
+        "hazard_per_1k": 215.802263668542,
+        "utility": 37.07782875596475,
+        "success_delta_vs_scratch": 0.15,
+        "return_delta_vs_scratch": 16.539999999999957,
+        "hazard_gain_vs_scratch_per_1k": 276.89143779823974,
+        "hazard_regression_ok": true,
+        "per_seed": [
+          {
+            "run_id": "run_5cdaebbeff1c4d5cb8db11e6db15f654",
+            "run_dir": "runs/run_5cdaebbeff1c4d5cb8db11e6db15f654",
+            "seed": 48,
+            "success_rate": 0.25,
+            "mean_return": -34.84500000000001,
+            "hazard_per_1k": 209.56873315363882
+          },
+          {
+            "run_id": "run_4bfebe2057e24dd6960917dcde883de3",
+            "run_dir": "runs/run_4bfebe2057e24dd6960917dcde883de3",
+            "seed": 77,
+            "success_rate": 0.05,
+            "mean_return": -37.31500000000001,
+            "hazard_per_1k": 222.03579418344518
+          }
+        ]
+      },
+      {
+        "source_id": "grid_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/grid_world.jsonl",
+        "verse_name": "grid_world",
+        "run_id": "warehouse_world",
+        "source_kind": "explicit",
+        "source_lane": "near_universe",
+        "source_universe": "logistics_universe",
+        "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.source_attr.grid_world_warehouse_world_3.jsonl",
+        "dataset_rows": 965,
+        "evaluated": true,
+        "gate_ok": true,
+        "skip_reason": "",
+        "success_rate": 0.125,
+        "mean_return": -36.440000000000026,
+        "hazard_per_1k": 233.61442857458223,
+        "utility": 33.86158545784393,
+        "success_delta_vs_scratch": 0.125,
+        "return_delta_vs_scratch": 16.179999999999943,
+        "hazard_gain_vs_scratch_per_1k": 259.07927289219947,
+        "hazard_regression_ok": true,
+        "per_seed": [
+          {
+            "run_id": "run_b7d5f542a76f4ad5af8838ee3488195b",
+            "run_dir": "runs/run_b7d5f542a76f4ad5af8838ee3488195b",
+            "seed": 48,
+            "success_rate": 0.25,
+            "mean_return": -27.94000000000002,
+            "hazard_per_1k": 211.340206185567
+          },
+          {
+            "run_id": "run_7d2691a0a82346a59054ab395504a527",
+            "run_dir": "runs/run_7d2691a0a82346a59054ab395504a527",
+            "seed": 77,
+            "success_rate": 0.0,
+            "mean_return": -44.940000000000026,
+            "hazard_per_1k": 255.88865096359743
+          }
+        ]
+      }
+    ],
+    "selection": {
+      "kept_source_ids": [
+        "grid_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/grid_world.jsonl",
+        "labyrinth_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/labyrinth_world.jsonl",
+        "park_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/park_world.jsonl",
+        "pursuit_world|warehouse_world|explicit|models/expert_datasets/near_source_bank/warehouse_world/pursuit_world.jsonl"
+      ],
+      "dropped_source_ids": [],
+      "kept_count": 4,
+      "dropped_count": 0
+    }
+  },
+  "robust_selector": {
+    "enabled": true,
+    "applied": true,
+    "selected_algo": "q",
+    "selected_mode": "transfer_all_lanes",
+    "reason": "best_gated_utility",
+    "pilot": {
+      "episodes": 20,
+      "max_steps": 120,
+      "seed_stride": 17,
+      "num_seeds": 2,
+      "seed_list": [
+        36,
+        53
+      ],
+      "rows": [
+        {
+          "mode": "scratch_control",
+          "run_id": "run_5d97648fb2e64d1ba89a203dd9fbec2e",
+          "run_dir": "runs/run_5d97648fb2e64d1ba89a203dd9fbec2e",
+          "seed": 36,
+          "seed_list": [
+            36,
+            53
+          ],
+          "num_seeds": 2,
+          "algo": "q",
+          "episodes": 20,
+          "max_steps": 120,
+          "success_rate": 0.0,
+          "mean_return": -53.57499999999996,
+          "hazard_per_1k": 528.0705541993982,
+          "dataset_path": "",
+          "dataset_rows": 0,
+          "per_seed": [
+            {
+              "run_id": "run_5d97648fb2e64d1ba89a203dd9fbec2e",
+              "run_dir": "runs/run_5d97648fb2e64d1ba89a203dd9fbec2e",
+              "seed": 36,
+              "algo": "q",
+              "success_rate": 0.0,
+              "mean_return": -52.80999999999997,
+              "hazard_per_1k": 526.2036642522369
+            },
+            {
+              "run_id": "run_171f2359beec442cbeec0427da1a9b73",
+              "run_dir": "runs/run_171f2359beec442cbeec0427da1a9b73",
+              "seed": 53,
+              "algo": "q",
+              "success_rate": 0.0,
+              "mean_return": -54.33999999999996,
+              "hazard_per_1k": 529.9374441465594
+            }
+          ]
+        },
+        {
+          "mode": "transfer_all_lanes",
+          "run_id": "run_5cd387758f6c479ca7a9b2c75d72af61",
+          "run_dir": "runs/run_5cd387758f6c479ca7a9b2c75d72af61",
+          "seed": 36,
+          "seed_list": [
+            36,
+            53
+          ],
+          "num_seeds": 2,
+          "algo": "q",
+          "episodes": 20,
+          "max_steps": 120,
+          "success_rate": 0.125,
+          "mean_return": -35.39000000000003,
+          "hazard_per_1k": 236.6179991987105,
+          "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.jsonl",
+          "dataset_rows": 1421,
+          "per_seed": [
+            {
+              "run_id": "run_5cd387758f6c479ca7a9b2c75d72af61",
+              "run_dir": "runs/run_5cd387758f6c479ca7a9b2c75d72af61",
+              "seed": 36,
+              "algo": "q",
+              "success_rate": 0.1,
+              "mean_return": -39.62000000000004,
+              "hazard_per_1k": 254.22773393461105
+            },
+            {
+              "run_id": "run_8e6a668874b64f01bdb9727def5551aa",
+              "run_dir": "runs/run_8e6a668874b64f01bdb9727def5551aa",
+              "seed": 53,
+              "algo": "q",
+              "success_rate": 0.15,
+              "mean_return": -31.160000000000014,
+              "hazard_per_1k": 219.0082644628099
+            }
+          ]
+        },
+        {
+          "mode": "transfer_near_lane",
+          "run_id": "run_521c67c5c080490085b643dfb2215bbd",
+          "run_dir": "runs/run_521c67c5c080490085b643dfb2215bbd",
+          "seed": 36,
+          "seed_list": [
+            36,
+            53
+          ],
+          "num_seeds": 2,
+          "algo": "q",
+          "episodes": 20,
+          "max_steps": 120,
+          "success_rate": 0.125,
+          "mean_return": -35.39000000000003,
+          "hazard_per_1k": 236.6179991987105,
+          "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.near_lane_only.jsonl",
+          "dataset_rows": 1421,
+          "per_seed": [
+            {
+              "run_id": "run_521c67c5c080490085b643dfb2215bbd",
+              "run_dir": "runs/run_521c67c5c080490085b643dfb2215bbd",
+              "seed": 36,
+              "algo": "q",
+              "success_rate": 0.1,
+              "mean_return": -39.62000000000004,
+              "hazard_per_1k": 254.22773393461105
+            },
+            {
+              "run_id": "run_26206dbf8c284070ab9eb7eb12ee74e0",
+              "run_dir": "runs/run_26206dbf8c284070ab9eb7eb12ee74e0",
+              "seed": 53,
+              "algo": "q",
+              "success_rate": 0.15,
+              "mean_return": -31.160000000000014,
+              "hazard_per_1k": 219.0082644628099
+            }
+          ]
+        }
+      ],
+      "decision": {
+        "selected_mode": "transfer_all_lanes",
+        "reason": "best_gated_utility",
+        "selected": {
+          "mode": "transfer_all_lanes",
+          "run_id": "run_5cd387758f6c479ca7a9b2c75d72af61",
+          "run_dir": "runs/run_5cd387758f6c479ca7a9b2c75d72af61",
+          "seed": 36,
+          "seed_list": [
+            36,
+            53
+          ],
+          "num_seeds": 2,
+          "algo": "q",
+          "episodes": 20,
+          "max_steps": 120,
+          "success_rate": 0.125,
+          "mean_return": -35.39000000000003,
+          "hazard_per_1k": 236.6179991987105,
+          "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.jsonl",
+          "dataset_rows": 1421,
+          "per_seed": [
+            {
+              "run_id": "run_5cd387758f6c479ca7a9b2c75d72af61",
+              "run_dir": "runs/run_5cd387758f6c479ca7a9b2c75d72af61",
+              "seed": 36,
+              "algo": "q",
+              "success_rate": 0.1,
+              "mean_return": -39.62000000000004,
+              "hazard_per_1k": 254.22773393461105
+            },
+            {
+              "run_id": "run_8e6a668874b64f01bdb9727def5551aa",
+              "run_dir": "runs/run_8e6a668874b64f01bdb9727def5551aa",
+              "seed": 53,
+              "algo": "q",
+              "success_rate": 0.15,
+              "mean_return": -31.160000000000014,
+              "hazard_per_1k": 219.0082644628099
+            }
+          ],
+          "utility": 36.51405110001369,
+          "success_delta_vs_scratch": 0.125,
+          "return_delta_vs_scratch": 18.18499999999993,
+          "hazard_gain_vs_scratch_per_1k": 291.4525550006877,
+          "gate_ok": true,
+          "hazard_regression_ok": true
+        },
+        "scored": [
+          {
+            "mode": "transfer_all_lanes",
+            "run_id": "run_5cd387758f6c479ca7a9b2c75d72af61",
+            "run_dir": "runs/run_5cd387758f6c479ca7a9b2c75d72af61",
+            "seed": 36,
+            "seed_list": [
+              36,
+              53
+            ],
+            "num_seeds": 2,
+            "algo": "q",
+            "episodes": 20,
+            "max_steps": 120,
+            "success_rate": 0.125,
+            "mean_return": -35.39000000000003,
+            "hazard_per_1k": 236.6179991987105,
+            "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.jsonl",
+            "dataset_rows": 1421,
+            "per_seed": [
+              {
+                "run_id": "run_5cd387758f6c479ca7a9b2c75d72af61",
+                "run_dir": "runs/run_5cd387758f6c479ca7a9b2c75d72af61",
+                "seed": 36,
+                "algo": "q",
+                "success_rate": 0.1,
+                "mean_return": -39.62000000000004,
+                "hazard_per_1k": 254.22773393461105
+              },
+              {
+                "run_id": "run_8e6a668874b64f01bdb9727def5551aa",
+                "run_dir": "runs/run_8e6a668874b64f01bdb9727def5551aa",
+                "seed": 53,
+                "algo": "q",
+                "success_rate": 0.15,
+                "mean_return": -31.160000000000014,
+                "hazard_per_1k": 219.0082644628099
+              }
+            ],
+            "utility": 36.51405110001369,
+            "success_delta_vs_scratch": 0.125,
+            "return_delta_vs_scratch": 18.18499999999993,
+            "hazard_gain_vs_scratch_per_1k": 291.4525550006877,
+            "gate_ok": true,
+            "hazard_regression_ok": true
+          },
+          {
+            "mode": "transfer_near_lane",
+            "run_id": "run_521c67c5c080490085b643dfb2215bbd",
+            "run_dir": "runs/run_521c67c5c080490085b643dfb2215bbd",
+            "seed": 36,
+            "seed_list": [
+              36,
+              53
+            ],
+            "num_seeds": 2,
+            "algo": "q",
+            "episodes": 20,
+            "max_steps": 120,
+            "success_rate": 0.125,
+            "mean_return": -35.39000000000003,
+            "hazard_per_1k": 236.6179991987105,
+            "dataset_path": "models\\expert_datasets\\transfer_strategy_to_warehouse.near_lane_only.jsonl",
+            "dataset_rows": 1421,
+            "per_seed": [
+              {
+                "run_id": "run_521c67c5c080490085b643dfb2215bbd",
+                "run_dir": "runs/run_521c67c5c080490085b643dfb2215bbd",
+                "seed": 36,
+                "algo": "q",
+                "success_rate": 0.1,
+                "mean_return": -39.62000000000004,
+                "hazard_per_1k": 254.22773393461105
+              },
+              {
+                "run_id": "run_26206dbf8c284070ab9eb7eb12ee74e0",
+                "run_dir": "runs/run_26206dbf8c284070ab9eb7eb12ee74e0",
+                "seed": 53,
+                "algo": "q",
+                "success_rate": 0.15,
+                "mean_return": -31.160000000000014,
+                "hazard_per_1k": 219.0082644628099
+              }
+            ],
+            "utility": 36.51405110001369,
+            "success_delta_vs_scratch": 0.125,
+            "return_delta_vs_scratch": 18.18499999999993,
+            "hazard_gain_vs_scratch_per_1k": 291.4525550006877,
+            "gate_ok": true,
+            "hazard_regression_ok": true
+          }
+        ],
+        "scratch_control": {
+          "mode": "scratch_control",
+          "success_rate": 0.0,
+          "mean_return": -53.57499999999996,
+          "hazard_per_1k": 528.0705541993982
+        }
+      },
+      "selector_weights": {
+        "success_weight": 100.0,
+        "return_weight": 1.0,
+        "hazard_weight": 0.02
+      },
+      "selector_gates": {
+        "min_utility": 0.0,
+        "min_success_delta": 0.0,
+        "min_hazard_gain_per_1k": 30.0,
+        "max_hazard_regression_per_1k": 50.0
+      }
+    }
+  },
+  "transfer_dataset_diagnostics": {
+    "score_distribution": {
+      "rows": 1421,
+      "transfer_score": {
+        "mean": 1.1430848447661122,
+        "min": 0.9302255699194906,
+        "max": 1.3102105398532602,
+        "p10": 1.0960861063052802,
+        "p50": 1.1457477595851016,
+        "p90": 1.1835479852964066
+      },
+      "universe_feature_score": {
+        "mean": 0.4906179747890817,
+        "p10": 0.41428571428571426,
+        "p50": 0.5054081632653061,
+        "p90": 0.5564285714285715
+      },
+      "weighted_far_lane_rows": 0,
+      "dropped_far_rows_flagged_in_rows": 0,
+      "by_lane": {
+        "near_universe": {
+          "rows": 1421,
+          "transfer_score": {
+            "mean": 1.1430848447661122,
+            "min": 0.9302255699194906,
+            "max": 1.3102105398532602,
+            "p10": 1.0960861063052802,
+            "p50": 1.1457477595851016,
+            "p90": 1.1835479852964066
+          },
+          "universe_feature_score": {
+            "mean": 0.4906179747890817,
+            "p10": 0.41428571428571426,
+            "p50": 0.5054081632653061,
+            "p90": 0.5564285714285715
+          }
+        }
+      }
+    },
+    "lane_summary": {
+      "rows_written": 6926,
+      "lane_file_counts": {
+        "near_universe": 4
+      },
+      "lane_rows_written": {
+        "near_universe": 6926
+      },
+      "per_source_rows_written": [
+        {
+          "verse_name": "grid_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 1198,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_grid_world_to_warehouse_world_warehouse_world_grid_world.jsonl"
+        },
+        {
+          "verse_name": "labyrinth_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 2500,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_labyrinth_world_to_warehouse_world_warehouse_world_labyrinth_world.jsonl"
+        },
+        {
+          "verse_name": "park_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 728,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_park_world_to_warehouse_world_warehouse_world_park_world.jsonl"
+        },
+        {
+          "verse_name": "pursuit_world",
+          "run_id": "warehouse_world",
+          "source_kind": "explicit",
+          "source_lane": "near_universe",
+          "source_universe": "logistics_universe",
+          "rows_written": 2500,
+          "cap_used": 2500,
+          "path": "models\\expert_datasets\\synthetic_transfer_pursuit_world_to_warehouse_world_warehouse_world_pursuit_world.jsonl"
+        }
+      ],
+      "lane_controls": {
+        "near_lane_enabled": true,
+        "far_lane_enabled": false,
+        "max_rows_per_source": 2500,
+        "near_lane_max_rows_per_source": 0,
+        "far_lane_max_rows_per_source": 0,
+        "far_lane_default_cap_if_zero": 1250
+      }
+    }
+  },
+  "bridge_tuning": {
+    "synthetic_reward_blend": 0.75,
+    "synthetic_done_union": true,
+    "behavioral_bridge_enabled": true,
+    "behavioral_bridge_score_weight": 0.35,
+    "behavioral_max_prototype_rows": 4096,
+    "lane_controls": {
+      "near_lane_enabled": true,
+      "far_lane_enabled": false,
+      "max_rows_per_source": 2500,
+      "near_lane_max_rows_per_source": 0,
+      "far_lane_max_rows_per_source": 0
+    },
+    "universe_adapter_enabled": true,
+    "far_lane_weighting": {
+      "enabled": true,
+      "strength": 0.35,
+      "min_universe_feature_score": 0.0
+    },
+    "label_cfg": {
+      "step_penalty": 0.08,
+      "wall_penalty": 0.4,
+      "obstacle_penalty": 0.7,
+      "charge_reward": 0.5,
+      "progress_bonus": 0.35,
+      "regress_penalty": 0.08,
+      "goal_reward": 10.0,
+      "battery_fail_penalty": 10.0
+    }
+  },
+  "transfer_agent": {
+    "algo": "q",
+    "requested_algo": "q",
+    "selected_mode": "transfer_all_lanes",
+    "warehouse_obs_key_mode": "task_lite",
+    "config_overrides": {},
+    "warmstart": {
+      "reward_scale": 0.005,
+      "max_rows": 96,
+      "balance_actions": true,
+      "action_balance_max_share": 0.5,
+      "use_transfer_score": true,
+      "target_mode": "immediate",
+      "target_gamma": 0.99,
+      "transfer_score_min": 0.25,
+      "transfer_score_max": 1.2
+    },
+    "dynamic_mixing": {
+      "enabled": false,
+      "mix_start": 1.0,
+      "mix_end": 0.0,
+      "mix_decay_steps": 0,
+      "mix_min_rows": 0,
+      "replay_reward_scale": 0.0,
+      "auto_schedule_used": true
+    },
+    "adaptive_veto_schedule": {
+      "enabled": true,
+      "relax_start": 0.12,
+      "relax_end": 0.35073825695931987,
+      "schedule_steps": 1479,
+      "schedule_power": 1.2,
+      "auto_schedule_used": true,
+      "auto_tune_enabled": true,
+      "auto_tune": {
+        "applied": true,
+        "reason": "hazard_trend_auto_tune",
+        "relax_start": 0.12,
+        "relax_end": 0.35073825695931987,
+        "schedule_steps": 1479,
+        "schedule_power": 1.2,
+        "conservative_factor": 0.9964844906699054,
+        "history_used": {
+          "num_runs": 8,
+          "mean_hazard_trend_ratio": 0.8941408177831758,
+          "mean_hazard_per_1k": 226.54168405475681,
+          "mean_mcts_veto_rate": 0.006083750272345606,
+          "improving_share": 0.625
+        }
+      }
+    },
+    "run_id": "run_e20565c77dd24243a1fe0445f0552de6",
+    "run_dir": "runs/run_e20565c77dd24243a1fe0445f0552de6",
+    "eval": {
+      "episodes": 40,
+      "mean_return": -28.86250000000003,
+      "success_rate": 0.325,
+      "mean_steps": 75.625
+    },
+    "diagnostics": {
+      "early_window": {
+        "episodes": 10,
+        "mean_return": -30.520000000000028,
+        "success_rate": 0.2,
+        "hazard_events_per_1k_steps": 232.1937321937322
+      },
+      "action_agreement": {
+        "rows": 637,
+        "agreement_rate": 0.5227629513343799,
+        "exploit_rate": 0.3673469387755102,
+        "first_k_steps_per_episode": 20
+      },
+      "td_error": {
+        "episodes_logged": 40,
+        "early_episodes": 10,
+        "native_td_abs_mean_early": 0.4953996428935004,
+        "native_td_abs_p90_early": 0.7618153005838394,
+        "transfer_td_abs_mean_early": null,
+        "transfer_td_abs_p90_early": null,
+        "transfer_td_score_corr_early": null,
+        "transfer_replay_sampled_score_mean_early": null,
+        "transfer_replay_weighted_sampling_enabled": true
+      }
+    },
+    "curve_aggregate": {
+      "episodes": 40,
+      "total_steps": 3025,
+      "mean_return": -28.86250000000003,
+      "success_rate": 0.325,
+      "hazard_events": 650,
+      "hazard_events_per_1k_steps": 214.87603305785123,
+      "mcts_veto_steps": 1,
+      "shield_veto_steps": 199,
+      "mcts_queries": 320,
+      "mcts_vetoes": 1,
+      "mcts_veto_rate": 0.003125
+    },
+    "safety_trend": {
+      "episodes": 40,
+      "first_half": {
+        "mcts_veto_rate": 0.007352941176470588,
+        "hazard_per_1k_steps": 213.80697050938338
+      },
+      "second_half": {
+        "mcts_veto_rate": 0.0,
+        "hazard_per_1k_steps": 215.91650358773646
+      },
+      "veto_rate_improved": true,
+      "hazard_rate_improved": false
+    },
+    "first_passable_episode": null
+  },
+  "baseline_agent": {
+    "algo": "q",
+    "warehouse_obs_key_mode": "task_lite",
+    "config_overrides": {},
+    "epsilon_schedule": {
+      "epsilon_start": 0.05,
+      "epsilon_min": 0.01,
+      "epsilon_decay": 0.999
+    },
+    "run_id": "run_e8c28338bb0645a2940cf03217a948e5",
+    "run_dir": "runs/run_e8c28338bb0645a2940cf03217a948e5",
+    "eval": {
+      "episodes": 40,
+      "mean_return": -52.42499999999997,
+      "success_rate": 0.0,
+      "mean_steps": 120.0
+    },
+    "diagnostics": {
+      "early_window": {
+        "episodes": 10,
+        "mean_return": -63.80000000000001,
+        "success_rate": 0.0,
+        "hazard_events_per_1k_steps": 685.8333333333334
+      },
+      "action_agreement": {
+        "rows": 800,
+        "agreement_rate": 0.95875,
+        "exploit_rate": 0.955,
+        "first_k_steps_per_episode": 20
+      },
+      "td_error": {
+        "episodes_logged": 40,
+        "early_episodes": 10,
+        "native_td_abs_mean_early": 0.12537183916772093,
+        "native_td_abs_p90_early": 0.3668403819203377,
+        "transfer_td_abs_mean_early": null,
+        "transfer_td_abs_p90_early": null,
+        "transfer_td_score_corr_early": null,
+        "transfer_replay_sampled_score_mean_early": null,
+        "transfer_replay_weighted_sampling_enabled": true
+      }
+    },
+    "curve_aggregate": {
+      "episodes": 40,
+      "total_steps": 4800,
+      "mean_return": -52.42499999999997,
+      "success_rate": 0.0,
+      "hazard_events": 2347,
+      "hazard_events_per_1k_steps": 488.9583333333333,
+      "mcts_veto_steps": 0,
+      "shield_veto_steps": 0,
+      "mcts_queries": 0,
+      "mcts_vetoes": 0,
+      "mcts_veto_rate": 0.0
+    },
+    "safety_trend": {
+      "episodes": 40,
+      "first_half": {
+        "mcts_veto_rate": 0.0,
+        "hazard_per_1k_steps": 614.1666666666666
+      },
+      "second_half": {
+        "mcts_veto_rate": 0.0,
+        "hazard_per_1k_steps": 363.75
+      },
+      "veto_rate_improved": true,
+      "hazard_rate_improved": true
+    },
+    "first_passable_episode": null
+  },
+  "comparison": {
+    "transfer_first_passable_episode": null,
+    "baseline_first_passable_episode": null,
+    "transfer_speedup_ratio": null,
+    "transfer_wins_convergence": false,
+    "hazard_improvement_per_1k_steps": 274.0823002754821,
+    "hazard_improvement_pct": 56.054326430435204
+  },
+  "health_scorecard": {
+    "enabled": true,
+    "trace_paths": [
+      "models\\expert_datasets\\mcts_trace_warehouse_heal.jsonl",
+      "models\\expert_datasets\\mcts_trace_hq_quick.jsonl",
+      "models\\expert_datasets\\mcts_trace_hq.jsonl",
+      "models\\expert_datasets\\mcts_trace_baseline.jsonl"
+    ],
+    "trace_sources": {
+      "run_events_proxy_used": 2,
+      "global_trace_fallback_used": 0
+    },
+    "rows": [
+      {
+        "role": "transfer",
+        "agent_id": "transfer_q_warehouse_world:warehouse_world:run_e20565c77dd24243a1fe0445f0552de6",
+        "run_id": "run_e20565c77dd24243a1fe0445f0552de6",
+        "run_dir": "runs/run_e20565c77dd24243a1fe0445f0552de6",
+        "verse_name": "warehouse_world",
+        "policy_id": "transfer_q_warehouse_world",
+        "mean_return": -28.86250000000003,
+        "success_rate": 0.325,
+        "intuition_match": 0.2814070351758794,
+        "memory_coherence": null,
+        "search_regret_kl": 0.17964824120603015,
+        "veto_rate": 0.003125,
+        "shield_veto_rate": 0.06611570247933884,
+        "total_score": 46.11879711055276,
+        "status": "degraded",
+        "issues": [
+          "incoherent",
+          "stale"
+        ],
+        "recommended_actions": [
+          "trigger_hq_trace_retraining",
+          "retrain_micro_selector"
+        ],
+        "trace_source": "run_events_proxy",
+        "trace_rows": 3025
+      },
+      {
+        "role": "baseline",
+        "agent_id": "baseline_q_warehouse_world:warehouse_world:run_e8c28338bb0645a2940cf03217a948e5",
+        "run_id": "run_e8c28338bb0645a2940cf03217a948e5",
+        "run_dir": "runs/run_e8c28338bb0645a2940cf03217a948e5",
+        "verse_name": "warehouse_world",
+        "policy_id": "baseline_q_warehouse_world",
+        "mean_return": -52.42499999999997,
+        "success_rate": 0.0,
+        "intuition_match": null,
+        "memory_coherence": null,
+        "search_regret_kl": null,
+        "veto_rate": 0.0,
+        "shield_veto_rate": 0.0,
+        "total_score": 57.5,
+        "status": "degraded",
+        "issues": [],
+        "recommended_actions": [],
+        "trace_source": "run_events_proxy",
+        "trace_rows": 4800
+      }
+    ],
+    "by_role": {
+      "transfer": {
+        "role": "transfer",
+        "agent_id": "transfer_q_warehouse_world:warehouse_world:run_e20565c77dd24243a1fe0445f0552de6",
+        "run_id": "run_e20565c77dd24243a1fe0445f0552de6",
+        "run_dir": "runs/run_e20565c77dd24243a1fe0445f0552de6",
+        "verse_name": "warehouse_world",
+        "policy_id": "transfer_q_warehouse_world",
+        "mean_return": -28.86250000000003,
+        "success_rate": 0.325,
+        "intuition_match": 0.2814070351758794,
+        "memory_coherence": null,
+        "search_regret_kl": 0.17964824120603015,
+        "veto_rate": 0.003125,
+        "shield_veto_rate": 0.06611570247933884,
+        "total_score": 46.11879711055276,
+        "status": "degraded",
+        "issues": [
+          "incoherent",
+          "stale"
+        ],
+        "recommended_actions": [
+          "trigger_hq_trace_retraining",
+          "retrain_micro_selector"
+        ],
+        "trace_source": "run_events_proxy",
+        "trace_rows": 3025
+      },
+      "baseline": {
+        "role": "baseline",
+        "agent_id": "baseline_q_warehouse_world:warehouse_world:run_e8c28338bb0645a2940cf03217a948e5",
+        "run_id": "run_e8c28338bb0645a2940cf03217a948e5",
+        "run_dir": "runs/run_e8c28338bb0645a2940cf03217a948e5",
+        "verse_name": "warehouse_world",
+        "policy_id": "baseline_q_warehouse_world",
+        "mean_return": -52.42499999999997,
+        "success_rate": 0.0,
+        "intuition_match": null,
+        "memory_coherence": null,
+        "search_regret_kl": null,
+        "veto_rate": 0.0,
+        "shield_veto_rate": 0.0,
+        "total_score": 57.5,
+        "status": "degraded",
+        "issues": [],
+        "recommended_actions": [],
+        "trace_source": "run_events_proxy",
+        "trace_rows": 4800
+      }
+    }
+  },
+  "production_summary": {
+    "transfer_gain": {
+      "speedup_ratio": null,
+      "hazard_improvement_pct": 56.054326430435204,
+      "transfer_wins_convergence": false
+    },
+    "safety": {
+      "transfer_mcts_veto_rate": 0.003125,
+      "baseline_mcts_veto_rate": 0.0,
+      "transfer_hazard_per_1k": 214.87603305785123,
+      "baseline_hazard_per_1k": 488.9583333333333,
+      "transfer_veto_rate_improved_over_time": true,
+      "transfer_hazard_rate_improved_over_time": false
+    },
+    "health": {
+      "transfer": {
+        "role": "transfer",
+        "agent_id": "transfer_q_warehouse_world:warehouse_world:run_e20565c77dd24243a1fe0445f0552de6",
+        "run_id": "run_e20565c77dd24243a1fe0445f0552de6",
+        "run_dir": "runs/run_e20565c77dd24243a1fe0445f0552de6",
+        "verse_name": "warehouse_world",
+        "policy_id": "transfer_q_warehouse_world",
+        "mean_return": -28.86250000000003,
+        "success_rate": 0.325,
+        "intuition_match": 0.2814070351758794,
+        "memory_coherence": null,
+        "search_regret_kl": 0.17964824120603015,
+        "veto_rate": 0.003125,
+        "shield_veto_rate": 0.06611570247933884,
+        "total_score": 46.11879711055276,
+        "status": "degraded",
+        "issues": [
+          "incoherent",
+          "stale"
+        ],
+        "recommended_actions": [
+          "trigger_hq_trace_retraining",
+          "retrain_micro_selector"
+        ],
+        "trace_source": "run_events_proxy",
+        "trace_rows": 3025
+      },
+      "baseline": {
+        "role": "baseline",
+        "agent_id": "baseline_q_warehouse_world:warehouse_world:run_e8c28338bb0645a2940cf03217a948e5",
+        "run_id": "run_e8c28338bb0645a2940cf03217a948e5",
+        "run_dir": "runs/run_e8c28338bb0645a2940cf03217a948e5",
+        "verse_name": "warehouse_world",
+        "policy_id": "baseline_q_warehouse_world",
+        "mean_return": -52.42499999999997,
+        "success_rate": 0.0,
+        "intuition_match": null,
+        "memory_coherence": null,
+        "search_regret_kl": null,
+        "veto_rate": 0.0,
+        "shield_veto_rate": 0.0,
+        "total_score": 57.5,
+        "status": "degraded",
+        "issues": [],
+        "recommended_actions": [],
+        "trace_source": "run_events_proxy",
+        "trace_rows": 4800
+      }
+    }
+  },
+  "overlap_map_path": "models\\paper\\paper_readiness\\latest\\fixed_seed\\transfer_seed_19_overlap.json"
+}

@@ -144,18 +144,33 @@ class _SimilarityCacheEntry:
 
 
 # Multiprocess-safe locks and caches for ProcessPoolExecutor compatibility
-_mp_manager = Manager()
-_SIM_CACHE_LOCK = _mp_manager.Lock()
+# Use lazy initialization to avoid Manager() at module level (Windows compatibility)
+_mp_manager: Optional[Any] = None
+_SIM_CACHE_LOCK: Optional[Any] = None
+_DEDUPE_READY_LOCK: Optional[Any] = None
+_ANN_TUNE_LOCK: Optional[Any] = None
+_REPO_LOCK: Optional[Any] = None
+
+
+def _get_mp_locks():
+    """Lazy initialization of multiprocess manager and locks (Windows-safe)."""
+    global _mp_manager, _SIM_CACHE_LOCK, _DEDUPE_READY_LOCK, _ANN_TUNE_LOCK, _REPO_LOCK
+    if _mp_manager is None:
+        _mp_manager = Manager()
+        _SIM_CACHE_LOCK = _mp_manager.Lock()
+        _DEDUPE_READY_LOCK = _mp_manager.Lock()
+        _ANN_TUNE_LOCK = _mp_manager.Lock()
+        _REPO_LOCK = _mp_manager.Lock()
+    return _SIM_CACHE_LOCK, _DEDUPE_READY_LOCK, _ANN_TUNE_LOCK, _REPO_LOCK
+
+
 # Note: Keep _SIM_CACHE as OrderedDict (process-local) for move_to_end() LRU support
 # The shared lock coordinates cache invalidation across processes
 # Each process maintains its own cache copy, which is acceptable for memory retrieval
 _SIM_CACHE: "OrderedDict[str, _SimilarityCacheEntry]" = OrderedDict()
-_DEDUPE_READY_LOCK = _mp_manager.Lock()
 # Note: Keep _DEDUPE_READY as Set (process-local) for standard set operations
 # The shared lock coordinates access across processes
 _DEDUPE_READY: Set[str] = set()
-_ANN_TUNE_LOCK = _mp_manager.Lock()
-_REPO_LOCK = _mp_manager.Lock()  # Primary lock for repository operations
 # Note: These counters remain module-level (per-process) as they're for metrics only
 _ANN_DYNAMIC_FACTOR: Optional[int] = None
 _ANN_QUERY_COUNT = 0
@@ -296,11 +311,14 @@ def _repo_lock(cfg: CentralMemoryConfig):
     Raises:
         TimeoutError: If lock cannot be acquired within _LOCK_TIMEOUT seconds
     """
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, _, _, repo_lock = _get_mp_locks()
+
     os.makedirs(cfg.root_dir, exist_ok=True)
     lock_path = _repo_lock_path(cfg)
 
     # Primary: multiprocess lock with timeout
-    mp_locked = _REPO_LOCK.acquire(timeout=_LOCK_TIMEOUT)
+    mp_locked = repo_lock.acquire(timeout=_LOCK_TIMEOUT)
     if not mp_locked:
         raise TimeoutError(f"Failed to acquire multiprocess repo lock within {_LOCK_TIMEOUT}s")
 
@@ -332,10 +350,13 @@ def _repo_lock(cfg: CentralMemoryConfig):
                     except Exception:
                         pass
     finally:
-        _REPO_LOCK.release()
+        repo_lock.release()
 
 
 def _ensure_repo(cfg: CentralMemoryConfig) -> None:
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, dedupe_ready_lock, _, _ = _get_mp_locks()
+
     os.makedirs(cfg.root_dir, exist_ok=True)
     for mem_path in (_memories_path(cfg), _ltm_memories_path(cfg), _stm_memories_path(cfg)):
         if not os.path.isfile(mem_path):
@@ -346,7 +367,7 @@ def _ensure_repo(cfg: CentralMemoryConfig) -> None:
         with open(idx_path, "w", encoding="utf-8") as f:
             json.dump([], f)
     db_path = os.path.abspath(_dedupe_db_path(cfg))
-    with _DEDUPE_READY_LOCK:
+    with dedupe_ready_lock:
         ready = db_path in _DEDUPE_READY
     if not ready:
         conn = _open_dedupe_db(cfg)
@@ -354,7 +375,7 @@ def _ensure_repo(cfg: CentralMemoryConfig) -> None:
             _migrate_legacy_dedupe_json_to_db(cfg, conn)
         finally:
             conn.close()
-        with _DEDUPE_READY_LOCK:
+        with dedupe_ready_lock:
             _DEDUPE_READY.add(db_path)
 
 
@@ -680,12 +701,15 @@ def _ann_enabled() -> bool:
 
 
 def _ann_candidate_count(top_n: int, n_rows: int) -> int:
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, _, ann_tune_lock, _ = _get_mp_locks()
+
     factor_raw = os.environ.get("MULTIVERSE_SIM_ANN_FACTOR", "64")
     try:
         factor = max(1, int(factor_raw))
     except Exception:
         factor = 64
-    with _ANN_TUNE_LOCK:
+    with ann_tune_lock:
         dyn = _ANN_DYNAMIC_FACTOR
     if dyn is not None:
         factor = max(factor, int(dyn))
@@ -710,17 +734,23 @@ def _ann_max_allowed_drift() -> float:
 
 def _ann_should_check_drift() -> bool:
     global _ANN_QUERY_COUNT
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, _, ann_tune_lock, _ = _get_mp_locks()
+
     every = _ann_drift_check_every()
-    with _ANN_TUNE_LOCK:
+    with ann_tune_lock:
         _ANN_QUERY_COUNT += 1
         return bool((_ANN_QUERY_COUNT % every) == 0)
 
 
 def _ann_record_drift(*, drift: float, n_rows: int, top_n: int) -> None:
     global _ANN_DRIFT_CHECKS, _ANN_LAST_DRIFT, _ANN_MAX_DRIFT, _ANN_DYNAMIC_FACTOR
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, _, ann_tune_lock, _ = _get_mp_locks()
+
     d = max(0.0, float(drift))
     max_allowed = _ann_max_allowed_drift()
-    with _ANN_TUNE_LOCK:
+    with ann_tune_lock:
         _ANN_DRIFT_CHECKS += 1
         _ANN_LAST_DRIFT = float(d)
         _ANN_MAX_DRIFT = max(float(_ANN_MAX_DRIFT), float(d))
@@ -734,7 +764,10 @@ def _ann_record_drift(*, drift: float, n_rows: int, top_n: int) -> None:
 
 
 def get_similarity_runtime_metrics() -> Dict[str, Any]:
-    with _ANN_TUNE_LOCK:
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, _, ann_tune_lock, _ = _get_mp_locks()
+
+    with ann_tune_lock:
         return {
             "ann_dynamic_factor": (None if _ANN_DYNAMIC_FACTOR is None else int(_ANN_DYNAMIC_FACTOR)),
             "ann_query_count": int(_ANN_QUERY_COUNT),
@@ -748,7 +781,10 @@ def get_similarity_runtime_metrics() -> Dict[str, Any]:
 
 def reset_similarity_runtime_metrics() -> None:
     global _ANN_DYNAMIC_FACTOR, _ANN_QUERY_COUNT, _ANN_DRIFT_CHECKS, _ANN_LAST_DRIFT, _ANN_MAX_DRIFT
-    with _ANN_TUNE_LOCK:
+    # Initialize locks if needed (lazy, Windows-safe)
+    _, _, ann_tune_lock, _ = _get_mp_locks()
+
+    with ann_tune_lock:
         _ANN_DYNAMIC_FACTOR = None
         _ANN_QUERY_COUNT = 0
         _ANN_DRIFT_CHECKS = 0
@@ -938,10 +974,13 @@ def _get_ann_index(cache: _SimilarityCacheEntry, dim: int) -> Optional[Any]:
 
 
 def _invalidate_similarity_cache(paths: Iterable[str]) -> None:
+    # Initialize locks if needed (lazy, Windows-safe)
+    sim_cache_lock, _, _, _ = _get_mp_locks()
+
     keys = set(os.path.abspath(str(p)) for p in paths if str(p))
     if not keys:
         return
-    with _SIM_CACHE_LOCK:
+    with sim_cache_lock:
         for k in list(_SIM_CACHE.keys()):
             if k in keys:
                 _SIM_CACHE.pop(k, None)
@@ -1106,16 +1145,19 @@ def _get_similarity_cache_for_path(
     mem_path: str,
     tier_policy: Optional[Dict[str, Any]],
 ) -> _SimilarityCacheEntry:
+    # Initialize locks if needed (lazy, Windows-safe)
+    sim_cache_lock, _, _, _ = _get_mp_locks()
+
     apath = os.path.abspath(mem_path)
     sig = _file_signature(apath)
-    with _SIM_CACHE_LOCK:
+    with sim_cache_lock:
         hit = _SIM_CACHE.get(apath)
         if hit is not None and hit.signature == sig:
             _SIM_CACHE.move_to_end(apath)
             return hit
 
     fresh = _build_similarity_cache_for_path(mem_path=apath, tier_policy=tier_policy)
-    with _SIM_CACHE_LOCK:
+    with sim_cache_lock:
         _SIM_CACHE[apath] = fresh
         _SIM_CACHE.move_to_end(apath)
         while len(_SIM_CACHE) > _sim_cache_limit():
@@ -2023,14 +2065,17 @@ def find_similar_batch(
                             continue
 
                         match = ScenarioMatch(
-                            run_id=str(row.run_id), episode_id=str(row.episode_id),
-                            step_idx=int(row.step_idx), obs=row.obs, action=row.action,
+                            score=float(score),
+                            run_id=str(row.run_id),
+                            episode_id=str(row.episode_id),
+                            step_idx=int(row.step_idx),
+                            t_ms=int(row.t_ms),
+                            verse_name=str(row.verse_name),
+                            action=row.action,
                             reward=float(row.reward),
-                            obs_vector=list(row.obs_vector) if hasattr(row, "obs_vector") else [],
-                            similarity_score=float(score), raw_similarity=float(raw_score),
-                            recency_weight=float(recency_weight), memory_tier=str(row.row_tier),
-                            memory_family=str(row.row_family), memory_type=str(row.row_type),
-                            verse_name=str(row.verse_name), trajectory=None
+                            obs=row.obs,
+                            recency_weight=float(recency_weight),
+                            trajectory=None
                         )
                         scored.append((score, match))
 
@@ -2059,7 +2104,7 @@ def find_similar_batch(
             if key not in seen:
                 seen.add(key)
                 unique.append(match)
-        unique.sort(key=lambda m: m.similarity_score, reverse=True)
+        unique.sort(key=lambda m: m.score, reverse=True)
         final_results.append(unique[:top_n])
 
     return final_results

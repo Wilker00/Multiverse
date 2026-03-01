@@ -1,0 +1,256 @@
+{
+  "version": "v1",
+  "profiles": {
+    "grid_rung1_recall_lift_gated": {
+      "description": "Same-verse grid_world rung-1 causal recall lift with gated recall opportunities.",
+      "train": {
+        "verse": "grid_world",
+        "algo": "planner_recall",
+        "episodes": 5000,
+        "max_steps": 50,
+        "seed": 1201,
+        "train_flag": true,
+        "vparam": {},
+        "aconfig": {
+          "planner_force_recall": true,
+          "recall_same_verse_only": true,
+          "on_demand_memory_enabled": true,
+          "on_demand_memory_root": "central_memory_recalllift",
+          "on_demand_query_budget": 80000,
+          "on_demand_min_interval": 1,
+          "on_demand_recall_ablation_prob": 0.5,
+          "on_demand_recall_ablation_seed": 23,
+          "rar_enabled": false,
+          "recall_vote_weight": 0.5,
+          "recall_min_score": 0.35,
+          "recall_top_k": 3,
+          "recall_use_source_greedy_action": true,
+          "recall_apply_only_if_greedy_changes": true,
+          "recall_apply_reject_visible_wall": true,
+          "recall_apply_min_consensus_margin": 0.0,
+          "recall_apply_max_base_q_margin": 0.02,
+          "grid_obs_key_mode": "xy_goal",
+          "epsilon_start": 0.8,
+          "epsilon_decay": 0.992,
+          "epsilon_min": 0.05
+        }
+      },
+      "analysis": {
+        "horizon": 15,
+        "bootstrap": 5000,
+        "seed": 7,
+        "require_gate_passed": true
+      }
+    },
+    "grid_to_maze_rung3_recall_lift_gated": {
+      "description": "Cross-verse grid-memory -> maze_world target causal recall lift with the same gated intervention metric.",
+      "train": {
+        "verse": "maze_world",
+        "algo": "planner_recall",
+        "episodes": 1200,
+        "max_steps": 120,
+        "seed": 1301,
+        "train_flag": true,
+        "vparam": {
+          "width": 7,
+          "height": 7,
+          "max_steps": 120,
+          "hazard_count": 1,
+          "hazard_penalty": -0.2,
+          "explore_bonus": 0.05,
+          "bump_penalty": -0.05,
+          "step_penalty": -0.01,
+          "fog_of_war": false
+        },
+        "aconfig": {
+          "planner_force_recall": true,
+          "planner_expected_horizon": 120,
+          "recall_same_verse_only": false,
+          "recall_memory_types": "spatial_procedural",
+          "on_demand_memory_enabled": true,
+          "on_demand_memory_root": "central_memory_recalllift",
+          "on_demand_query_budget": 40000,
+          "on_demand_min_interval": 1,
+          "on_demand_recall_ablation_prob": 0.5,
+          "on_demand_recall_ablation_seed": 31,
+          "rar_enabled": false,
+          "recall_vote_weight": 0.5,
+          "recall_min_score": 0.20,
+          "recall_top_k": 5,
+          "recall_use_source_greedy_action": true,
+          "recall_apply_only_if_greedy_changes": true,
+          "recall_apply_reject_visible_wall": true,
+          "recall_apply_min_consensus_margin": 0.0,
+          "recall_apply_max_base_q_margin": 0.02,
+          "maze_obs_key_mode": "task_lite",
+          "epsilon_start": 0.8,
+          "epsilon_decay": 0.992,
+          "epsilon_min": 0.05
+        }
+      },
+      "analysis": {
+        "horizon": 20,
+        "bootstrap": 3000,
+        "seed": 7,
+        "require_gate_passed": true
+      }
+    },
+    "grid_to_maze_easy_rung3_recall_lift_gated": {
+      "description": "Cross-verse grid-memory -> easier maze target to test task-solving transfer in a cleaner setting.",
+      "train": {
+        "verse": "maze_world",
+        "algo": "planner_recall",
+        "episodes": 1500,
+        "max_steps": 80,
+        "seed": 1401,
+        "train_flag": true,
+        "vparam": {
+          "width": 5,
+          "height": 5,
+          "max_steps": 80,
+          "hazard_count": 0,
+          "explore_bonus": 0.05,
+          "bump_penalty": -0.05,
+          "step_penalty": -0.01,
+          "fog_of_war": false
+        },
+        "aconfig": {
+          "planner_force_recall": true,
+          "planner_expected_horizon": 80,
+          "recall_same_verse_only": false,
+          "recall_memory_types": "spatial_procedural",
+          "on_demand_memory_enabled": true,
+          "on_demand_memory_root": "central_memory_recalllift",
+          "on_demand_query_budget": 50000,
+          "on_demand_min_interval": 1,
+          "on_demand_recall_ablation_prob": 0.5,
+          "on_demand_recall_ablation_seed": 37,
+          "rar_enabled": false,
+          "recall_vote_weight": 0.5,
+          "recall_min_score": 0.20,
+          "recall_top_k": 5,
+          "recall_use_source_greedy_action": true,
+          "recall_apply_only_if_greedy_changes": true,
+          "recall_apply_reject_visible_wall": true,
+          "recall_apply_min_consensus_margin": 0.0,
+          "recall_apply_max_base_q_margin": 0.05,
+          "maze_obs_key_mode": "task_lite",
+          "epsilon_start": 0.8,
+          "epsilon_decay": 0.992,
+          "epsilon_min": 0.05
+        }
+      },
+      "analysis": {
+        "horizon": 15,
+        "bootstrap": 3000,
+        "seed": 7,
+        "require_gate_passed": true
+      }
+    },
+    "grid_to_maze_easy_rung3_recall_lift_widegate": {
+      "description": "Cross-verse grid->maze easy target with wall-safe + change-only recall gate (no Q-margin filter).",
+      "train": {
+        "verse": "maze_world",
+        "algo": "planner_recall",
+        "episodes": 1500,
+        "max_steps": 80,
+        "seed": 1501,
+        "train_flag": true,
+        "vparam": {
+          "width": 5,
+          "height": 5,
+          "max_steps": 80,
+          "hazard_count": 0,
+          "explore_bonus": 0.05,
+          "bump_penalty": -0.05,
+          "step_penalty": -0.01,
+          "fog_of_war": false
+        },
+        "aconfig": {
+          "planner_force_recall": true,
+          "planner_expected_horizon": 80,
+          "recall_same_verse_only": false,
+          "recall_memory_types": "spatial_procedural",
+          "on_demand_memory_enabled": true,
+          "on_demand_memory_root": "central_memory_recalllift",
+          "on_demand_query_budget": 50000,
+          "on_demand_min_interval": 1,
+          "on_demand_recall_ablation_prob": 0.5,
+          "on_demand_recall_ablation_seed": 41,
+          "rar_enabled": false,
+          "recall_vote_weight": 0.5,
+          "recall_min_score": 0.20,
+          "recall_top_k": 5,
+          "recall_use_source_greedy_action": true,
+          "recall_apply_only_if_greedy_changes": true,
+          "recall_apply_reject_visible_wall": true,
+          "recall_apply_min_consensus_margin": 0.0,
+          "recall_apply_max_base_q_margin": -1.0,
+          "maze_obs_key_mode": "task_lite",
+          "epsilon_start": 0.8,
+          "epsilon_decay": 0.992,
+          "epsilon_min": 0.05
+        }
+      },
+      "analysis": {
+        "horizon": 15,
+        "bootstrap": 3000,
+        "seed": 7,
+        "require_gate_passed": true
+      }
+    },
+    "grid_to_maze_easy_rung3_recall_lift_widegate_earlyphase": {
+      "description": "Same-universe (navigation_core) grid->maze proof run: wall-safe, change-only, wide gate, early-phase-only recall.",
+      "train": {
+        "verse": "maze_world",
+        "algo": "planner_recall",
+        "episodes": 3000,
+        "max_steps": 80,
+        "seed": 1601,
+        "train_flag": true,
+        "vparam": {
+          "width": 5,
+          "height": 5,
+          "max_steps": 80,
+          "hazard_count": 0,
+          "explore_bonus": 0.05,
+          "bump_penalty": -0.05,
+          "step_penalty": -0.01,
+          "fog_of_war": false
+        },
+        "aconfig": {
+          "planner_force_recall": true,
+          "planner_expected_horizon": 80,
+          "recall_same_verse_only": false,
+          "recall_memory_types": "spatial_procedural",
+          "on_demand_memory_enabled": true,
+          "on_demand_memory_root": "central_memory_recalllift",
+          "on_demand_query_budget": 90000,
+          "on_demand_min_interval": 1,
+          "on_demand_recall_ablation_prob": 0.5,
+          "on_demand_recall_ablation_seed": 43,
+          "rar_enabled": false,
+          "recall_vote_weight": 0.5,
+          "recall_min_score": 0.20,
+          "recall_top_k": 5,
+          "recall_use_source_greedy_action": true,
+          "recall_apply_only_if_greedy_changes": true,
+          "recall_apply_reject_visible_wall": true,
+          "recall_apply_min_epsilon": 0.20,
+          "recall_apply_min_consensus_margin": 0.0,
+          "recall_apply_max_base_q_margin": -1.0,
+          "maze_obs_key_mode": "task_lite",
+          "epsilon_start": 0.8,
+          "epsilon_decay": 0.992,
+          "epsilon_min": 0.05
+        }
+      },
+      "analysis": {
+        "horizon": 15,
+        "bootstrap": 4000,
+        "seed": 7,
+        "require_gate_passed": true
+      }
+    }
+  }
+}

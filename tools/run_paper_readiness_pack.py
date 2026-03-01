@@ -50,6 +50,39 @@ def _read_json_obj(path: str) -> Dict[str, Any]:
     return obj
 
 
+def _normalize_fixed_seed_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = raw.get("config")
+    cfg = cfg if isinstance(cfg, dict) else {}
+    challenge_args = cfg.get("challenge_args")
+    if not isinstance(challenge_args, list):
+        challenge_args = []
+    challenge_args = [str(x).strip() for x in challenge_args if str(x).strip()]
+    out: Dict[str, Any] = {
+        "target_verse": str(cfg.get("target_verse", "")).strip(),
+        "episodes": int(max(1, _safe_int(cfg.get("episodes", 0), 0))),
+        "max_steps": int(max(1, _safe_int(cfg.get("max_steps", 0), 0))),
+        "seeds": str(cfg.get("seeds", "")).strip(),
+        "challenge_args": challenge_args,
+    }
+    return out
+
+
+def _merge_fixed_seed_with_profile(fixed_cfg: Dict[str, Any], profile_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(fixed_cfg)
+    if str(profile_cfg.get("target_verse", "")).strip():
+        out["target_verse"] = str(profile_cfg.get("target_verse")).strip()
+    if int(_safe_int(profile_cfg.get("episodes", 0), 0)) > 0:
+        out["episodes"] = int(_safe_int(profile_cfg.get("episodes"), 0))
+    if int(_safe_int(profile_cfg.get("max_steps", 0), 0)) > 0:
+        out["max_steps"] = int(_safe_int(profile_cfg.get("max_steps"), 0))
+    if str(profile_cfg.get("seeds", "")).strip():
+        out["seeds"] = str(profile_cfg.get("seeds")).strip()
+    challenge_args = profile_cfg.get("challenge_args")
+    if isinstance(challenge_args, list) and challenge_args:
+        out["challenge_args"] = [str(x).strip() for x in challenge_args if str(x).strip()]
+    return out
+
+
 def _try_git_sha() -> Optional[str]:
     try:
         out = subprocess.check_output(
@@ -92,6 +125,7 @@ def _normalize_pack(raw: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "schema_version": "v1",
         "name": str(raw.get("name", "paper_readiness_pack_v1")).strip() or "paper_readiness_pack_v1",
+        "fixed_seed_profile": str(raw.get("fixed_seed_profile", "")).strip(),
         "benchmark_gate": {
             "enabled": _safe_bool(bench_raw.get("enabled", True), True),
             "suite_path": str(bench_raw.get("suite_path", "benchmark_suite.yaml")),
@@ -321,7 +355,15 @@ def main() -> None:
         result = _run_step("benchmark_gate", cmd, dry_run=bool(args.dry_run))
         steps.append(result)
 
-    fixed_cfg = pack["fixed_seed_transfer"]
+    fixed_cfg = dict(pack["fixed_seed_transfer"])
+    fixed_seed_profile_path = str(pack.get("fixed_seed_profile", "")).strip()
+    fixed_seed_profile_applied = False
+    if fixed_seed_profile_path:
+        profile_raw = _read_json_obj(fixed_seed_profile_path)
+        profile_cfg = _normalize_fixed_seed_profile(profile_raw)
+        fixed_cfg = _merge_fixed_seed_with_profile(fixed_cfg, profile_cfg)
+        fixed_seed_profile_applied = True
+
     if _safe_bool(fixed_cfg.get("enabled", True), True):
         cmd = _build_fixed_seed_cmd(
             py=py,
@@ -363,6 +405,8 @@ def main() -> None:
         "pack_path": os.path.normpath(str(args.pack)),
         "pack_name": str(pack.get("name", "")),
         "pack_schema_version": str(pack.get("schema_version", "")),
+        "fixed_seed_profile_path": fixed_seed_profile_path,
+        "fixed_seed_profile_applied": bool(fixed_seed_profile_applied),
         "git_sha": _try_git_sha(),
         "python": sys.version,
         "candidate_algo": str(args.candidate_algo),

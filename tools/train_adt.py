@@ -71,6 +71,7 @@ def _compute_loss_and_acc(
     attention_mask: torch.Tensor,
     targets: torch.Tensor,
     class_weights: Optional[torch.Tensor] = None,
+    verse_ids: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, float]:
     logits = model(
         states=states,
@@ -78,21 +79,36 @@ def _compute_loss_and_acc(
         prev_actions=prev_actions,
         timesteps=timesteps,
         attention_mask=attention_mask,
+        verse_ids=verse_ids,
     )
     action_dim = logits.shape[-1]
-    loss = F.cross_entropy(
-        logits.reshape(-1, action_dim),
-        targets.reshape(-1),
-        weight=class_weights,
-        ignore_index=-100,
-    )
-
-    with torch.no_grad():
-        pred = torch.argmax(logits, dim=-1)
-        valid = targets != -100
-        correct = (pred == targets) & valid
-        n_valid = int(valid.sum().item())
-        acc = float(correct.sum().item() / max(1, n_valid))
+    
+    if model.config.action_space_type == "continuous":
+        # MSE Loss
+        valid = attention_mask > 0
+        if valid.any():
+            loss = F.mse_loss(logits[valid], targets[valid])
+            with torch.no_grad():
+                # For continuous, accuracy isn't directly applicable, use pseudo accuracy (error threshold)
+                err = torch.abs(logits[valid] - targets[valid])
+                acc = float((err < 0.1).float().mean().item())
+        else:
+            loss = torch.tensor(0.0, device=logits.device, requires_grad=True)
+            acc = 0.0
+    else:
+        # Cross Entropy
+        loss = F.cross_entropy(
+            logits.reshape(-1, action_dim),
+            targets.reshape(-1),
+            weight=class_weights,
+            ignore_index=-100,
+        )
+        with torch.no_grad():
+            pred = torch.argmax(logits, dim=-1)
+            valid = targets != -100
+            correct = (pred == targets) & valid
+            n_valid = int(valid.sum().item())
+            acc = float(correct.sum().item() / max(1, n_valid))
     return loss, acc
 
 
@@ -191,11 +207,19 @@ def train_adt(
 
     states = payload["states"].float()
     rtg = payload["returns_to_go"].float()
-    prev_actions = payload["prev_actions"].long()
-    actions = payload["actions"].long()
+    action_space_type = str(meta.get("action_space_type", "discrete"))
+    if action_space_type == "continuous":
+        prev_actions = payload["prev_actions"].float()
+        actions = payload["actions"].float()
+    else:
+        prev_actions = payload["prev_actions"].long()
+        actions = payload["actions"].long()
     timesteps = payload["timesteps"].long()
     attention_mask = payload["attention_mask"].float()
 
+    verse_ids = payload.get("verse_ids")
+    if verse_ids is not None:
+        verse_ids = verse_ids.long()
     n = int(states.shape[0])
     if n <= 0:
         raise RuntimeError("empty ADT dataset")
@@ -232,13 +256,16 @@ def train_adt(
     cfg = DecisionTransformerConfig(
         state_dim=int(state_dim),
         action_dim=int(action_dim),
+        action_space_type=str(meta.get("action_space_type", "discrete")),
         context_len=int(context_len),
         d_model=int(d_model),
         n_head=int(n_head),
         n_layer=int(n_layer),
         dropout=float(dropout),
         max_timestep=max(1, int(max_timestep)),
-        bos_token_id=int(bos_token_id),
+        bos_token_id=int(bos_token_id) if str(meta.get("action_space_type", "discrete")) == "discrete" else 0, # bos_token_id not strictly used by continuous, but safe default
+        n_verses=_safe_int(meta.get("n_verses"), 0),
+        verse_to_id=meta.get("verse_to_id"),
     )
     if init_path:
         if not os.path.isfile(init_path):
@@ -261,13 +288,16 @@ def train_adt(
     model = model.to(runtime_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(lr), weight_decay=float(weight_decay))
 
-    class_weights_cpu, class_weight_meta = _build_class_weights(
-        actions=actions,
-        action_dim=int(action_dim),
-        mode=str(class_weight_mode),
-        min_count=max(1, int(class_weight_min_count)),
-        max_weight=max(0.0, float(class_weight_max)),
-    )
+    if action_space_type == "continuous":
+        class_weights_cpu, class_weight_meta = None, {"class_weight_mode_effective": "none"}
+    else:
+        class_weights_cpu, class_weight_meta = _build_class_weights(
+            actions=actions,
+            action_dim=int(action_dim),
+            mode=str(class_weight_mode),
+            min_count=max(1, int(class_weight_min_count)),
+            max_weight=max(0.0, float(class_weight_max)),
+        )
     class_weights_runtime = None
     if isinstance(class_weights_cpu, torch.Tensor):
         class_weights_runtime = class_weights_cpu.to(runtime_device)
@@ -289,6 +319,7 @@ def train_adt(
             batch_t = timesteps[bi_t].to(runtime_device)
             batch_mask = attention_mask[bi_t].to(runtime_device)
             batch_y = actions[bi_t].to(runtime_device)
+            batch_verse = verse_ids[bi_t].to(runtime_device) if verse_ids is not None else None
 
             loss, acc = _compute_loss_and_acc(
                 model=model,
@@ -299,6 +330,7 @@ def train_adt(
                 attention_mask=batch_mask,
                 targets=batch_y,
                 class_weights=class_weights_runtime,
+                verse_ids=batch_verse,
             )
             optimizer.zero_grad()
             loss.backward()
@@ -329,6 +361,7 @@ def train_adt(
                     batch_t = timesteps[bi_t].to(runtime_device)
                     batch_mask = attention_mask[bi_t].to(runtime_device)
                     batch_y = actions[bi_t].to(runtime_device)
+                    batch_verse = verse_ids[bi_t].to(runtime_device) if verse_ids is not None else None
                     loss, acc = _compute_loss_and_acc(
                         model=model,
                         states=batch_states,
@@ -338,6 +371,7 @@ def train_adt(
                         attention_mask=batch_mask,
                         targets=batch_y,
                         class_weights=class_weights_runtime,
+                        verse_ids=batch_verse,
                     )
                     va_loss_sum += float(loss.item())
                     va_acc_sum += float(acc)
