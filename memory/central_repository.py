@@ -143,6 +143,19 @@ class _SimilarityCacheEntry:
     built_at_ms: int
 
 
+@dataclass
+class _SimilarityCacheDelta:
+    """
+    Incremental cache update tracking (Phase 2.5).
+
+    Instead of rebuilding entire cache on every memory write,
+    track deltas and merge when threshold reached.
+    """
+    base_signature: Tuple[int, int]
+    delta_rows: List[_PreparedMemoryRow]
+    added_at_ms: int
+
+
 # Multiprocess-safe locks and caches for ProcessPoolExecutor compatibility
 # Use lazy initialization to avoid Manager() at module level (Windows compatibility)
 _mp_manager: Optional[Any] = None
@@ -168,6 +181,9 @@ def _get_mp_locks():
 # The shared lock coordinates cache invalidation across processes
 # Each process maintains its own cache copy, which is acceptable for memory retrieval
 _SIM_CACHE: "OrderedDict[str, _SimilarityCacheEntry]" = OrderedDict()
+# Phase 2.5: Incremental cache delta tracking
+_CACHE_DELTAS: Dict[str, List[_SimilarityCacheDelta]] = {}
+_DELTA_MERGE_THRESHOLD = int(os.environ.get("MULTIVERSE_MEMORY_DELTA_MERGE_THRESHOLD", "1000"))
 # Note: Keep _DEDUPE_READY as Set (process-local) for standard set operations
 # The shared lock coordinates access across processes
 _DEDUPE_READY: Set[str] = set()
@@ -991,6 +1007,116 @@ def _invalidate_similarity_cache(paths: Iterable[str]) -> None:
                     os.remove(p)
             except Exception:
                 pass
+
+
+# ============================================================================
+# Phase 2.5: Incremental Cache Delta Tracking
+# ============================================================================
+
+def _append_cache_delta(apath: str, new_rows: List[_PreparedMemoryRow]) -> None:
+    """
+    Append new rows to delta list instead of full cache rebuild.
+
+    This reduces cache rebuild overhead from O(n) to O(Δ) where Δ << n.
+    Deltas are automatically merged when threshold is reached.
+    """
+    sim_cache_lock, _, _, _ = _get_mp_locks()
+
+    if not new_rows:
+        return
+
+    # Create delta entry
+    base_sig = (0, 0)
+    with sim_cache_lock:
+        if apath in _SIM_CACHE:
+            base_sig = _SIM_CACHE[apath].signature
+
+    delta = _SimilarityCacheDelta(
+        base_signature=base_sig,
+        delta_rows=new_rows,
+        added_at_ms=int(time.time() * 1000),
+    )
+
+    # Append to delta list
+    with sim_cache_lock:
+        if apath not in _CACHE_DELTAS:
+            _CACHE_DELTAS[apath] = []
+        _CACHE_DELTAS[apath].append(delta)
+
+        # Check if we should merge
+        total_delta_rows = sum(len(d.delta_rows) for d in _CACHE_DELTAS[apath])
+        should_merge = total_delta_rows >= _DELTA_MERGE_THRESHOLD
+
+    # Merge if threshold reached (outside lock to avoid blocking)
+    if should_merge:
+        _merge_cache_deltas(apath)
+
+
+def _merge_cache_deltas(apath: str) -> None:
+    """
+    Merge accumulated deltas into base cache snapshot.
+
+    This is called automatically when delta threshold is reached,
+    or can be called manually to force a merge.
+    """
+    sim_cache_lock, _, _, _ = _get_mp_locks()
+
+    with sim_cache_lock:
+        if apath not in _CACHE_DELTAS or not _CACHE_DELTAS[apath]:
+            return
+
+        # Get base cache (if exists)
+        base_cache = _SIM_CACHE.get(apath)
+        if base_cache is None:
+            # No base cache - trigger full rebuild
+            _CACHE_DELTAS[apath] = []
+            return
+
+        # Collect all delta rows
+        all_delta_rows = []
+        for delta in _CACHE_DELTAS[apath]:
+            all_delta_rows.extend(delta.delta_rows)
+
+        if not all_delta_rows:
+            _CACHE_DELTAS[apath] = []
+            return
+
+        # Merge: base rows + delta rows
+        merged_rows = base_cache.rows + all_delta_rows
+
+    # Rebuild cache from merged rows (expensive operation, outside lock)
+    merged_cache = _build_cache_from_rows(merged_rows, base_cache.signature)
+
+    # Atomic update
+    with sim_cache_lock:
+        _SIM_CACHE[apath] = merged_cache
+        _CACHE_DELTAS[apath] = []
+
+
+def _build_cache_from_rows(
+    rows: List[_PreparedMemoryRow],
+    signature: Tuple[int, int]
+) -> _SimilarityCacheEntry:
+    """Build cache entry from row list (used by delta merge)."""
+    by_verse: Dict[str, List[int]] = {}
+    for idx, row in enumerate(rows):
+        verse = str(row.verse_name or "")
+        by_verse.setdefault(verse, []).append(idx)
+
+    vectors_by_dim, row_indices_by_dim = _vectorize_rows_by_dim(rows)
+    universal_vectors, universal_row_indices = _vectorize_universal_rows(rows)
+
+    return _SimilarityCacheEntry(
+        signature=signature,
+        rows=rows,
+        by_verse=by_verse,
+        vectors_by_dim=vectors_by_dim,
+        row_indices_by_dim=row_indices_by_dim,
+        ann_by_dim={},
+        universal_vectors=universal_vectors,
+        universal_row_indices=[int(i) for i in universal_row_indices],
+        built_at_ms=int(time.time() * 1000),
+    )
 
 
 def _build_similarity_cache_for_path(
