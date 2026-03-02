@@ -6,6 +6,7 @@ This folder contains the core documentation for the Multiverse project.
 
 - **[Project Introduction](PROJECT_INTRO.md)**: High-level overview of the project's goals, architecture, and organization. Start here to understand *what* Multiverse is.
 - **[Full Paper](PAPER.md)**: The comprehensive, technical paper describing the framework's methodology, safety systems, memory architecture, and evaluation results. This is the **primary technical reference**.
+- **[Engineering Audit](ENGINEERING_AUDIT.md)**: Current notes on oversized modules, cleanup work completed on 2026-03-01, and the next refactor targets.
 
 ## Other Resources
 

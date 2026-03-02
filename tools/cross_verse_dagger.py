@@ -91,6 +91,8 @@ def main():
                     "context_len": 30, # Increased context for larger model
                     "target_return": target_ret, 
                     "recall_enabled": True, 
+                    "recall_frequency": 5,
+                    "recall_top_k": 3,
                     "verse_name": verse_name
                 }
             )

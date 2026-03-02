@@ -179,7 +179,8 @@ class TransformerAgent:
         self._recall_memory_types = _as_set(cfg.get("recall_memory_types"))
         self._recall_vote_weight = max(0.0, min(3.0, _safe_float(cfg.get("recall_vote_weight", 0.75), 0.75)))
         self._recall_use_source_greedy_action = bool(cfg.get("recall_use_source_greedy_action", False))
-        self._recall_risk_key = str(cfg.get("recall_risk_key", "risk")).strip() or "risk"
+        self._recall_frequency = max(0, _safe_int(cfg.get("recall_frequency", 0), 0))
+        self._recall_risk_key = str(cfg.get("recall_risk_key", "risk")).strip().lower() or "risk"
         self._recall_risk_threshold = _safe_float(cfg.get("recall_risk_threshold", 6.0), 6.0)
         self._recall_uncertainty_margin = max(0.0, _safe_float(cfg.get("recall_uncertainty_margin", 0.10), 0.10))
         self._recall_cooldown_steps = max(1, _safe_int(cfg.get("recall_cooldown_steps", 2), 2))
@@ -479,10 +480,13 @@ class TransformerAgent:
         # Skip uncertainty trigger to prevent unnecessary forward passes in memory query.
         trigger_uncertain = False
         
-        if not (trigger_risk or trigger_uncertain):
+        # Frequency trigger (periodical checks for better roadmap following)
+        trigger_freq = bool(self._recall_frequency > 0 and step % self._recall_frequency == 0)
+        
+        if not (trigger_risk or trigger_uncertain or trigger_freq):
             return None
 
-        reason = "high_risk" if trigger_risk else "uncertain_state"
+        reason = "high_risk" if trigger_risk else ("frequency" if trigger_freq else "uncertain_state")
         req = {
             "query_obs": obs,
             "top_k": int(self._recall_top_k),

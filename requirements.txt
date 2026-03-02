@@ -1,0 +1,72 @@
+# Multiverse - Core Dependencies
+# Install with: pip install -r requirements.txt
+#
+# For optional scaling features, also install:
+#   pip install -r requirements_scale.txt
+
+# ============================================================================
+# Core ML/RL Framework
+# ============================================================================
+numpy>=1.24.0,<2.0.0
+torch>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.10.0
+
+# ============================================================================
+# Type System & Validation
+# ============================================================================
+pydantic>=2.0.0
+typing-extensions>=4.5.0
+
+# ============================================================================
+# CLI & User Interface
+# ============================================================================
+typer>=0.9.0
+rich>=13.0.0
+click>=8.0.0
+colorama>=0.4.6
+tqdm>=4.66.0
+
+# ============================================================================
+# Configuration & Environment
+# ============================================================================
+python-dotenv>=1.0.0
+PyYAML>=6.0.0
+
+# ============================================================================
+# File System & Monitoring
+# ============================================================================
+watchdog>=3.0.0
+
+# ============================================================================
+# HTTP & Networking (for API tools)
+# ============================================================================
+requests>=2.31.0
+httpx>=0.24.0
+
+# ============================================================================
+# Data Processing
+# ============================================================================
+# Note: Heavy data processing deps (polars, pyarrow, duckdb) are in requirements_scale.txt
+
+# ============================================================================
+# Development & Testing
+# ============================================================================
+pytest>=8.0.0
+pytest-timeout>=2.1.0
+
+# ============================================================================
+# Optional: Memory & Vector Store (lightweight alternatives)
+# ============================================================================
+# For production memory features, consider installing requirements_scale.txt
+# which includes chromadb, sentence-transformers, and other heavy dependencies
+faiss-cpu>=1.7.4  # Lightweight ANN search (used by memory system optimizations)
+psutil>=5.9.0     # System monitoring (used by memory profiling)
+
+# ============================================================================
+# Version Compatibility Notes
+# ============================================================================
+# - Python 3.10+ required (tested on 3.12)
+# - PyTorch: GPU support requires separate torch installation with CUDA
+#   See: https://pytorch.org/get-started/locally/
+# - Windows users: Some packages may require Visual C++ Build Tools

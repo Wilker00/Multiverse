@@ -53,6 +53,7 @@ def evaluate_with_memory_recall(
                 "device": "cpu",
                 "target_return": target,
                 "recall_enabled": recall,
+                "recall_frequency": 5 if recall else 0,
                 "recall_top_k": 3,
                 "verse_name": vname,
                 "context_len": 30
