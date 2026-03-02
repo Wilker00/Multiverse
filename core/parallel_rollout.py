@@ -144,13 +144,19 @@ if ray is not None:
         return _worker_run(payload)
 
 
+def _get_num_workers_default():
+    return int(os.environ.get("MULTIVERSE_PARALLEL_NUM_WORKERS", "4"))
+
+def _get_max_timeout_default():
+    return int(os.environ.get("MULTIVERSE_PARALLEL_MAX_TIMEOUT", str(60 * 60)))
+
 @dataclass
 class ParallelRolloutConfig:
-    num_workers: int = 4
+    num_workers: int = dataclasses.field(default_factory=_get_num_workers_default)
     use_ray: bool = False
     run_root: str = "runs"
     schema_version: str = "v1"
-    max_worker_timeout_s: int = 60 * 60
+    max_worker_timeout_s: int = dataclasses.field(default_factory=_get_max_timeout_default)
     self_play_enabled: bool = False
     self_play_adversary_source: str = "recent_failures"
     self_play_mix_ratio: float = 0.25
