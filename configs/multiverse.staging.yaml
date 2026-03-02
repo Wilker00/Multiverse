@@ -1,0 +1,60 @@
+# Staging Environment Configuration
+# Realistic evaluation, full safety stack, shared memory
+# Usage: MULTIVERSE_CONFIG=configs/multiverse.staging.yaml python script.py
+
+parallel:
+  num_workers: 8                    # Moderate worker count
+  max_worker_timeout_s: 3600        # 1 hour timeout
+  use_ray: false
+  run_root: "runs"
+  reuse_process_pool: true
+  min_parallel_episodes: 64
+
+rollout:
+  retrieval_interval: 10            # Standard retrieval
+  on_demand_query_budget: 8         # Standard budget
+  on_demand_min_interval: 2
+
+mcts:
+  num_simulations: 96               # Standard MCTS
+  max_depth: 12
+  c_puct: 1.4
+  discount: 0.99
+  transposition_max_entries: 20000
+
+curriculum:
+  enabled: true
+  plateau_window: 5
+  step_size: 0.05                   # Gradual adjustments
+  collapse_threshold: 0.20
+  max_noise: 0.35
+  max_partial_obs: 0.75
+  max_distractors: 6
+
+memory:
+  lock_timeout: 45
+  delta_merge_threshold: 1000       # Standard merge threshold
+  query_cache_size: 10000           # Standard cache size
+  query_cache_ttl_ms: 60000         # 1 minute TTL
+  use_ann: true                     # Enable FAISS for performance
+  ann_candidate_count: 100
+  cache_limit: 150000
+
+safe_executor:
+  enabled: true
+  danger_threshold: 0.90
+  min_action_confidence: 0.08
+  fallback_horizon_steps: 8
+  checkpoint_interval: 5
+  max_rewinds_per_episode: 8
+  planner_enabled: true
+  planner_max_expansions: 5000
+  mcts_enabled: true
+  mcts_num_simulations: 96
+
+# Staging priorities:
+# - Production-like configuration
+# - Full safety features enabled
+# - Shared memory across experiments
+# - Moderate parallelism for testing scale
+# - Realistic evaluation scenarios

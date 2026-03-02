@@ -1,0 +1,70 @@
+# Production Environment Configuration
+# Maximum robustness, performance, observability
+# Usage: MULTIVERSE_CONFIG=configs/multiverse.prod.yaml python script.py
+
+parallel:
+  num_workers: 32                   # High worker count for throughput
+  max_worker_timeout_s: 7200        # 2 hour timeout
+  use_ray: false                    # Set to true if Ray cluster available
+  run_root: "/data/runs"            # Shared storage path
+  reuse_process_pool: true
+  min_parallel_episodes: 64
+
+rollout:
+  retrieval_interval: 10
+  on_demand_query_budget: 10        # More memory access for better decisions
+  on_demand_min_interval: 2
+
+mcts:
+  num_simulations: 128              # More simulations
+  max_depth: 16                     # Deeper search
+  c_puct: 1.4
+  discount: 0.99
+  transposition_max_entries: 100000 # Large transposition table
+
+curriculum:
+  enabled: true
+  plateau_window: 10                # Longer window for stability
+  step_size: 0.03                   # Gradual adjustments
+  collapse_threshold: 0.15          # Stricter collapse detection
+  max_noise: 0.35
+  max_partial_obs: 0.75
+  max_distractors: 6
+
+memory:
+  lock_timeout: 60                  # Longer timeout for safety
+  delta_merge_threshold: 1000
+  query_cache_size: 50000           # Large cache for performance
+  query_cache_ttl_ms: 300000        # 5 minute TTL
+  use_ann: true                     # FAISS enabled
+  ann_candidate_count: 200          # Higher accuracy
+  cache_limit: 500000               # Large cache for scale
+
+safe_executor:
+  enabled: true
+  danger_threshold: 0.88            # Stricter than default 0.90
+  min_action_confidence: 0.10       # Stricter than default 0.08
+  fallback_horizon_steps: 10
+  checkpoint_interval: 5
+  max_rewinds_per_episode: 10
+  planner_enabled: true
+  planner_max_expansions: 10000
+  mcts_enabled: true
+  mcts_num_simulations: 128
+
+# Production priorities:
+# - Maximum robustness and safety
+# - High throughput (32 workers)
+# - Large caches for performance
+# - Conservative curriculum adjustments
+# - Stricter safety thresholds
+#
+# IMPORTANT: Override paths via environment variables:
+# - MULTIVERSE_MEMORY_ROOT=/data/central_memory
+# - MULTIVERSE_RUNS_ROOT=/data/runs
+# - MULTIVERSE_MODELS_ROOT=/data/models
+#
+# SECURITY: Set secrets via environment variables, NOT in this file:
+# - GF_SECURITY_ADMIN_PASSWORD (Grafana)
+# - REDIS_PASSWORD (if using Redis)
+# - API keys, TLS certificates, etc.

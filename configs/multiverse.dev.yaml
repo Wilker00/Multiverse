@@ -1,0 +1,60 @@
+# Development Environment Configuration
+# Fast iteration, minimal safety overhead, local storage
+# Usage: MULTIVERSE_CONFIG=configs/multiverse.dev.yaml python script.py
+
+parallel:
+  num_workers: 2                    # Minimal workers for debugging
+  max_worker_timeout_s: 1800        # 30 min timeout
+  use_ray: false
+  run_root: "runs"
+  reuse_process_pool: true
+  min_parallel_episodes: 32         # Lower threshold
+
+rollout:
+  retrieval_interval: 20            # Less frequent memory queries
+  on_demand_query_budget: 3         # Limit memory access for speed
+  on_demand_min_interval: 5
+
+mcts:
+  num_simulations: 32               # Reduced for speed
+  max_depth: 6                      # Shallow search
+  c_puct: 1.2
+  discount: 0.99
+  transposition_max_entries: 5000   # Small transposition table
+
+curriculum:
+  enabled: false                    # Manual difficulty tuning
+  plateau_window: 3
+  step_size: 0.10                   # Aggressive when enabled
+  collapse_threshold: 0.30
+  max_noise: 0.50
+  max_partial_obs: 0.80
+  max_distractors: 10
+
+memory:
+  lock_timeout: 30
+  delta_merge_threshold: 500        # More frequent merges
+  query_cache_size: 1000            # Small cache for faster iteration
+  query_cache_ttl_ms: 30000         # 30 second TTL
+  use_ann: false                    # Disable FAISS for small datasets
+  ann_candidate_count: 50
+  cache_limit: 10000                # Small cache limit
+
+safe_executor:
+  enabled: true
+  danger_threshold: 0.95            # Relaxed safety
+  min_action_confidence: 0.05
+  fallback_horizon_steps: 6
+  checkpoint_interval: 5
+  max_rewinds_per_episode: 5
+  planner_enabled: false
+  planner_max_expansions: 3000
+  mcts_enabled: false
+  mcts_num_simulations: 32
+
+# Development priorities:
+# - Fast iteration (reduced workers, simulations, cache sizes)
+# - Reproducibility (fixed seed via environment)
+# - Minimal safety overhead
+# - Local-only storage
+# - Easy debugging (small parallel configs, disabled ANN)
