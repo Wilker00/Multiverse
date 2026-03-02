@@ -1,8 +1,36 @@
 # Configuration Examples
 
-This directory contains example environment configurations for different deployment scenarios.
+This directory contains example configurations for different deployment scenarios in **two formats**:
 
-## Available Configurations
+1. **YAML** (`multiverse.*.yaml`) - **Recommended** - Structured, validated, version-control friendly
+2. **Environment Variables** (`*.env`) - Legacy support, simpler for quick overrides
+
+## 📋 YAML Configuration (Recommended)
+
+**New in Phase 3!** Structured configuration with schema validation.
+
+### Quick Start
+
+```bash
+# Copy template to project root
+cp configs/multiverse.dev.yaml multiverse.yaml
+
+# Load in Python
+from core.config_loader import load_config
+config = load_config()  # Auto-discovers multiverse.yaml
+```
+
+**Benefits:**
+- Schema validation catches errors before runtime
+- Organized, readable structure
+- Version control friendly (easy to diff/review)
+- Environment variable overrides still work
+
+**See:** [YAML Configuration Guide](../docs/YAML_CONFIGURATION.md)
+
+---
+
+## 📁 Available Configurations
 
 ### [dev.env](dev.env)
 **Development Environment** - Fast iteration, minimal safety overhead
