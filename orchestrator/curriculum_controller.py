@@ -10,7 +10,7 @@ import json
 import os
 import statistics
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
@@ -25,19 +25,40 @@ def _norm(x: Any) -> str:
     return str(x).strip().lower()
 
 
+def _get_curriculum_enabled_default():
+    return bool(int(os.environ.get("MULTIVERSE_CURRICULUM_ENABLED", "1")))
+
+def _get_curriculum_plateau_window_default():
+    return int(os.environ.get("MULTIVERSE_CURRICULUM_PLATEAU_WINDOW", "5"))
+
+def _get_curriculum_step_size_default():
+    return float(os.environ.get("MULTIVERSE_CURRICULUM_STEP_SIZE", "0.05"))
+
+def _get_curriculum_collapse_threshold_default():
+    return float(os.environ.get("MULTIVERSE_CURRICULUM_COLLAPSE_THRESHOLD", "0.20"))
+
+def _get_curriculum_max_noise_default():
+    return float(os.environ.get("MULTIVERSE_CURRICULUM_MAX_NOISE", "0.35"))
+
+def _get_curriculum_max_partial_obs_default():
+    return float(os.environ.get("MULTIVERSE_CURRICULUM_MAX_PARTIAL_OBS", "0.75"))
+
+def _get_curriculum_max_distractors_default():
+    return int(os.environ.get("MULTIVERSE_CURRICULUM_MAX_DISTRACTORS", "6"))
+
 @dataclass
 class CurriculumConfig:
-    enabled: bool = True
+    enabled: bool = field(default_factory=_get_curriculum_enabled_default)
     state_path: str = os.path.join("models", "curriculum_adjustments.json")
-    plateau_window: int = 5
-    step_size: float = 0.05
-    collapse_threshold: float = 0.20
+    plateau_window: int = field(default_factory=_get_curriculum_plateau_window_default)
+    step_size: float = field(default_factory=_get_curriculum_step_size_default)
+    collapse_threshold: float = field(default_factory=_get_curriculum_collapse_threshold_default)
     min_noise: float = 0.0
-    max_noise: float = 0.35
+    max_noise: float = field(default_factory=_get_curriculum_max_noise_default)
     min_partial_obs: float = 0.0
-    max_partial_obs: float = 0.75
+    max_partial_obs: float = field(default_factory=_get_curriculum_max_partial_obs_default)
     min_distractors: int = 0
-    max_distractors: int = 6
+    max_distractors: int = field(default_factory=_get_curriculum_max_distractors_default)
 
     @staticmethod
     def from_dict(cfg: Optional[Dict[str, Any]]) -> "CurriculumConfig":

@@ -73,11 +73,23 @@ def _extract_value_scalar(x: Any) -> float:
     return 0.0
 
 
+def _get_mcts_num_simulations_default():
+    return int(os.environ.get("MULTIVERSE_MCTS_NUM_SIMULATIONS", "96"))
+
+def _get_mcts_max_depth_default():
+    return int(os.environ.get("MULTIVERSE_MCTS_MAX_DEPTH", "12"))
+
+def _get_mcts_c_puct_default():
+    return float(os.environ.get("MULTIVERSE_MCTS_C_PUCT", "1.4"))
+
+def _get_mcts_transposition_max_entries_default():
+    return int(os.environ.get("MULTIVERSE_MCTS_TRANSPOSITION_MAX_ENTRIES", "20000"))
+
 @dataclass
 class MCTSConfig:
-    num_simulations: int = 96
-    max_depth: int = 12
-    c_puct: float = 1.4
+    num_simulations: int = field(default_factory=_get_mcts_num_simulations_default)
+    max_depth: int = field(default_factory=_get_mcts_max_depth_default)
+    c_puct: float = field(default_factory=_get_mcts_c_puct_default)
     discount: float = 0.99
     dirichlet_alpha: float = 0.30
     dirichlet_epsilon: float = 0.25
@@ -89,7 +101,7 @@ class MCTSConfig:
     forced_loss_min_visits: int = 4
     value_confidence_threshold: float = 0.0
     transposition_cache: bool = True
-    transposition_max_entries: int = 20000
+    transposition_max_entries: int = field(default_factory=_get_mcts_transposition_max_entries_default)
     seed: Optional[int] = None
 
 

@@ -51,11 +51,11 @@ class RolloutConfig:
         collect_transitions: bool = False,
         safe_executor: Optional[Any] = None,
         retriever: Optional[Any] = None,
-        retrieval_interval: int = 10,
+        retrieval_interval: Optional[int] = None,
         on_demand_memory_enabled: bool = False,
         on_demand_memory_root: str = "central_memory",
-        on_demand_query_budget: int = 8,
-        on_demand_min_interval: int = 2,
+        on_demand_query_budget: Optional[int] = None,
+        on_demand_min_interval: Optional[int] = None,
         on_demand_recall_ablation_prob: float = 0.0,
         on_demand_recall_ablation_seed: Optional[int] = None,
     ):
@@ -65,11 +65,21 @@ class RolloutConfig:
         self.collect_transitions = collect_transitions
         self.safe_executor = safe_executor
         self.retriever = retriever
-        self.retrieval_interval = retrieval_interval
+        # Use environment variables as defaults if not explicitly provided
+        self.retrieval_interval = (
+            retrieval_interval if retrieval_interval is not None
+            else int(os.environ.get("MULTIVERSE_ROLLOUT_RETRIEVAL_INTERVAL", "10"))
+        )
         self.on_demand_memory_enabled = bool(on_demand_memory_enabled)
         self.on_demand_memory_root = str(on_demand_memory_root)
-        self.on_demand_query_budget = max(0, int(on_demand_query_budget))
-        self.on_demand_min_interval = max(1, int(on_demand_min_interval))
+        self.on_demand_query_budget = max(0, int(
+            on_demand_query_budget if on_demand_query_budget is not None
+            else int(os.environ.get("MULTIVERSE_ROLLOUT_QUERY_BUDGET", "8"))
+        ))
+        self.on_demand_min_interval = max(1, int(
+            on_demand_min_interval if on_demand_min_interval is not None
+            else int(os.environ.get("MULTIVERSE_ROLLOUT_MIN_INTERVAL", "2"))
+        ))
         self.on_demand_recall_ablation_prob = max(0.0, min(1.0, float(on_demand_recall_ablation_prob)))
         self.on_demand_recall_ablation_seed = (
             None if on_demand_recall_ablation_seed is None else int(on_demand_recall_ablation_seed)
