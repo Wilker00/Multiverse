@@ -8,7 +8,10 @@ Multiverse is a local reinforcement-learning codebase with custom environments (
 
 1. **[Setup Guide](docs/SETUP.md)** - Installation in 5 minutes
 2. **[Quickstart Tutorial](docs/QUICKSTART.md)** - Your first agent in 15 minutes
-3. **[Project Introduction](docs/PROJECT_INTRO.md)** - Understand the architecture
+3. **[Hot-Reload Configuration](docs/HOT_RELOAD.md)** 🔥 NEW - Update configs without restart
+4. **[YAML Configuration](docs/YAML_CONFIGURATION.md)** - Structured config with validation
+5. **[Configuration Reference](docs/CONFIGURATION.md)** - All 250+ parameters documented
+6. **[Project Introduction](docs/PROJECT_INTRO.md)** - Understand the architecture
 
 **Quick Install:**
 ```bash
@@ -33,6 +36,7 @@ As of 2026-03-01, this repository has focused verification for the runtime paths
   - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py`
   - `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py`
 - Result: `78 focused tests passed`
+- Current repo-local pytest collection (2026-03-03): `314 tests collected` via `python -m pytest tests test_dt_memory.py --collect-only -q`
 - CLI smoke checks:
   - `python tools/multiverse_cli.py status --json`
   - `python tools/multiverse_cli.py runs inspect --count-events --json`
@@ -47,6 +51,10 @@ This README is intentionally strict. It only describes what is present in code a
 
 - Retrieval speedup (ANN vs exact): `75.20x` (`109.0455s` exact vs `1.4502s` ANN).
   - Artifact: `models/validation/retrieval_ann_benchmark_v1.json`
+- **Generalist Scaling (Phase 5)**: Supported **13 universes** simultaneously via the 256-d Omega backbone.
+  - Successor to `dt_generalist_v2`, resolving neural collisions in multi-task learning.
+- **Ghost-Following Achievement**: Enabled 0-shot navigation in complex verses via periodic roadmap recall (`frequency=5`).
+  - Evolution recorded in `evolutionary_report.md`.
 - Safety certificate (Hoeffding, 95% confidence): `0/200` observed violations, upper bound `0.0960`.
   - Artifact: `models/paper/paper_readiness/latest/phase3_theory_validation.json`
 - Cliff-world return penalty reduction (candidate vs baseline): `8.45x` (`-2030.5` to `-240.25`).
@@ -65,13 +73,14 @@ This README is intentionally strict. It only describes what is present in code a
 - Memory indexing/retrieval: `memory/episode_index.py`, `memory/retrieval.py`, `memory/central_repository.py`
 - Memory repository support helpers: `memory/central_repository_support.py`
 - Memory cache helpers: `memory/central_repository_cache_support.py`
+- Memory cache runtime helpers: `memory/central_repository_cache_runtime_support.py`
 - Memory query/canary helpers: `memory/central_repository_query_support.py`
+- Memory similarity helpers: `memory/central_repository_similarity_support.py`
 - Universal model + API: `models/universal_model.py`, `tools/universal_model_api.py`
 
 ## Engineering Cleanup Notes
 
-- Cleanup completed on 2026-03-01 reduced responsibility concentration in two runtime entry surfaces:
-- Cleanup completed on 2026-03-01 reduced responsibility concentration in four runtime surfaces:
+- Cleanup completed on 2026-03-01 reduced responsibility concentration across four primary runtime surfaces:
   - `core/rollout.py`: helper logic extracted to `core/rollout_support.py` (`802 -> 511` lines)
   - `tools/multiverse_cli.py`: run browsing extracted to `tools/multiverse_cli_runs.py` (`1177 -> 984` lines)
   - `core/safe_executor.py`: config/utility logic extracted to `core/safe_executor_support.py` (`1642 -> 1147` lines)
@@ -79,6 +88,8 @@ This README is intentionally strict. It only describes what is present in code a
   - `memory/central_repository.py`: config, path, and tier-policy support extracted to `memory/central_repository_support.py` (`2073 -> 1801` lines)
   - `memory/central_repository.py`: query-cache and canary logic extracted to `memory/central_repository_query_support.py` (`1801 -> 1597` lines)
   - `memory/central_repository.py`: cache representation/build helpers extracted to `memory/central_repository_cache_support.py` (`1597 -> 1249` lines)
+  - `memory/central_repository.py`: ANN runtime and retrieval scoring extracted to `memory/central_repository_similarity_support.py` (`1249 -> 921` lines)
+  - `memory/central_repository.py`: cache invalidation and delta/LRU runtime helpers extracted to `memory/central_repository_cache_runtime_support.py` (`921 -> 880` lines)
 - Bug fix completed during audit:
   - `agents/transformer_agent.py` now defaults recall risk queries to `risk`, which restores expected on-demand memory behavior in tests using risk-based observations.
 - Remaining highest-concentration targets:
