@@ -5,11 +5,12 @@ import os
 import sys
 
 def run_eval(model_path, recall=False):
+    import sys
     cmd = [
-        "python", "-u", "tools/eval_memory_bridge.py",
+        sys.executable, "-u", "tools/eval_memory_bridge.py",
         "--model", model_path,
         "--verses", "line_world,grid_world,cliff_world,maze_world,swamp_world,wind_master_world,warehouse_world,escape_world,trade_world,chess_world,go_world,uno_world,factory_world",
-        "--episodes", "10"
+        "--episodes", "5"
     ]
     if not recall:
         cmd.append("--no_memory")

@@ -407,6 +407,7 @@ class TransformerAgent:
         action_seq = demo_actions + my_actions
         timesteps_seq = demo_timesteps + my_timesteps
         rtg_seq = demo_rtg + my_rtg
+        demo_count = len(demo_states)
         
         if len(states_seq) > self._context_len:
             overflow = len(states_seq) - self._context_len
@@ -414,8 +415,11 @@ class TransformerAgent:
             action_seq = action_seq[overflow:]
             timesteps_seq = timesteps_seq[overflow:]
             rtg_seq = rtg_seq[overflow:]
+        else:
+            overflow = 0
             
         seq_len = len(states_seq)
+        demo_steps_used = max(0, demo_count - int(overflow))
         
         if self._action_space_type == "continuous":
             prev_actions_seq = [[0.0] * self._n_actions for _ in range(seq_len)]
@@ -459,6 +463,8 @@ class TransformerAgent:
             "attention_mask": torch.tensor([m_pad], dtype=torch.float32, device=self._device),
             "seq_len": torch.tensor([seq_len], dtype=torch.long, device=self._device),
             "verse_ids": torch.tensor([self._verse_id if self._verse_id is not None else 0], dtype=torch.long, device=self._device),
+            "trajectory_steps_requested": int(demo_count),
+            "trajectory_steps_used": int(demo_steps_used),
         }
 
 
@@ -503,12 +509,60 @@ class TransformerAgent:
         self._last_bundle = payload if isinstance(payload, dict) else None
 
     def _extract_recall_bundle(self, *, hint: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not self._recall_enabled:
+            return None
         if isinstance(hint, dict):
             raw = hint.get("memory_recall")
             if isinstance(raw, dict):
                 return raw
         if isinstance(self._last_bundle, dict):
             return self._last_bundle
+        return None
+
+    def _extract_recall_control(self, *, hint: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if isinstance(hint, dict):
+            raw = hint.get("_memory_recall_control")
+            if isinstance(raw, dict):
+                return dict(raw)
+        return {}
+
+    def _top_recall_match(self, recall: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not isinstance(recall, dict):
+            return {}
+        matches = recall.get("matches")
+        if not isinstance(matches, list):
+            return {}
+        for row in matches:
+            if isinstance(row, dict):
+                return row
+        return {}
+
+    def _normalize_trajectory(self, raw_trajectory: Any) -> List[Dict[str, Any]]:
+        if not isinstance(raw_trajectory, list):
+            return []
+        ordered: List[tuple[int, int, Dict[str, Any]]] = []
+        for idx, step in enumerate(raw_trajectory):
+            if not isinstance(step, dict):
+                continue
+            ordered.append((_safe_int(step.get("step_idx"), idx), idx, dict(step)))
+        ordered.sort(key=lambda item: (item[0], item[1]))
+        return [step for _, _, step in ordered]
+
+    def _resolve_ghost_action(
+        self,
+        *,
+        top_match: Dict[str, Any],
+        trajectory: List[Dict[str, Any]],
+    ) -> Optional[int]:
+        action = -1
+        if bool(self._recall_use_source_greedy_action):
+            action = _safe_int(top_match.get("source_greedy_action"), -1)
+        if action < 0:
+            action = _safe_int(top_match.get("action"), -1)
+        if action < 0 and trajectory:
+            action = _safe_int(trajectory[-1].get("action"), -1)
+        if 0 <= action < int(self._n_actions):
+            return int(action)
         return None
 
     def _memory_action_prior(self, recall: Optional[Dict[str, Any]]) -> Optional[List[float]]:
@@ -538,56 +592,93 @@ class TransformerAgent:
     def act_with_hint(self, obs: JSONValue, hint: Optional[Dict[str, Any]]) -> ActionResult:
         self._maybe_reset_on_obs(obs)
         state_vec = obs_to_universal_vector(obs, dim=self._state_dim)
-        
-        import numpy as np
-        recall = self._extract_recall_bundle(hint=hint)
-        trajectory = None
-        if isinstance(recall, dict):
-            matches = recall.get("matches")
-            if isinstance(matches, list) and len(matches) > 0:
-                top_match = matches[0]
-                if isinstance(top_match, dict) and top_match.get("trajectory"):
-                    trajectory = top_match.get("trajectory")
 
-        model_in = self._build_inputs(state_vec, trajectory=trajectory)
+        recall = self._extract_recall_bundle(hint=hint)
+        control = self._extract_recall_control(hint=hint)
+        recall_disable_apply = bool(control.get("disable_apply", False))
+        recall_prior = self._memory_action_prior(recall)
+        recall_eligible = bool(recall_prior is not None and max(recall_prior) > 0.0)
+
+        matches = recall.get("matches") if isinstance(recall, dict) else None
+        match_count = 0
+        if isinstance(matches, list):
+            match_count = sum(1 for row in matches if isinstance(row, dict))
+
+        top_match = self._top_recall_match(recall)
+        trajectory: List[Dict[str, Any]] = []
+        if not recall_disable_apply and bool(top_match):
+            trajectory = self._normalize_trajectory(top_match.get("trajectory"))
+        ghost_action = self._resolve_ghost_action(top_match=top_match, trajectory=trajectory)
+
+        base_in = self._build_inputs(state_vec, trajectory=None)
+        recall_in = self._build_inputs(state_vec, trajectory=trajectory) if trajectory else base_in
         with torch.no_grad():
-            action_t, conf_t, probs_t = self.model.predict_next_action(
-                states=model_in["states"],
-                returns_to_go=model_in["returns_to_go"],
-                prev_actions=model_in["prev_actions"],
-                timesteps=model_in["timesteps"],
-                attention_mask=model_in["attention_mask"],
+            base_action_t, base_conf_t, base_probs_t = self.model.predict_next_action(
+                states=base_in["states"],
+                returns_to_go=base_in["returns_to_go"],
+                prev_actions=base_in["prev_actions"],
+                timesteps=base_in["timesteps"],
+                attention_mask=base_in["attention_mask"],
                 temperature=float(self._temperature),
                 top_k=int(self._top_k),
                 sample=bool(self._sample),
-                verse_ids=model_in.get("verse_ids"),
+                verse_ids=base_in.get("verse_ids"),
                 valid_action_n=self._valid_action_n,
             )
-        
+
+            if recall_in is base_in:
+                action_t, conf_t, probs_t = base_action_t, base_conf_t, base_probs_t
+            else:
+                action_t, conf_t, probs_t = self.model.predict_next_action(
+                    states=recall_in["states"],
+                    returns_to_go=recall_in["returns_to_go"],
+                    prev_actions=recall_in["prev_actions"],
+                    timesteps=recall_in["timesteps"],
+                    attention_mask=recall_in["attention_mask"],
+                    temperature=float(self._temperature),
+                    top_k=int(self._top_k),
+                    sample=bool(self._sample),
+                    verse_ids=recall_in.get("verse_ids"),
+                    valid_action_n=self._valid_action_n,
+                )
+
         import numpy as np
-        recall = self._extract_recall_bundle(hint=hint)
-        recall_prior = self._memory_action_prior(recall)
-        recall_eligible = bool(recall_prior is not None and max(recall_prior) > 0.0)
+        ghost_steps_requested = int(recall_in.get("trajectory_steps_requested", 0)) if recall_in is not base_in else 0
+        ghost_steps_injected = int(recall_in.get("trajectory_steps_used", 0)) if recall_in is not base_in else 0
+        ghost_injected = bool(ghost_steps_injected > 0)
+        recall_gate_passed = bool((ghost_injected or recall_eligible) and (not recall_disable_apply))
+        recall_used = bool(recall_gate_passed)
+        if self._action_space_type == "continuous" and not ghost_injected:
+            recall_gate_passed = False
+            recall_used = False
         
         if self._action_space_type == "continuous":
             action_out = action_t.squeeze(0).cpu().numpy().astype(float).tolist()
-            # For continuous, we skip simple memory prior addition for now or blend later.
             action_ret = action_out
             self._action_history.append(list(action_ret))
+            base_greedy_action = None
+            recall_greedy_action = None
+            recall_greedy_changed = False
         else:
-            probs_base = probs_t.squeeze(0).cpu().numpy().astype(float)
-            probs_recall = probs_base.copy()
-            if recall_eligible and recall_prior is not None:
+            probs_base = base_probs_t.squeeze(0).cpu().numpy().astype(float)
+            probs_model = probs_t.squeeze(0).cpu().numpy().astype(float)
+            probs_recall = probs_model.copy()
+            if recall_gate_passed and recall_prior is not None:
                 for i in range(self._n_actions):
                     probs_recall[i] += float(self._recall_vote_weight) * float(recall_prior[i])
-                    
+
+            base_greedy_action = int(np.argmax(probs_base))
+            recall_greedy_action = int(np.argmax(probs_recall))
+            recall_greedy_changed = bool(base_greedy_action != recall_greedy_action)
+
             if self._sample:
-                p_sum = float(np.sum(probs_recall))
+                final_probs = probs_recall.copy()
+                p_sum = float(np.sum(final_probs))
                 if p_sum > 0:
-                    probs_recall = probs_recall / p_sum
+                    final_probs = final_probs / p_sum
                 else:
-                    probs_recall = probs_base
-                action_int = int(np.random.choice(self._n_actions, p=probs_recall))
+                    final_probs = probs_base
+                action_int = int(np.random.choice(self._n_actions, p=final_probs))
             else:
                 action_int = int(np.argmax(probs_recall))
 
@@ -604,9 +695,23 @@ class TransformerAgent:
             "target_return": float(self._target_return),
             "context_len": int(self._context_len),
             "memory_recall_eligible": bool(recall_eligible),
-            "memory_recall_used": bool(recall_eligible),  # Simplification
+            "memory_recall_used": bool(recall_used),
+            "memory_recall_disabled_for_ablation": bool(recall_disable_apply and (recall_eligible or ghost_steps_requested > 0)),
+            "memory_recall_gate_passed": bool(recall_gate_passed),
+            "memory_recall_match_count": int(match_count),
+            "memory_recall_base_greedy_action": base_greedy_action,
+            "memory_recall_recall_greedy_action": recall_greedy_action,
+            "memory_recall_greedy_changed": bool(recall_greedy_changed),
+            "ghost_injected": bool(ghost_injected),
+            "ghost_steps_requested": int(ghost_steps_requested),
+            "ghost_steps_injected": int(ghost_steps_injected),
         }
-        if recall_eligible:
+
+        if ghost_injected and ghost_action is not None:
+            if self._action_space_type == "discrete":
+                info["ghost_action_match"] = bool(int(action_ret) == int(ghost_action))
+
+        if recall_used:
             self._recall_uses += 1
             info["memory_recall_uses"] = int(self._recall_uses)
 

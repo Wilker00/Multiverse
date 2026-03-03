@@ -227,7 +227,7 @@ python tools/run_paper_readiness_pack.py
 
 ## Understanding Environments ("Verses")
 
-Multiverse includes 24+ built-in environments. Here are the main categories:
+Multiverse includes 24 built-in environments. Here are the main categories:
 
 ### **Navigation (Start here!)**
 - `line_world` - 1D movement (simplest)

@@ -12,7 +12,6 @@ This module supports:
 
 from __future__ import annotations
 
-import heapq
 import json
 import os
 import sqlite3
@@ -32,7 +31,6 @@ from memory.central_repository_cache_support import (
     _build_similarity_cache_for_path,
     _extract_or_build_universal_vector,
     _file_signature,
-    _get_ann_index,
     _index_rows_by_verse,
     _legacy_simcache_path,
     _prepared_row_from_any,
@@ -41,6 +39,12 @@ from memory.central_repository_cache_support import (
     _universal_obs_dim,
     _vectorize_rows_by_dim,
     _vectorize_universal_rows,
+)
+from memory.central_repository_cache_runtime_support import (
+    append_cache_delta_support,
+    get_similarity_cache_for_path_support,
+    invalidate_similarity_cache_support,
+    merge_cache_deltas_support,
 )
 from memory.central_repository_support import (
     BackfillStats,
@@ -77,15 +81,22 @@ from memory.central_repository_query_support import (
     run_similarity_canaries_support,
     save_similarity_canary_support,
 )
-from memory.decay_manager import apply_temporal_decay
-from memory.embeddings import cosine_similarity, obs_to_universal_vector, obs_to_vector, project_vector
+from memory.central_repository_similarity_support import (
+    _ann_candidate_count_support,
+    _ann_drift_check_every_support,
+    _ann_enabled_support,
+    _ann_max_allowed_drift_support,
+    _ann_record_drift_support,
+    _ann_should_check_drift_support,
+    _sim_cache_limit_support,
+    find_similar_support,
+    get_similarity_runtime_metrics_support,
+    reset_similarity_runtime_metrics_support,
+)
+from memory.embeddings import obs_to_vector, project_vector
 from memory.selection import SelectionConfig, select_events
 from memory.task_taxonomy import memory_family_for_verse, memory_type_for_verse, tags_for_verse
 
-try:
-    import numpy as np  # type: ignore
-except Exception:  # pragma: no cover
-    np = None
 try:
     from sklearn.neighbors import NearestNeighbors  # type: ignore
 except Exception:  # pragma: no cover
@@ -132,12 +143,14 @@ _DELTA_MERGE_THRESHOLD = int(os.environ.get("MULTIVERSE_MEMORY_DELTA_MERGE_THRES
 # Note: Keep _DEDUPE_READY as Set (process-local) for standard set operations
 # The shared lock coordinates access across processes
 _DEDUPE_READY: Set[str] = set()
-# Note: These counters remain module-level (per-process) as they're for metrics only
-_ANN_DYNAMIC_FACTOR: Optional[int] = None
-_ANN_QUERY_COUNT = 0
-_ANN_DRIFT_CHECKS = 0
-_ANN_LAST_DRIFT = 0.0
-_ANN_MAX_DRIFT = 0.0
+# Note: These counters remain process-local and are exposed through wrapper helpers.
+_ANN_RUNTIME_STATE: Dict[str, Any] = {
+    "dynamic_factor": None,
+    "query_count": 0,
+    "drift_checks": 0,
+    "last_drift": 0.0,
+    "max_drift": 0.0,
+}
 # Lock timeout in seconds (configurable via environment variable)
 _LOCK_TIMEOUT = int(os.environ.get("MULTIVERSE_MEMORY_LOCK_TIMEOUT", "30"))
 
@@ -342,167 +355,92 @@ def _dedupe_try_reserve(conn: sqlite3.Connection, key: str) -> bool:
 
 
 def _sim_cache_limit() -> int:
-    raw = os.environ.get("MULTIVERSE_SIM_CACHE_MAX_FILES", "2")
-    try:
-        return max(1, int(raw))
-    except Exception:
-        return 2
+    return _sim_cache_limit_support()
 
 
 def _ann_enabled() -> bool:
-    raw = str(os.environ.get("MULTIVERSE_SIM_USE_ANN", "1")).strip().lower()
-    return raw in ("1", "true", "yes", "on")
+    return _ann_enabled_support()
 
 
 def _ann_candidate_count(top_n: int, n_rows: int) -> int:
-    # Initialize locks if needed (lazy, Windows-safe)
-    _, _, ann_tune_lock, _ = _get_mp_locks()
-
-    factor_raw = os.environ.get("MULTIVERSE_SIM_ANN_FACTOR", "64")
-    try:
-        factor = max(1, int(factor_raw))
-    except Exception:
-        factor = 64
-    with ann_tune_lock:
-        dyn = _ANN_DYNAMIC_FACTOR
-    if dyn is not None:
-        factor = max(factor, int(dyn))
-    return min(max(256, int(top_n) * factor), int(n_rows))
+    return _ann_candidate_count_support(
+        top_n=top_n,
+        n_rows=n_rows,
+        ann_dynamic_factor=_ANN_RUNTIME_STATE.get("dynamic_factor"),
+        get_mp_locks_fn=_get_mp_locks,
+    )
 
 
 def _ann_drift_check_every() -> int:
-    raw = os.environ.get("MULTIVERSE_SIM_ANN_DRIFT_CHECK_EVERY", "250")
-    try:
-        return max(1, int(raw))
-    except Exception:
-        return 250
+    return _ann_drift_check_every_support()
 
 
 def _ann_max_allowed_drift() -> float:
-    raw = os.environ.get("MULTIVERSE_SIM_ANN_MAX_DRIFT", "0.03")
-    try:
-        return max(0.0, float(raw))
-    except Exception:
-        return 0.03
+    return _ann_max_allowed_drift_support()
 
 
 def _ann_should_check_drift() -> bool:
-    global _ANN_QUERY_COUNT
-    # Initialize locks if needed (lazy, Windows-safe)
-    _, _, ann_tune_lock, _ = _get_mp_locks()
-
-    every = _ann_drift_check_every()
-    with ann_tune_lock:
-        _ANN_QUERY_COUNT += 1
-        return bool((_ANN_QUERY_COUNT % every) == 0)
+    return _ann_should_check_drift_support(
+        runtime_state=_ANN_RUNTIME_STATE,
+        get_mp_locks_fn=_get_mp_locks,
+        ann_drift_check_every_fn=_ann_drift_check_every,
+    )
 
 
 def _ann_record_drift(*, drift: float, n_rows: int, top_n: int) -> None:
-    global _ANN_DRIFT_CHECKS, _ANN_LAST_DRIFT, _ANN_MAX_DRIFT, _ANN_DYNAMIC_FACTOR
-    # Initialize locks if needed (lazy, Windows-safe)
-    _, _, ann_tune_lock, _ = _get_mp_locks()
-
-    d = max(0.0, float(drift))
-    max_allowed = _ann_max_allowed_drift()
-    with ann_tune_lock:
-        _ANN_DRIFT_CHECKS += 1
-        _ANN_LAST_DRIFT = float(d)
-        _ANN_MAX_DRIFT = max(float(_ANN_MAX_DRIFT), float(d))
-        if d <= max_allowed:
-            return
-        current = int(_ANN_DYNAMIC_FACTOR or 0)
-        if current <= 0:
-            current = 64
-        max_factor = max(64, int(max(1, n_rows) / max(1, top_n)))
-        _ANN_DYNAMIC_FACTOR = min(max_factor, max(current + 8, int(current * 1.5)))
+    _ann_record_drift_support(
+        runtime_state=_ANN_RUNTIME_STATE,
+        get_mp_locks_fn=_get_mp_locks,
+        ann_max_allowed_drift_fn=_ann_max_allowed_drift,
+        drift=drift,
+        n_rows=n_rows,
+        top_n=top_n,
+    )
 
 
 def get_similarity_runtime_metrics() -> Dict[str, Any]:
-    # Initialize locks if needed (lazy, Windows-safe)
-    _, _, ann_tune_lock, _ = _get_mp_locks()
-
-    with ann_tune_lock:
-        return {
-            "ann_dynamic_factor": (None if _ANN_DYNAMIC_FACTOR is None else int(_ANN_DYNAMIC_FACTOR)),
-            "ann_query_count": int(_ANN_QUERY_COUNT),
-            "ann_drift_checks": int(_ANN_DRIFT_CHECKS),
-            "ann_last_drift": float(_ANN_LAST_DRIFT),
-            "ann_max_drift": float(_ANN_MAX_DRIFT),
-            "ann_drift_check_every": int(_ann_drift_check_every()),
-            "ann_max_allowed_drift": float(_ann_max_allowed_drift()),
-        }
+    return get_similarity_runtime_metrics_support(
+        runtime_state=_ANN_RUNTIME_STATE,
+        get_mp_locks_fn=_get_mp_locks,
+        ann_drift_check_every_fn=_ann_drift_check_every,
+        ann_max_allowed_drift_fn=_ann_max_allowed_drift,
+    )
 
 
 def reset_similarity_runtime_metrics() -> None:
-    global _ANN_DYNAMIC_FACTOR, _ANN_QUERY_COUNT, _ANN_DRIFT_CHECKS, _ANN_LAST_DRIFT, _ANN_MAX_DRIFT
-    # Initialize locks if needed (lazy, Windows-safe)
-    _, _, ann_tune_lock, _ = _get_mp_locks()
-
-    with ann_tune_lock:
-        _ANN_DYNAMIC_FACTOR = None
-        _ANN_QUERY_COUNT = 0
-        _ANN_DRIFT_CHECKS = 0
-        _ANN_LAST_DRIFT = 0.0
-        _ANN_MAX_DRIFT = 0.0
+    reset_similarity_runtime_metrics_support(
+        runtime_state=_ANN_RUNTIME_STATE,
+        get_mp_locks_fn=_get_mp_locks,
+    )
 
 
 def _invalidate_similarity_cache(paths: Iterable[str]) -> None:
-    # Initialize locks if needed (lazy, Windows-safe)
-    sim_cache_lock, _, _, _ = _get_mp_locks()
-
-    keys = set(os.path.abspath(str(p)) for p in paths if str(p))
-    if not keys:
-        return
-    with sim_cache_lock:
-        for k in list(_SIM_CACHE.keys()):
-            if k in keys:
-                _SIM_CACHE.pop(k, None)
-    for k in keys:
-        for p in (_simcache_path(k), _legacy_simcache_path(k)):
-            try:
-                if os.path.isfile(p):
-                    os.remove(p)
-            except Exception:
-                pass
+    invalidate_similarity_cache_support(
+        paths=paths,
+        get_mp_locks_fn=_get_mp_locks,
+        sim_cache=_SIM_CACHE,
+        simcache_path_fn=_simcache_path,
+        legacy_simcache_path_fn=_legacy_simcache_path,
+    )
 
 
 def _append_cache_delta(apath: str, new_rows: List[_PreparedMemoryRow]) -> None:
     """
     Append new rows to delta list instead of full cache rebuild.
 
-    This reduces cache rebuild overhead from O(n) to O(Δ) where Δ << n.
+    This reduces cache rebuild overhead from O(n) to O(delta) where delta << n.
     Deltas are automatically merged when threshold is reached.
     """
-    sim_cache_lock, _, _, _ = _get_mp_locks()
-
-    if not new_rows:
-        return
-
-    # Create delta entry
-    base_sig = (0, 0)
-    with sim_cache_lock:
-        if apath in _SIM_CACHE:
-            base_sig = _SIM_CACHE[apath].signature
-
-    delta = _SimilarityCacheDelta(
-        base_signature=base_sig,
-        delta_rows=new_rows,
-        added_at_ms=int(time.time() * 1000),
+    append_cache_delta_support(
+        apath=apath,
+        new_rows=new_rows,
+        get_mp_locks_fn=_get_mp_locks,
+        sim_cache=_SIM_CACHE,
+        cache_deltas=_CACHE_DELTAS,
+        delta_merge_threshold=_DELTA_MERGE_THRESHOLD,
+        merge_cache_deltas_fn=_merge_cache_deltas,
+        similarity_cache_delta_cls=_SimilarityCacheDelta,
     )
-
-    # Append to delta list
-    with sim_cache_lock:
-        if apath not in _CACHE_DELTAS:
-            _CACHE_DELTAS[apath] = []
-        _CACHE_DELTAS[apath].append(delta)
-
-        # Check if we should merge
-        total_delta_rows = sum(len(d.delta_rows) for d in _CACHE_DELTAS[apath])
-        should_merge = total_delta_rows >= _DELTA_MERGE_THRESHOLD
-
-    # Merge if threshold reached (outside lock to avoid blocking)
-    if should_merge:
-        _merge_cache_deltas(apath)
 
 
 def _merge_cache_deltas(apath: str) -> None:
@@ -512,61 +450,28 @@ def _merge_cache_deltas(apath: str) -> None:
     This is called automatically when delta threshold is reached,
     or can be called manually to force a merge.
     """
-    sim_cache_lock, _, _, _ = _get_mp_locks()
-
-    with sim_cache_lock:
-        if apath not in _CACHE_DELTAS or not _CACHE_DELTAS[apath]:
-            return
-
-        # Get base cache (if exists)
-        base_cache = _SIM_CACHE.get(apath)
-        if base_cache is None:
-            # No base cache - trigger full rebuild
-            _CACHE_DELTAS[apath] = []
-            return
-
-        # Collect all delta rows
-        all_delta_rows = []
-        for delta in _CACHE_DELTAS[apath]:
-            all_delta_rows.extend(delta.delta_rows)
-
-        if not all_delta_rows:
-            _CACHE_DELTAS[apath] = []
-            return
-
-        # Merge: base rows + delta rows
-        merged_rows = base_cache.rows + all_delta_rows
-
-    merged_cache = _build_cache_from_rows(merged_rows, base_cache.signature)
-
-    # Atomic update
-    with sim_cache_lock:
-        _SIM_CACHE[apath] = merged_cache
-        _CACHE_DELTAS[apath] = []
+    merge_cache_deltas_support(
+        apath=apath,
+        get_mp_locks_fn=_get_mp_locks,
+        sim_cache=_SIM_CACHE,
+        cache_deltas=_CACHE_DELTAS,
+        build_cache_from_rows_fn=_build_cache_from_rows,
+    )
 
 def _get_similarity_cache_for_path(
     *,
     mem_path: str,
     tier_policy: Optional[Dict[str, Any]],
 ) -> _SimilarityCacheEntry:
-    # Initialize locks if needed (lazy, Windows-safe)
-    sim_cache_lock, _, _, _ = _get_mp_locks()
-
-    apath = os.path.abspath(mem_path)
-    sig = _file_signature(apath)
-    with sim_cache_lock:
-        hit = _SIM_CACHE.get(apath)
-        if hit is not None and hit.signature == sig:
-            _SIM_CACHE.move_to_end(apath)
-            return hit
-
-    fresh = _build_similarity_cache_for_path(mem_path=apath, tier_policy=tier_policy)
-    with sim_cache_lock:
-        _SIM_CACHE[apath] = fresh
-        _SIM_CACHE.move_to_end(apath)
-        while len(_SIM_CACHE) > _sim_cache_limit():
-            _SIM_CACHE.popitem(last=False)
-    return fresh
+    return get_similarity_cache_for_path_support(
+        mem_path=mem_path,
+        tier_policy=tier_policy,
+        get_mp_locks_fn=_get_mp_locks,
+        sim_cache=_SIM_CACHE,
+        file_signature_fn=_file_signature,
+        build_similarity_cache_for_path_fn=_build_similarity_cache_for_path,
+        sim_cache_limit_fn=_sim_cache_limit,
+    )
 
 
 def _load_dedupe_index(cfg: CentralMemoryConfig) -> Set[str]:
@@ -981,347 +886,33 @@ def find_similar(
     """
     Query central memory for similar observations.
     """
-    _ensure_repo(cfg)
-    query_vec = obs_to_vector(obs)
-    query_vec_u = obs_to_universal_vector(obs, dim=_universal_obs_dim())
-    q_u_dim = len(query_vec_u)
-    q_u_norm: Optional[Any] = None
-    if np is not None and q_u_dim > 0:
-        try:
-            q_arr_u = np.asarray(query_vec_u, dtype=np.float32)
-            qn_u = float(np.linalg.norm(q_arr_u))
-            if qn_u > 1e-12:
-                q_u_norm = (q_arr_u / qn_u).astype(np.float32)
-        except Exception:
-            q_u_norm = None
-    top_n = max(1, int(top_k))
-    tier_filter = _as_set(memory_tiers)
-    family_filter = _as_set(memory_families)
-    type_filter = _as_set(memory_types)
-
-    mem_paths: List[str]
-    if tier_filter == {"ltm"}:
-        mem_paths = [_ltm_memories_path(cfg)]
-    elif tier_filter == {"stm"}:
-        mem_paths = [_stm_memories_path(cfg)]
-    else:
-        mem_paths = [_memories_path(cfg)]
-    tier_policy = _load_tier_policy(cfg)
-    target_verse = str(verse_name).strip().lower() if verse_name else ""
-
-    heap: List[tuple[float, int, ScenarioMatch]] = []
-    ordinal = 0
-    for mem_path in mem_paths:
-        if not os.path.isfile(mem_path):
-            continue
-        cache = _get_similarity_cache_for_path(mem_path=mem_path, tier_policy=tier_policy)
-        
-        def _extract_trajectory(row_input: Any) -> Optional[List[Dict[str, Any]]]:
-            if int(trajectory_window) <= 0:
-                return None
-            ep_id = str(row_input.episode_id)
-            root_step = int(row_input.step_idx)
-            # Find the row in cache.rows if we just have the row reference.
-            # O(N) scan but only on matched rows. Usually matches are small top_n.
-            idx = -1
-            for i, r in enumerate(cache.rows):
-                if r is row_input:
-                    idx = i
-                    break
-            if idx < 0:
-                return []
-            traj = []
-            curr = idx
-            while curr >= 0 and len(traj) < int(trajectory_window):
-                r = cache.rows[curr]
-                if str(r.episode_id) != ep_id or int(r.step_idx) > root_step:
-                    if str(r.episode_id) != ep_id:
-                        break
-                    curr -= 1
-                    continue
-                traj.append({
-                    "step_idx": int(r.step_idx),
-                    "obs": r.obs,
-                    "action": r.action,
-                    "reward": float(r.reward)
-                })
-                curr -= 1
-            traj.reverse()
-            return traj
-
-        q_dim = len(query_vec)
-        q_norm: Optional[Any] = None
-        sims: Optional[Any] = None
-        dim_row_idxs = list(cache.row_indices_by_dim.get(q_dim, []))
-        raw_dim_available = bool(q_dim > 0 and dim_row_idxs)
-        use_vec = bool(np is not None and raw_dim_available and q_dim in cache.vectors_by_dim)
-        if use_vec:
-            try:
-                q_arr = np.asarray(query_vec, dtype=np.float32)
-                qn = float(np.linalg.norm(q_arr))
-                if qn > 1e-12:
-                    q_norm = (q_arr / qn).astype(np.float32)
-                    sims = cache.vectors_by_dim[q_dim] @ q_norm
-            except Exception:
-                use_vec = False
-                sims = None
-
-        if raw_dim_available and use_vec and sims is not None:
-            local_best_score = float("-inf")
-
-            def _score_position(pos: int) -> Optional[tuple[float, _PreparedMemoryRow, float]]:
-                row_idx = dim_row_idxs[int(pos)]
-                row = cache.rows[int(row_idx)]
-                if target_verse and row.verse_name != target_verse:
-                    return None
-                if exclude_run_ids and str(row.run_id) in exclude_run_ids:
-                    return None
-                if tier_filter is not None and row.row_tier not in tier_filter:
-                    return None
-                if family_filter is not None and row.row_family not in family_filter:
-                    return None
-                if type_filter is not None and row.row_type not in type_filter:
-                    return None
-
-                raw_score = float(sims[pos])
-                t_ms = int(row.t_ms)
-                if row.row_tier == "ltm":
-                    row_decay_lambda = 0.0
-                elif stm_decay_lambda is None:
-                    row_decay_lambda = max(float(decay_lambda), float(cfg.stm_decay_lambda))
-                else:
-                    row_decay_lambda = max(0.0, float(stm_decay_lambda))
-
-                score, recency_weight = apply_temporal_decay(
-                    score=float(raw_score),
-                    t_ms=t_ms,
-                    decay_lambda=float(row_decay_lambda),
-                    current_time_ms=current_time_ms,
-                )
-                if score < float(min_score):
-                    return None
-                return float(score), row, float(recency_weight)
-
-            def _scan_position(pos: int) -> None:
-                nonlocal ordinal
-                nonlocal local_best_score
-                scored = _score_position(pos)
-                if scored is None:
-                    return
-                score, row, recency_weight = scored
-                local_best_score = max(float(local_best_score), float(score))
-                t_ms = int(row.t_ms)
-
-                match = ScenarioMatch(
-                    score=float(score),
-                    run_id=str(row.run_id),
-                    episode_id=str(row.episode_id),
-                    step_idx=int(row.step_idx),
-                    t_ms=t_ms,
-                    verse_name=str(row.verse_name),
-                    action=row.action,
-                    reward=float(row.reward),
-                    obs=row.obs,
-                    source_greedy_action=row.source_greedy_action,
-                    source_action_matches_greedy=row.source_action_matches_greedy,
-                    recency_weight=float(recency_weight),
-                    trajectory=_extract_trajectory(row),
-                )
-                if len(heap) < top_n:
-                    heapq.heappush(heap, (float(score), ordinal, match))
-                elif float(score) > heap[0][0]:
-                    heapq.heapreplace(heap, (float(score), ordinal, match))
-                ordinal += 1
-
-            candidate_positions: Optional[List[int]] = None
-            if _ann_enabled() and q_norm is not None and len(dim_row_idxs) > top_n:
-                ann_index = _get_ann_index(cache, q_dim)
-                if ann_index is not None:
-                    try:
-                        n_candidates = _ann_candidate_count(top_n, len(dim_row_idxs))
-                        if 0 < n_candidates < len(dim_row_idxs):
-                            idxs = ann_index.kneighbors(
-                                np.asarray([q_norm], dtype=np.float32),
-                                n_neighbors=int(n_candidates),
-                                return_distance=False,
-                            )
-                            if idxs is not None and len(idxs):
-                                candidate_positions = []
-                                seen: Set[int] = set()
-                                for raw_pos in list(idxs[0]):
-                                    pos = int(raw_pos)
-                                    if pos < 0 or pos >= len(dim_row_idxs):
-                                        continue
-                                    if pos in seen:
-                                        continue
-                                    seen.add(pos)
-                                    candidate_positions.append(pos)
-                    except Exception:
-                        candidate_positions = None
-
-            if candidate_positions is None:
-                for pos in range(len(dim_row_idxs)):
-                    _scan_position(pos)
-            else:
-                visited = set(candidate_positions)
-                did_full_scan = False
-                for pos in candidate_positions:
-                    _scan_position(pos)
-                if len(heap) < top_n:
-                    did_full_scan = True
-                    for pos in range(len(dim_row_idxs)):
-                        if pos in visited:
-                            continue
-                        _scan_position(pos)
-                if not did_full_scan and _ann_should_check_drift():
-                    exact_best = float("-inf")
-                    for pos in range(len(dim_row_idxs)):
-                        scored = _score_position(pos)
-                        if scored is None:
-                            continue
-                        exact_best = max(float(exact_best), float(scored[0]))
-                    if exact_best > float("-inf"):
-                        if local_best_score > float("-inf"):
-                            drift = max(0.0, float(exact_best - local_best_score))
-                        else:
-                            drift = max(0.0, float(exact_best - float(min_score)))
-                        _ann_record_drift(drift=drift, n_rows=len(dim_row_idxs), top_n=top_n)
-        elif raw_dim_available:
-            if target_verse:
-                row_iter: Iterable[_PreparedMemoryRow] = (
-                    cache.rows[i] for i in cache.by_verse.get(target_verse, [])
-                )
-            else:
-                row_iter = cache.rows
-
-            for row in row_iter:
-                if exclude_run_ids and str(row.run_id) in exclude_run_ids:
-                    continue
-                if tier_filter is not None and row.row_tier not in tier_filter:
-                    continue
-                if family_filter is not None and row.row_family not in family_filter:
-                    continue
-                if type_filter is not None and row.row_type not in type_filter:
-                    continue
-                if len(row.obs_vector) != q_dim:
-                    continue
-
-                raw_score = cosine_similarity(query_vec, row.obs_vector)
-                t_ms = int(row.t_ms)
-
-                if row.row_tier == "ltm":
-                    row_decay_lambda = 0.0
-                elif stm_decay_lambda is None:
-                    row_decay_lambda = max(float(decay_lambda), float(cfg.stm_decay_lambda))
-                else:
-                    row_decay_lambda = max(0.0, float(stm_decay_lambda))
-
-                score, recency_weight = apply_temporal_decay(
-                    score=float(raw_score),
-                    t_ms=t_ms,
-                    decay_lambda=float(row_decay_lambda),
-                    current_time_ms=current_time_ms,
-                )
-                if score < float(min_score):
-                    continue
-
-                match = ScenarioMatch(
-                    score=float(score),
-                    run_id=str(row.run_id),
-                    episode_id=str(row.episode_id),
-                    step_idx=int(row.step_idx),
-                    t_ms=t_ms,
-                    verse_name=str(row.verse_name),
-                    action=row.action,
-                    reward=float(row.reward),
-                    obs=row.obs,
-                    source_greedy_action=row.source_greedy_action,
-                    source_action_matches_greedy=row.source_action_matches_greedy,
-                    recency_weight=float(recency_weight),
-                    trajectory=_extract_trajectory(row),
-                )
-                if len(heap) < top_n:
-                    heapq.heappush(heap, (float(score), ordinal, match))
-                elif float(score) > heap[0][0]:
-                    heapq.heapreplace(heap, (float(score), ordinal, match))
-                ordinal += 1
-
-        # Universal encoder fallback for cross-verse / cross-schema retrieval.
-        # Only used when we still need candidates, or when raw-dimension match is unavailable.
-        need_universal = bool((len(heap) < top_n) or (not raw_dim_available))
-        if not need_universal:
-            continue
-        if q_u_dim <= 0:
-            continue
-        row_indices = list(cache.universal_row_indices or [])
-        if not row_indices:
-            continue
-        u_mat = cache.universal_vectors
-        for pos, row_idx in enumerate(row_indices):
-            row = cache.rows[int(row_idx)]
-            if raw_dim_available and len(row.obs_vector) == q_dim:
-                # Skip raw-compatible rows; those already participated in native matching.
-                continue
-            if target_verse and row.verse_name != target_verse:
-                continue
-            if exclude_run_ids and str(row.run_id) in exclude_run_ids:
-                continue
-            if tier_filter is not None and row.row_tier not in tier_filter:
-                continue
-            if family_filter is not None and row.row_family not in family_filter:
-                continue
-            if type_filter is not None and row.row_type not in type_filter:
-                continue
-            if len(row.obs_vector_u) != q_u_dim:
-                continue
-            if np is not None and u_mat is not None:
-                try:
-                    if q_u_norm is not None:
-                        raw_score = float(u_mat[pos] @ q_u_norm)
-                    else:
-                        raw_score = 0.0
-                except Exception:
-                    raw_score = cosine_similarity(query_vec_u, row.obs_vector_u)
-            else:
-                raw_score = cosine_similarity(query_vec_u, row.obs_vector_u)
-
-            t_ms = int(row.t_ms)
-            if row.row_tier == "ltm":
-                row_decay_lambda = 0.0
-            elif stm_decay_lambda is None:
-                row_decay_lambda = max(float(decay_lambda), float(cfg.stm_decay_lambda))
-            else:
-                row_decay_lambda = max(0.0, float(stm_decay_lambda))
-            score, recency_weight = apply_temporal_decay(
-                score=float(raw_score),
-                t_ms=t_ms,
-                decay_lambda=float(row_decay_lambda),
-                current_time_ms=current_time_ms,
-            )
-            if score < float(min_score):
-                continue
-            match = ScenarioMatch(
-                score=float(score),
-                run_id=str(row.run_id),
-                episode_id=str(row.episode_id),
-                step_idx=int(row.step_idx),
-                t_ms=t_ms,
-                verse_name=str(row.verse_name),
-                action=row.action,
-                reward=float(row.reward),
-                obs=row.obs,
-                source_greedy_action=row.source_greedy_action,
-                source_action_matches_greedy=row.source_action_matches_greedy,
-                recency_weight=float(recency_weight),
-            )
-            if len(heap) < top_n:
-                heapq.heappush(heap, (float(score), ordinal, match))
-            elif float(score) > heap[0][0]:
-                heapq.heapreplace(heap, (float(score), ordinal, match))
-            ordinal += 1
-
-    heap.sort(key=lambda x: x[0], reverse=True)
-    return [m for _, _, m in heap]
+    return find_similar_support(
+        ensure_repo_fn=_ensure_repo,
+        get_similarity_cache_for_path_fn=_get_similarity_cache_for_path,
+        memories_path_fn=_memories_path,
+        ltm_memories_path_fn=_ltm_memories_path,
+        stm_memories_path_fn=_stm_memories_path,
+        load_tier_policy_fn=_load_tier_policy,
+        as_set_fn=_as_set,
+        universal_obs_dim_fn=_universal_obs_dim,
+        ann_enabled_fn=_ann_enabled,
+        ann_candidate_count_fn=_ann_candidate_count,
+        ann_should_check_drift_fn=_ann_should_check_drift,
+        ann_record_drift_fn=_ann_record_drift,
+        obs=obs,
+        cfg=cfg,
+        top_k=top_k,
+        verse_name=verse_name,
+        min_score=min_score,
+        exclude_run_ids=exclude_run_ids,
+        decay_lambda=decay_lambda,
+        current_time_ms=current_time_ms,
+        memory_tiers=memory_tiers,
+        memory_families=memory_families,
+        memory_types=memory_types,
+        stm_decay_lambda=stm_decay_lambda,
+        trajectory_window=trajectory_window,
+    )
 
 
 def find_similar_cached(

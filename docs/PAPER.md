@@ -1,4 +1,4 @@
-﻿# Multiverse: A Production-Grade Framework for Safe Transfer in Memory-Augmented RL
+# Multiverse: A Production-Grade Framework for Safe Transfer in Memory-Augmented RL
 
 **Author:** Kiff Simon  
 **Affiliation:** Independent Researcher  
@@ -7,9 +7,11 @@
 **Date:** February 22, 2026
 
 ## Abstract
-Reinforcement-learning (RL) code often fails in production because research workflows optimize for peak benchmark results rather than operational reliability. Common failure modes include weak evaluation discipline, cherry-picked reporting, runtime safety failures, and a lack of cross-run memory reuse. We introduce **Multiverse**, a production-oriented framework designed to bridge this gap. Multiverse enforces typed runtime contracts, pluggable agents, and runtime safety via **Neural-Guided MCTS**. It features a **Semantic Bridge** for transfer via explicit feature projection plus a learned safety-alignment gate, a **Task Knowledge Graph** for curriculum generation, and persistent memory infrastructure.
+Reinforcement-learning (RL) code often fails in production because research workflows optimize for peak benchmark results rather than operational reliability. Common failure modes include weak evaluation discipline, cherry-picked reporting, runtime safety failures, and a lack of cross-run memory reuse. We introduce **Multiverse**, a production-oriented framework designed to bridge this gap. Multiverse enforces typed runtime contracts, pluggable agents, and runtime safety via **Neural-Guided MCTS**. 
 
-In this work, we present a snapshot of the system (Feb 22, 2026) verified against `232` tests across 11 convergence tests added this cycle. We report mixed but reproducible results: on the complex `cliff_world` task, our memory candidate reduces the absolute mean-return penalty by **8.45x** (`-2030.5` $\to$ `-240.25`), while `line_world` improves (`1.0` vs `0.25` success) and `grid_world` is at parity. Crucially, we isolate **Safety Transfer** from **Task Competence**: our latest Successor Feature (SF) transfer sweep over a full hyperparameter grid confirms that SF transfer reliably provides a safety and optimization jump-start — the best `near_transfer` config improves target evaluation return by **+6.92** and reduces hazards by **+147.71 per 1k steps** versus scratch; under the more complex `default_like` profile (patrol, conveyor, battery), the best config achieves **+13.81 return** and **+129.65 hazard reduction per 1k steps**. Unlike typical positive-only reporting, we document both wins and failures as calibration signals. Furthermore, we demonstrate a **75.20x** speedup in retrieval using ANN over exact methods. The primary contribution of this work is not a single state-of-the-art score, but a reproducible methodology for safer, memory-augmented RL.
+In Phase 5 of the scaling initiative (March 2026), we introduced the **Ghost-Following Architecture**, a 256-dimensional Transformer-based generalist that supports 13 heterogeneous universes (from Chess to physical simulation) simultaneously. By utilizing **Proactive Trajectory Augmentation**—periodically injecting periodic expert "ghosts" from memory into the attention window—we achieved reliable navigation in environments where standard memory-less agents failed. This work demonstrates a reproducible methodology for safer, high-capacity, memory-augmented RL.
+
+In this work, we present a snapshot of the system updated through March 3, 2026. The current repository collects `314` repo-local pytest cases (`python -m pytest tests test_dt_memory.py --collect-only -q`), while the latest archived full-suite paper snapshot remains `232 passed` from the February 22, 2026 run. We report mixed but reproducible results: on the complex `cliff_world` task, our memory candidate reduces the absolute mean-return penalty by **8.45x** (`-2030.5` $\to$ `-240.25`), while `line_world` improves (`1.0` vs `0.25` success) and `grid_world` is at parity. Crucially, we isolate **Safety Transfer** from **Task Competence**: our latest Successor Feature (SF) transfer sweep over a full hyperparameter grid confirms that SF transfer reliably provides a safety and optimization jump-start — the best `near_transfer` config improves target evaluation return by **+6.92** and reduces hazards by **+147.71 per 1k steps** versus scratch; under the more complex `default_like` profile (patrol, conveyor, battery), the best config achieves **+13.81 return** and **+129.65 hazard reduction per 1k steps**. Unlike typical positive-only reporting, we document both wins and failures as calibration signals. Furthermore, we demonstrate a **75.20x** speedup in retrieval using ANN over exact methods. The primary contribution of this work is not a single state-of-the-art score, but a reproducible methodology for safer, memory-augmented RL.
 
 ## 1. Introduction
 ### 1.1 The Production Gap
@@ -33,7 +35,8 @@ This paper contributes:
 3. **Neural-Guided MCTS**: A runtime safety planner integrated into the execution loop for hazard prevention.
 4. **Task Knowledge Graph**: A hierarchical taxonomy for curricular transfer and verse relatedness.
 5. A memory system with ANN-enabled retrieval and cross-run indexing.
-6. A reproducible evaluation stack with artifact-first reporting and promotion gates.
+6. **The Ghost-Following Protocol**: A scaling mechanism enabling 13-verse generalists using proactive trajectory augmentation and periodic roadmap recall.
+7. A reproducible evaluation stack with artifact-first reporting and promotion gates.
 
 ### 1.4 Related Work
 
@@ -101,11 +104,14 @@ The memory plane supports ingestion, indexing, and retrieval across runs through
 2. `memory/retrieval.py`
 3. maintenance and indexing tools in `tools/`
 
-### 4.2 Retrieval Performance
-ANN-vs-exact benchmark artifact (`models/validation/retrieval_ann_benchmark_v1.json`) reports:
-1. `exact_seconds=109.0455`
-2. `ann_seconds=1.4502`
-3. `speedup_exact_over_ann=75.20x`
+### 4.2 Key Quantitative Results
+- Retrieval speedup (ANN vs exact): `75.20x` (`109.0455s` exact vs `1.4502s` ANN).
+  - Artifact: `models/validation/retrieval_ann_benchmark_v1.json`
+- **Generalist Scaling (Phase 5)**: Supported **13 universes** simultaneously via the 256-d Omega backbone.
+  - Successor to `dt_generalist_v2`, resolving neural collisions in multi-task learning.
+- **Ghost-Following Achievement**: Enabled 0-shot navigation in complex verses via periodic roadmap recall (`frequency=5`).
+  - Evolution recorded in `evolutionary_report.md`.
+- Safety certificate (Hoeffding, 95% confidence): `0/200` observed violations, upper bound `0.0960`.
 
 This exceeds a `66x` target under the recorded workload (`50,000` rows, `150` queries).
 
@@ -161,7 +167,7 @@ To bridge the "Production Gap" (Section 1.1), Multiverse includes a suite of mai
 ### 7.1 Test Discipline
 Current suite status:
 1. command: `.venv312\Scripts\python.exe -m pytest -q`
-2. result: `232 passed` (includes 11 new agent convergence tests verifying Q-Learning, PPO, and DQN learning on held-out verses)
+2. result: `314 collected` for the current repo-local test selection (`python -m pytest tests test_dt_memory.py --collect-only -q` on March 3, 2026); latest archived full pass for the February 22, 2026 paper snapshot remains `232 passed`
 
 ### 7.2 Promotion and Canonical Pack
 Paper pack:
@@ -239,7 +245,7 @@ This appendix lists specific claims made in the paper and their corresponding ve
 
 | Claim | Status | Evidence |
 | --- | --- | --- |
-| Framework passes 232 automated tests | Confirmed | `.venv312/Scripts/python.exe -m pytest -q` (11 new convergence tests added Feb 22) |
+| Framework currently collects 314 repo-local pytest cases; latest archived paper snapshot passed 232 tests | Confirmed | `python -m pytest tests test_dt_memory.py --collect-only -q` (March 3, 2026) and `.venv312/Scripts/python.exe -m pytest -q` (February 22, 2026 snapshot) |
 | Safety: 0 observed violations (stable) | Confirmed | Artifact: `teacher_wind_remediation_hard_eval_v6.json` |
 | Safety: 17.5% violation (stochastic) | Confirmed | Artifact: `hard_cliff_multiseed_validation_v1.json` |
 | Memory: ~8.4x improvement (Cliff) | Confirmed | Artifact: `benchmark_gate.json` (Ratio: 8.4516) |

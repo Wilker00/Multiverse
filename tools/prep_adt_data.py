@@ -29,10 +29,11 @@ from memory.embeddings import obs_to_universal_vector
 class _StepRow:
     step_idx: int
     obs: Any
-    action: int
+    action: Any
     reward: float
     done: bool
     success: bool
+    info: Dict[str, Any] = None
 
 
 @dataclass
@@ -203,10 +204,11 @@ def _load_jsonl_into_episodes(
                 _StepRow(
                     step_idx=int(step_idx),
                     obs=obs,
-                    action=int(action),
+                    action=action, # Keep as is (int or list)
                     reward=float(reward),
                     done=bool(done),
                     success=bool(success),
+                    info=row.get("info", {}),
                 )
             )
 
@@ -375,7 +377,10 @@ def prepare_adt_data(
 
     for ep in episode_rows:
         rewards = [float(s.reward) for s in ep.steps]
-        actions = [int(s.action) for s in ep.steps]
+        # action type handling happens inside chunk loop to support mixed
+        # but we assume uniform for a single episode
+        is_cont = isinstance(ep.steps[0].action, (list, tuple)) if ep.steps else False
+        
         step_indices = [int(s.step_idx) for s in ep.steps]
         rtg = _compute_rtg(rewards, gamma=gamma)
         states = [obs_to_universal_vector(s.obs, dim=int(state_dim)) for s in ep.steps]
@@ -386,9 +391,64 @@ def prepare_adt_data(
             if end <= start:
                 continue
 
+            # Find if this chunk has a memory recall ghost
+            demo_states = []
+            demo_actions = []
+            demo_timesteps = []
+            demo_rtg = []
+            
+            # Check most recent steps in chunk for a recall hint
+            trajectory = None
+            for jj in range(end - start):
+                srow = ep.steps[start + jj]
+                if srow.info and srow.info.get("memory_recall"):
+                    recall = srow.info["memory_recall"]
+                    matches = recall.get("matches")
+                    if matches and isinstance(matches, list):
+                        top = matches[0]
+                        if top.get("trajectory"):
+                            trajectory = top["trajectory"]
+                            break
+            
+            if trajectory:
+                for st in trajectory:
+                    try:
+                        vec = obs_to_universal_vector(st.get("obs"), dim=int(state_dim))
+                        demo_states.append(list(vec))
+                    except:
+                        demo_states.append([0.0]*int(state_dim))
+                    
+                    act = st.get("action")
+                    if is_cont:
+                        demo_actions.append(list(act) if isinstance(act, (list, tuple)) else [0.0]*action_dim)
+                    else:
+                        demo_actions.append(int(act) if act is not None else int(bos_token_id))
+                    
+                    demo_timesteps.append(int(st.get("step_idx", 0)))
+                    demo_rtg.append(float(rtg[start])) # rough estimate
+
+            # Combine demo + reality
+            my_states = states[start:end]
+            my_actions = [s.action for s in ep.steps[start:end]]
+            my_rtg = rtg[start:end]
+            my_timesteps = step_indices[start:end]
+
+            full_states = demo_states + my_states
+            full_actions = demo_actions + my_actions
+            full_rtg = demo_rtg + my_rtg
+            full_timesteps = demo_timesteps + my_timesteps
+            
+            # Truncate to context len K
+            if len(full_states) > K:
+                full_states = full_states[-K:]
+                full_actions = full_actions[-K:]
+                full_rtg = full_rtg[-K:]
+                full_timesteps = full_timesteps[-K:]
+            
+            cur_len = len(full_states)
             cur_states = [[0.0] * int(state_dim) for _ in range(K)]
             cur_rtg = [0.0 for _ in range(K)]
-            if action_space_type == "continuous":
+            if is_cont:
                 cur_prev = [list(bos_token_id) for _ in range(K)]
                 cur_actions = [[-100.0] * action_dim for _ in range(K)]
             else:
@@ -397,17 +457,16 @@ def prepare_adt_data(
             cur_t = [0 for _ in range(K)]
             cur_mask = [0.0 for _ in range(K)]
 
-            for j in range(end - start):
-                idx = start + j
-                cur_states[j] = list(states[idx])
-                cur_rtg[j] = float(rtg[idx])
-                if action_space_type == "continuous":
-                    cur_actions[j] = list(actions[idx])
-                    cur_prev[j] = list(bos_token_id) if idx == 0 else list(actions[idx - 1])
+            for j in range(cur_len):
+                cur_states[j] = list(full_states[j])
+                cur_rtg[j] = float(full_rtg[j])
+                if is_cont:
+                    cur_actions[j] = list(full_actions[j])
+                    cur_prev[j] = list(bos_token_id) if j == 0 else list(full_actions[j - 1])
                 else:
-                    cur_actions[j] = int(actions[idx])
-                    cur_prev[j] = int(bos_token_id) if idx == 0 else int(actions[idx - 1])
-                cur_t[j] = min(max_t - 1, max(0, int(step_indices[idx])))
+                    cur_actions[j] = int(full_actions[j])
+                    cur_prev[j] = int(bos_token_id) if j == 0 else int(full_actions[j - 1])
+                cur_t[j] = min(max_t - 1, max(0, int(full_timesteps[j])))
                 cur_mask[j] = 1.0
 
             states_all.append(cur_states)

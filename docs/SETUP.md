@@ -141,9 +141,11 @@ Run the test suite to ensure everything works:
 python -m pytest tests/ -q
 ```
 
-**Expected output:**
-```
-291 passed in XX.XXs
+**Expected output shape:** A pytest pass summary for your local environment.
+
+**Current repo-local collection:** `314 tests` via:
+```bash
+python -m pytest tests test_dt_memory.py --collect-only -q
 ```
 
 **If tests fail:** See [Troubleshooting](#troubleshooting)
@@ -167,8 +169,8 @@ python tools/train_agent.py --algo random --verse line_world --episodes 5 --max_
 
 ### Expected Results
 
-✅ **Environment registry:** Should list 24+ builtin verses
-✅ **Agent registry:** Should list 11+ agent types
+✅ **Environment registry:** Should list 24 builtin verses
+✅ **Agent registry:** Should list 25 agent types
 ✅ **Quick training:** Should complete without errors and save to `runs/` directory
 
 ---

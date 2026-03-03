@@ -164,7 +164,41 @@ Effect:
 
 - `memory/central_repository.py` is now more clearly focused on repository mutation, cache ownership, and retrieval orchestration rather than cache representation details.
 
-### 8. Bug fix uncovered during audit
+### 8. Central repository similarity support split
+
+Extracted ANN runtime metrics and retrieval scoring execution into `memory/central_repository_similarity_support.py`.
+
+- `memory/central_repository.py`: about 1249 -> 921 lines
+- New helper module: `memory/central_repository_similarity_support.py` at 472 lines
+
+What moved:
+
+- ANN runtime/env helpers and drift metric bookkeeping
+- `find_similar` scoring execution across raw-vector, ANN-candidate, and universal-fallback branches
+- row filter, temporal-decay, match-build, and trajectory extraction helpers
+
+Effect:
+
+- `memory/central_repository.py` is now more clearly focused on repository ownership, cache invalidation, ingestion, and public API wrappers rather than low-level similarity execution.
+
+### 9. Central repository cache runtime split
+
+Extracted cache invalidation, delta merging, and LRU cache refresh logic into `memory/central_repository_cache_runtime_support.py`.
+
+- `memory/central_repository.py`: about 921 -> 880 lines
+- New helper module: `memory/central_repository_cache_runtime_support.py` at 115 lines
+
+What moved:
+
+- similarity cache invalidation and sidecar cleanup
+- cache delta append/merge helpers
+- cache refresh and LRU eviction orchestration for `_get_similarity_cache_for_path`
+
+Effect:
+
+- `memory/central_repository.py` is now more clearly focused on repository APIs, ingest/backfill orchestration, and state ownership rather than cache runtime mechanics.
+
+### 10. Bug fix uncovered during audit
 
 Fixed a transformer-agent recall bug in `agents/transformer_agent.py`.
 
@@ -183,6 +217,8 @@ Focused verification was run on 2026-03-01:
 - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py` after runtime-support split
 - `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py` after query-support split
 - `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py` after cache-support split
+- `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py` after similarity-support split
+- `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py` after cache-runtime split
 - `python tools/multiverse_cli.py status --json`
 - `python tools/multiverse_cli.py runs inspect --count-events --json`
 
@@ -200,7 +236,7 @@ Note:
 Recommended next splits, in order:
 
 1. `memory/central_repository.py`
-- Split the remaining ANN drift/runtime metrics and retrieval scoring branches from retrieval orchestration.
+- Split remaining ingestion/backfill/indexing paths from repository mutation APIs.
 
 2. `core/safe_executor.py`
 - Split danger-model loading/risk estimation and post-step outcome handling from the main runtime class.
