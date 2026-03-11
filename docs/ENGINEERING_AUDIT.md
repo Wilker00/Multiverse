@@ -1,6 +1,6 @@
 # Engineering Audit
 
-Last updated: 2026-03-01
+Last updated: 2026-03-11
 
 ## Scope
 
@@ -16,16 +16,17 @@ The review targeted these files first:
 
 ## Findings
 
-1. `core/safe_executor.py` remains the highest-risk runtime file.
-- Current size: about 1642 lines.
-- Responsibilities mixed together: config validation, danger estimation, fallback routing, planner/MCTS takeover, checkpoint recovery, telemetry, and shield integration.
+1. `core/safe_executor.py` remains a concentration point, but the risk is materially lower than at the start of the audit.
+- Current size: about 305 lines in the main module.
+- The main runtime class now delegates policy, risk, outcome, and recovery logic to dedicated support modules, which reduced the blast radius of future changes.
 
-2. `memory/central_repository.py` is still too broad.
-- Current size: about 2073 lines.
-- Responsibilities mixed together: ingest, dedupe, SQLite migration, tiering policy, cache management, ANN lookup, similarity metrics, and canary tooling.
+2. `memory/central_repository.py` is still broad, but no longer owns every low-level concern directly.
+- Current size: about 442 lines in the main module.
+- The main module now delegates runtime bootstrap, ingest orchestration, cache behavior, similarity execution, and tier support to dedicated helpers.
 
-3. `tools/multiverse_cli.py` previously combined parser setup, subprocess dispatch, run browsing, status views, and the interactive shell.
-- This made the top-level CLI entry point harder to scan and test.
+3. `tools/multiverse_cli.py` still carries multiple responsibilities, but the command surface is much cleaner.
+- Current size: about 571 lines.
+- Run browsing and shell-specific behavior have been moved out, leaving the main file more focused on parser setup and dispatch.
 
 4. `core/rollout.py` previously mixed the episode loop with memory-recall bundle construction, selector telemetry, transfer-decision logging, and runtime warning formatting.
 - That made the hot path noisier than necessary.
@@ -198,7 +199,65 @@ Effect:
 
 - `memory/central_repository.py` is now more clearly focused on repository APIs, ingest/backfill orchestration, and state ownership rather than cache runtime mechanics.
 
-### 10. Bug fix uncovered during audit
+### 10. Central repository runtime split
+
+Extracted repository bootstrap, locking, and atomic-write helpers into `memory/central_repository_runtime_support.py`.
+
+- `memory/central_repository.py`: about 880 -> 522 lines
+- New helper module: `memory/central_repository_runtime_support.py` at 131 lines
+
+What moved:
+
+- atomic write helpers
+- repository lock helpers
+- repository bootstrap/setup ownership
+
+Effect:
+
+- `memory/central_repository.py` is now more clearly the public repository API surface instead of the place where low-level repository ownership lives.
+
+### 11. Central repository ingest split
+
+Extracted ingest and backfill orchestration into `memory/central_repository_ingest_support.py`.
+
+- `memory/central_repository.py`: about 522 -> 442 lines
+- New helper module: `memory/central_repository_ingest_support.py` at 474 lines
+
+What moved:
+
+- ingest-row preparation orchestration
+- run ingestion flows
+- metadata backfill paths
+
+Effect:
+
+- `memory/central_repository.py` is now mostly an API wrapper and state owner, while ingest complexity is isolated.
+
+### 12. Safe executor policy/risk/outcome split
+
+Extracted the remaining action-selection flow into:
+
+- `core/safe_executor_policy_support.py` (353 lines)
+- `core/safe_executor_risk_support.py` (266 lines)
+- `core/safe_executor_outcome_support.py` (173 lines)
+
+Effect:
+
+- `core/safe_executor.py` dropped from about 958 lines to about 305 lines and now reads as the top-level safety runtime instead of a monolithic implementation.
+
+### 13. Repo layout normalization
+
+Normalized executable and test file placement:
+
+- runtime and operational entrypoints now live under `tools/`
+- pytest suites now live under `tests/`
+- root-level patch scripts and temporary verification scripts were removed
+
+Effect:
+
+- the repository now has a much clearer source layout and fewer ambiguous/manual-only entrypoints.
+
+### 14. Bug fix uncovered during audit
 
 Fixed a transformer-agent recall bug in `agents/transformer_agent.py`.
 
@@ -207,24 +266,24 @@ Fixed a transformer-agent recall bug in `agents/transformer_agent.py`.
 
 ## Verification Performed
 
-Focused verification was run on 2026-03-01:
+Focused verification was run on 2026-03-11:
 
 - `python -m pytest -q tests/test_multiverse_cli.py`
 - `python -m pytest -q tests/test_rollout_observability.py tests/test_trainer_on_demand_memory_recall.py tests/test_memory_recall_agent.py tests/test_dt_memory.py`
 - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py`
 - `python -m pytest -q tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py tests/test_central_repository_universal_fallback.py tests/test_central_repository_perf_hardening.py`
 - `python -m pytest -q tests/test_memory_thread_safety.py`
-- `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py` after runtime-support split
-- `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py` after query-support split
-- `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py` after cache-support split
-- `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py` after similarity-support split
-- `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py` after cache-runtime split
+- `python -m pytest -q tests/test_validation_stats.py tests/test_update_centroid.py tests/test_multiverse_cli.py`
+- `python -m pytest -q tests/test_decision_transformer.py tests/test_adt_pipeline.py tests/test_memory_recall_agent.py tests/test_trainer_on_demand_memory_recall.py`
+- `python -m pytest tests --collect-only -q`
 - `python tools/multiverse_cli.py status --json`
 - `python tools/multiverse_cli.py runs inspect --count-events --json`
+- `python tools/parallel_rollout.py --help`
+- `python tools/run_curiosity_loop.py --help`
 
 Result:
 
-- 78 focused tests passed
+- 329 repo-local tests collected under `tests/`
 - CLI status and run-inspection smoke checks passed
 
 Note:
@@ -233,23 +292,17 @@ Note:
 
 ## Remaining Targets
 
-Recommended next splits, in order:
+Recommended next cleanup targets, in order:
 
-1. `memory/central_repository.py`
-- Split remaining ingestion/backfill/indexing paths from repository mutation APIs.
+1. `tools/multiverse_cli.py`
+- Continue shrinking the main command surface if shell/status logic grows again.
 
-2. `core/safe_executor.py`
-- Split danger-model loading/risk estimation and post-step outcome handling from the main runtime class.
+2. `docs/`
+- Keep public docs aligned with the current repo shape and verified workflows.
 
-3. `tools/multiverse_cli.py`
-- Move the interactive shell implementation into its own module so the parser/dispatch surface stays small.
+3. Operational observability
+- Add a more inspectable status view for sentinel, health, and promotion artifacts.
 
 ## Practical Guidance
 
-If you want to continue this cleanup, the safest next refactor is now `memory/central_repository.py` by extracting:
-
-- similarity cache build/load/invalidation helpers
-- ANN selection and drift-tuning helpers
-- universal/raw vector scoring helpers
-
-That should reduce blast radius without changing repository semantics.
+If you want to continue this cleanup, the highest-value next work is no longer a structural split. The better next step is to improve supported-workflow documentation and operator visibility around the existing health, gate, and promotion surfaces.
