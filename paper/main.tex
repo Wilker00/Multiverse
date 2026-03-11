@@ -118,7 +118,7 @@ Totals & 11 & 8 & 4 & 7 \\
 Issue & Mitigation & Evidence \\
 \midrule
 UTF-8 BOM corruption in source/docs &
-\code{tools/find\_bom.py}, \code{tools/remove\_bom.py}, \code{tools/bom\_hygiene\_scan.py} &
+Historical one-off cleanup utilities with retained validation artifact &
 \code{models/validation/bom\_hygiene\_scan\_v1.json} (\code{bom\_file\_count=0}) \\
 Retrieval latency growth with memory size &
 ANN candidate filtering and runtime tuning in \code{memory/central\_repository.py} &
@@ -214,7 +214,7 @@ Multiverse is suitable for a framework paper focused on safe, memory-augmented R
 python -m pytest -q
 python tools/run_paper_readiness_pack.py --pack experiment/paper_readiness_pack_v1.json --candidate_algo memory_recall --baseline_algo q --no-strict
 python -m tools.benchmark_retrieval_ann --rows 50000 --queries 150 --value_max 1999 --top_k 5 --seed 1 --out_json models/validation/retrieval_ann_benchmark_v1.json
-python tools/bom_hygiene_scan.py --root . --out_json models/validation/bom_hygiene_scan_v1.json
+python tools/validate_all_verses.py
 \end{verbatim}
 
 \section{Key Artifacts}

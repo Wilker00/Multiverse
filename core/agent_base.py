@@ -18,7 +18,7 @@ This file defines:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol, Sequence
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple
 
 import numpy as np
 from core.types import AgentSpec, JSONValue, SpaceSpec

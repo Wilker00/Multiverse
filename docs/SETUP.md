@@ -145,7 +145,7 @@ python -m pytest tests/ -q
 
 **Current repo-local collection:** `314 tests` via:
 ```bash
-python -m pytest tests test_dt_memory.py --collect-only -q
+python -m pytest tests tests/test_dt_memory.py --collect-only -q
 ```
 
 **If tests fail:** See [Troubleshooting](#troubleshooting)

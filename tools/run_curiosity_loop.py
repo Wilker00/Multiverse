@@ -9,11 +9,16 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Optional
+
+if __package__ in (None, ""):
+    _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
 
 from core.types import AgentSpec, VerseSpec, new_id
 from orchestrator.scheduler import select_next_verse
@@ -58,7 +63,6 @@ def _run_librarian_hook(
         cmd = [python_exe, "tools/make_apprentice.py", str(run_dir)]
         logger.info("Librarian command: %s", " ".join(cmd))
         try:
-            # Capture output so we can log errors if the tool fails
             proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if proc.returncode != 0:
                 logger.warning("Librarian failed (exit %s). Error: %s", proc.returncode, proc.stderr.strip())
@@ -207,7 +211,6 @@ def main() -> None:
                 logger.warning("No verse selected. Ending loop.")
                 break
 
-            # Generate a shared run_id for this loop iteration
             run_id = new_id("loop_run")
             run_dir = runs_root / run_id
 
@@ -220,7 +223,6 @@ def main() -> None:
                 params={},
             )
 
-            # 1. Run the Learner
             policy_id = f"{args.algo}_{args.policy_prefix}_{next_verse_name}_loop_{loop_idx}"
             agent_spec = AgentSpec(
                 spec_version="v1",
@@ -258,48 +260,20 @@ def main() -> None:
             )
 
             logger.info(
-                "Executing learner run | verse=%s policy_id=%s episodes=%s",
+                "Training learner | verse=%s algo=%s run_id=%s train=%s",
                 next_verse_name,
-                policy_id,
-                args.episodes_per_loop,
+                args.algo,
+                run_id,
+                cfg["train"],
             )
-
-            try:
-                trainer.run(
-                    verse_spec=verse_spec,
-                    agent_spec=agent_spec,
-                    episodes=int(args.episodes_per_loop),
-                    max_steps=int(args.max_steps),
-                    seed=int(args.seed) + i,
-                    run_id=run_id,
-                )
-            except Exception:
-                logger.exception("Learner run failed for loop %s; continuing.", loop_idx)
-                continue
-
-            # 2. Optionally run a Random Baseline in the same run_id
-            if args.multi_agent:
-                logger.info("Executing random baseline run for comparison.")
-                random_spec = AgentSpec(
-                    spec_version="v1",
-                    policy_id=f"random_baseline_{next_verse_name}",
-                    policy_version="0.1",
-                    algo="random",
-                    seed=int(args.seed) + i,
-                )
-                try:
-                    trainer.run(
-                        verse_spec=verse_spec,
-                        agent_spec=random_spec,
-                        episodes=int(args.episodes_per_loop),
-                        max_steps=int(args.max_steps),
-                        seed=int(args.seed) + i,
-                        run_id=run_id,
-                    )
-                except Exception:
-                    logger.exception("Random baseline failed for loop %s; continuing.", loop_idx)
-
-            logger.info("Run complete | run_id=%s run_dir=%s", run_id, run_dir)
+            trainer.train(
+                agent_spec=agent_spec,
+                verse_spec=verse_spec,
+                episodes=int(args.episodes_per_loop),
+                max_steps=int(args.max_steps),
+                run_id=run_id,
+                multi_agent=bool(args.multi_agent),
+            )
 
             _run_librarian_hook(
                 mode=str(args.librarian_mode),
@@ -313,8 +287,6 @@ def main() -> None:
 
             if float(args.sleep_s) > 0:
                 time.sleep(float(args.sleep_s))
-    except KeyboardInterrupt:
-        logger.info("Loop interrupted by user.")
     finally:
         logger.info("Curiosity loop finished.")
 

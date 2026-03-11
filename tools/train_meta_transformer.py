@@ -68,7 +68,7 @@ def _build_training_tensors(
     *,
     history_len: int,
     gamma: float,
-) -> Tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", int, int]:
+) -> Tuple[Any, Any, Any, Any, int, int]:
     import torch
 
     # Determine global dimensions.

@@ -19,6 +19,7 @@ import pytest
 from core.types import StepEvent
 from memory.central_repository import (
     CentralMemoryConfig,
+    _ensure_repo,
     ingest_run,
     _atomic_write,
     _open_dedupe_db,
@@ -105,6 +106,17 @@ def worker_ingest_task(args):
     except Exception as exc:
         print(f"Worker {worker_id} failed: {exc}")
         return (worker_id, False, 0)
+
+
+def worker_ensure_repo_task(config_dict):
+    """Bootstrap the repository in a worker process."""
+    config = CentralMemoryConfig(**config_dict)
+    try:
+        _ensure_repo(config)
+        return True
+    except Exception as exc:
+        print(f"Repo bootstrap failed: {exc}")
+        return False
 
 
 class TestAtomicWrite:
@@ -239,9 +251,30 @@ class TestParallelIngestion:
             # Dedupe count should match the number of unique events
             assert db_count > 0, "No dedupe keys in database"
             assert db_count <= expected_total, f"More dedupe keys than expected: {db_count} > {expected_total}"
-
         finally:
             conn.close()
+
+    def test_parallel_repo_bootstrap_is_idempotent(self, memory_config):
+        """Test that multiple workers can bootstrap the repository safely."""
+        config_dict = {
+            "root_dir": memory_config.root_dir,
+            "memories_filename": memory_config.memories_filename,
+            "ltm_memories_filename": memory_config.ltm_memories_filename,
+            "stm_memories_filename": memory_config.stm_memories_filename,
+            "dedupe_index_filename": memory_config.dedupe_index_filename,
+            "dedupe_db_filename": memory_config.dedupe_db_filename,
+        }
+
+        with ProcessPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(worker_ensure_repo_task, config_dict) for _ in range(4)]
+            results = [future.result() for future in as_completed(futures)]
+
+        assert all(results), "At least one worker failed to bootstrap the repository"
+        assert os.path.isfile(os.path.join(memory_config.root_dir, memory_config.memories_filename))
+        assert os.path.isfile(os.path.join(memory_config.root_dir, memory_config.ltm_memories_filename))
+        assert os.path.isfile(os.path.join(memory_config.root_dir, memory_config.stm_memories_filename))
+        assert os.path.isfile(os.path.join(memory_config.root_dir, memory_config.dedupe_index_filename))
+        assert os.path.isfile(os.path.join(memory_config.root_dir, memory_config.dedupe_db_filename))
 
     def test_parallel_ingest_no_lock_timeout(self, memory_config):
         """Test that no worker times out waiting for locks."""

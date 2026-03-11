@@ -7,16 +7,18 @@ from contextlib import redirect_stdout
 
 from tools.multiverse_cli import (
     _normalize_remainder,
-    InteractiveShell,
     apply_distributed_profile,
     apply_train_profile,
     build_parser,
+    build_promotion_sentinel_cmd,
     build_train_agent_cmd,
     build_train_distributed_cmd,
     discover_runs,
     execute_argv,
     resolve_run_dir,
 )
+from tools.multiverse_cli_runs import run_snapshot
+from tools.multiverse_cli_shell import InteractiveShell
 
 
 class TestMultiverseCli(unittest.TestCase):
@@ -63,6 +65,26 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertIn("train_distributed.py", cmd[1].replace("\\", "/"))
         self.assertIn("--train", cmd)
         self.assertIn("--workers", cmd)
+
+    def test_build_sentinel_cmd_includes_core_flags(self):
+        ap = build_parser()
+        args = ap.parse_args(
+            [
+                "sentinel",
+                "--cycles",
+                "2",
+                "--require-benchmark",
+                "--deploy-on-pass",
+                "--deploy-verse",
+                "line_world",
+            ]
+        )
+        cmd = build_promotion_sentinel_cmd(args)
+        self.assertIn("promotion_sentinel.py", cmd[1].replace("\\", "/"))
+        self.assertIn("--require_benchmark", cmd)
+        self.assertIn("--deploy_on_pass", cmd)
+        self.assertIn("--deploy_verse", cmd)
+        self.assertIn("line_world", cmd)
 
     def test_train_profile_applies_defaults(self):
         ap = build_parser()
@@ -115,8 +137,32 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertIn("--episodes 20", text)
         self.assertIn("--verse line_world", text)
 
+    def test_execute_argv_sentinel_dry_run(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = execute_argv(["sentinel", "--require-benchmark", "--dry-run"])
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn("promotion_sentinel.py", text.replace("\\", "/"))
+        self.assertIn("--require_benchmark", text)
+
+    def test_execute_argv_sentinel_status_dry_run(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = execute_argv(["sentinel", "--status", "--json", "--dry-run"])
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn("promotion_sentinel.py", text.replace("\\", "/"))
+        self.assertIn("--status", text)
+        self.assertIn("--json", text)
+
     def test_shell_autocomplete_and_theme_controls(self):
-        sh = InteractiveShell(runs_root="runs")
+        sh = InteractiveShell(
+            runs_root="runs",
+            build_parser_fn=build_parser,
+            execute_argv_fn=execute_argv,
+            run_snapshot_fn=run_snapshot,
+        )
         self.assertEqual(sh.theme, "dark")
         sh.input_buf = "st"
         sh._autocomplete()
@@ -132,7 +178,12 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertEqual(sh.intensity, 3)
 
     def test_shell_suggestion_pages_exist(self):
-        sh = InteractiveShell(runs_root="runs")
+        sh = InteractiveShell(
+            runs_root="runs",
+            build_parser_fn=build_parser,
+            execute_argv_fn=execute_argv,
+            run_snapshot_fn=run_snapshot,
+        )
         pages = sh._suggestion_pages()
         self.assertGreaterEqual(len(pages), 2)
         self.assertIn("title", pages[0])
