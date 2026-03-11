@@ -3,13 +3,8 @@
 # Optional: Delete temporary files created during validation
 # These were only needed for verification and are not part of production code
 
-## TEMPORARY FILES (Optional to Delete)
-# - test_modules.py          (temporary validation script)
-# - verify_implementations.py (temporary verification script)
-
-## TO CLEAN UP (run these commands)
-# rm test_modules.py
-# rm verify_implementations.py
+## TEMPORARY FILES
+# Temporary verification scripts were already removed from the repo.
 
 ## PRODUCTION FILES (Keep These!)
 # tools/validation_stats.py  ✓ Keep - production code
@@ -36,12 +31,7 @@
 # Just ignore them in version control
 
 echo "Session cleanup is optional. All production code is safe."
-echo "Temporary files to remove (optional):"
-echo "  - test_modules.py"
-echo "  - verify_implementations.py"
-echo ""
-echo "To remove, run:"
-echo "  rm test_modules.py verify_implementations.py"
+echo "No temporary verification scripts remain to remove."
 echo ""
 echo "All documentation and production code should be kept."
 

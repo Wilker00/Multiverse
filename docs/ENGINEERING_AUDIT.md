@@ -210,7 +210,7 @@ Fixed a transformer-agent recall bug in `agents/transformer_agent.py`.
 Focused verification was run on 2026-03-01:
 
 - `python -m pytest -q tests/test_multiverse_cli.py`
-- `python -m pytest -q tests/test_rollout_observability.py tests/test_trainer_on_demand_memory_recall.py tests/test_memory_recall_agent.py test_dt_memory.py`
+- `python -m pytest -q tests/test_rollout_observability.py tests/test_trainer_on_demand_memory_recall.py tests/test_memory_recall_agent.py tests/test_dt_memory.py`
 - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py`
 - `python -m pytest -q tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py tests/test_central_repository_universal_fallback.py tests/test_central_repository_perf_hardening.py`
 - `python -m pytest -q tests/test_memory_thread_safety.py`

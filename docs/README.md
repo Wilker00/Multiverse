@@ -1,12 +1,20 @@
 # Documentation
 
-This folder contains the core documentation for the Multiverse project.
+This folder contains the core documentation for Multiverse, a safe, memory-augmented reinforcement-learning operations framework.
 
 ## Key Documents
 
 - **[Project Introduction](PROJECT_INTRO.md)**: High-level overview of the project's goals, architecture, and organization. Start here to understand *what* Multiverse is.
 - **[Full Paper](PAPER.md)**: The comprehensive, technical paper describing the framework's methodology, safety systems, memory architecture, and evaluation results. This is the **primary technical reference**.
 - **[Engineering Audit](ENGINEERING_AUDIT.md)**: Current notes on oversized modules, cleanup work completed on 2026-03-01, and the next refactor targets.
+
+## Current Framing
+
+Use the docs with this framing in mind:
+
+- Multiverse is an RL framework for custom environments, runtime safety, cross-run memory, and promotion workflows.
+- `tools/` contains the operational surface: training, benchmarking, health checks, sentinel flows, and deployment gates.
+- `tests/` is the automated source-of-truth for current behavior.
 
 ## Other Resources
 

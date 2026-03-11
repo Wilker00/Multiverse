@@ -16,7 +16,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 if __package__ in (None, ""):
     _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -28,7 +28,7 @@ from core.agent_base import ActionResult
 from core.gym_adapter import VerseGymAdapter
 from core.safe_executor import SafeExecutor, SafeExecutorConfig
 from core.types import AgentSpec, JSONValue, VerseSpec
-from core.verse_base import StepResult
+from core.verse_base import StepResult, Verse
 from verses.registry import create_verse, register_builtin as register_builtin_verses
 
 
@@ -660,8 +660,9 @@ def run_replay(args: argparse.Namespace) -> None:
         seed = int(first_event.get("seed", args.seed))
         
         try:
-            vparams = _default_verse_params(verse_name, int(args.max_steps))
-            # TODO: vparams are an approximation. A proper fix would log them.
+            vparams = first_event.get("info", {}).get("verse_params")
+            if vparams is None:
+                vparams = _default_verse_params(verse_name, int(args.max_steps))
             verse_spec = VerseSpec(
                 spec_version="v1",
                 verse_name=verse_name,

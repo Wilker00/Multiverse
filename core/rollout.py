@@ -452,6 +452,8 @@ def run_episode(
             "counters": dict(runtime_error_counters),
             "warnings": list(step_runtime_warnings),
         }
+        if step_idx == 0 and hasattr(verse, "spec"):
+            event_info["verse_params"] = verse.spec.params
 
         event = make_step_event(
             schema_version=config.schema_version,

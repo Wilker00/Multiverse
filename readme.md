@@ -1,6 +1,6 @@
 # Multiverse
 
-Multiverse is a local reinforcement-learning codebase with custom environments ("verses"), agent registries, rollout/training orchestration, memory retrieval, and runtime safety controls.
+Multiverse is a local reinforcement-learning operations framework for training, evaluating, and promoting agents across custom environments ("verses"). It combines runtime safety controls, cross-run memory retrieval, benchmark gates, and operator-facing tooling in one codebase.
 
 ## 🚀 Getting Started
 
@@ -25,21 +25,21 @@ python tools/train_agent.py --algo q --verse line_world --episodes 20
 
 ## Verified Status
 
-As of 2026-03-01, this repository has focused verification for the runtime paths touched by the latest cleanup:
+As of 2026-03-11, this repository has focused verification for the runtime paths touched by the latest cleanup and repo-shape normalization:
 
 - `python -m pytest -q tests/test_multiverse_cli.py`
-- `python -m pytest -q tests/test_rollout_observability.py tests/test_trainer_on_demand_memory_recall.py tests/test_memory_recall_agent.py test_dt_memory.py`
+- `python -m pytest -q tests/test_rollout_observability.py tests/test_trainer_on_demand_memory_recall.py tests/test_memory_recall_agent.py tests/test_dt_memory.py`
 - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py`
 - `python -m pytest -q tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py tests/test_central_repository_universal_fallback.py tests/test_central_repository_perf_hardening.py`
 - `python -m pytest -q tests/test_memory_thread_safety.py`
-- Re-verified after deeper safety/memory splits:
-  - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py`
-  - `python -m pytest -q tests/test_central_repository_perf_hardening.py tests/test_central_repository_universal_fallback.py tests/test_memory_thread_safety.py`
-- Result: `78 focused tests passed`
-- Current repo-local pytest collection (2026-03-03): `314 tests collected` via `python -m pytest tests test_dt_memory.py --collect-only -q`
+- `python -m pytest -q tests/test_validation_stats.py tests/test_update_centroid.py tests/test_multiverse_cli.py`
+- `python -m pytest -q tests/test_decision_transformer.py tests/test_adt_pipeline.py tests/test_memory_recall_agent.py tests/test_trainer_on_demand_memory_recall.py`
+- Current repo-local pytest collection (2026-03-11): `329 tests collected` via `python -m pytest tests --collect-only -q`
 - CLI smoke checks:
   - `python tools/multiverse_cli.py status --json`
   - `python tools/multiverse_cli.py runs inspect --count-events --json`
+  - `python tools/parallel_rollout.py --help`
+  - `python tools/run_curiosity_loop.py --help`
 
 The full repository pytest suite was not rerun in this pass.
 
@@ -69,33 +69,44 @@ This README is intentionally strict. It only describes what is present in code a
 - Rollout support helpers: `core/rollout_support.py`
 - Safety wrapper: `core/safe_executor.py`
 - Safety support helpers: `core/safe_executor_support.py`
+- Safety policy helpers: `core/safe_executor_policy_support.py`
+- Safety risk helpers: `core/safe_executor_risk_support.py`
+- Safety outcome helpers: `core/safe_executor_outcome_support.py`
 - Safety runtime helpers: `core/safe_executor_runtime_support.py`
 - Memory indexing/retrieval: `memory/episode_index.py`, `memory/retrieval.py`, `memory/central_repository.py`
 - Memory repository support helpers: `memory/central_repository_support.py`
+- Memory ingest/runtime helpers: `memory/central_repository_ingest_support.py`, `memory/central_repository_runtime_support.py`
 - Memory cache helpers: `memory/central_repository_cache_support.py`
 - Memory cache runtime helpers: `memory/central_repository_cache_runtime_support.py`
 - Memory query/canary helpers: `memory/central_repository_query_support.py`
 - Memory similarity helpers: `memory/central_repository_similarity_support.py`
-- Universal model + API: `models/universal_model.py`, `tools/universal_model_api.py`
+- Operational tooling: `tools/multiverse_cli.py`, `tools/promotion_sentinel.py`, `tools/universal_model_api.py`
+- Universal model: `models/universal_model.py`
 
 ## Engineering Cleanup Notes
 
-- Cleanup completed on 2026-03-01 reduced responsibility concentration across four primary runtime surfaces:
+- Cleanup through 2026-03-11 reduced responsibility concentration across the main runtime surfaces and normalized the repo layout:
   - `core/rollout.py`: helper logic extracted to `core/rollout_support.py` (`802 -> 511` lines)
   - `tools/multiverse_cli.py`: run browsing extracted to `tools/multiverse_cli_runs.py` (`1177 -> 984` lines)
   - `core/safe_executor.py`: config/utility logic extracted to `core/safe_executor_support.py` (`1642 -> 1147` lines)
   - `core/safe_executor.py`: takeover/recovery logic extracted to `core/safe_executor_runtime_support.py` (`1147 -> 958` lines)
+  - `core/safe_executor.py`: policy/risk/outcome helpers extracted into dedicated support modules for action-selection flow hardening
   - `memory/central_repository.py`: config, path, and tier-policy support extracted to `memory/central_repository_support.py` (`2073 -> 1801` lines)
   - `memory/central_repository.py`: query-cache and canary logic extracted to `memory/central_repository_query_support.py` (`1801 -> 1597` lines)
   - `memory/central_repository.py`: cache representation/build helpers extracted to `memory/central_repository_cache_support.py` (`1597 -> 1249` lines)
   - `memory/central_repository.py`: ANN runtime and retrieval scoring extracted to `memory/central_repository_similarity_support.py` (`1249 -> 921` lines)
   - `memory/central_repository.py`: cache invalidation and delta/LRU runtime helpers extracted to `memory/central_repository_cache_runtime_support.py` (`921 -> 880` lines)
+  - `memory/central_repository.py`: repository bootstrap and ingest orchestration extracted into dedicated runtime/ingest support modules
+- Repo-shape cleanup completed:
+  - executable entrypoints now live under `tools/`
+  - tests now live under `tests/`
+  - stale root patch scripts and temporary verification scripts were removed
 - Bug fix completed during audit:
   - `agents/transformer_agent.py` now defaults recall risk queries to `risk`, which restores expected on-demand memory behavior in tests using risk-based observations.
-- Remaining highest-concentration targets:
+- Highest-concentration areas still worth monitoring:
   - `memory/central_repository.py`
   - `core/safe_executor.py`
-  - `tools/multiverse_cli.py` interactive shell path
+  - `tools/multiverse_cli.py`
 - Deep audit notes:
   - `docs/ENGINEERING_AUDIT.md`
 
@@ -127,7 +138,7 @@ This README is intentionally strict. It only describes what is present in code a
 
 - Runtime artifacts are not source code and are ignored (`runs*`, `central_memory*`, benchmark/tuning outputs, local envs, frontend deps).
 - `tests/test_*.py` are the automated suites.
-- Manual smoke scripts are in `tools/` (for example `tools/smoke_v2_verses.py`).
+- CLI, smoke, maintenance, and monitoring scripts are in `tools/` (for example `tools/validate_all_verses.py` and `tools/promotion_sentinel.py`).
 
 ## What Was Removed In Cleanup
 

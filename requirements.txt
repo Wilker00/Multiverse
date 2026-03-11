@@ -26,6 +26,8 @@ rich>=13.0.0
 click>=8.0.0
 colorama>=0.4.6
 tqdm>=4.66.0
+plotext>=5.2.8  # Terminal ASCII charts (used by tools/plot_runs.py)
+pygame>=2.6.0   # Graphical verse viewer (used by tools/watch_pygame.py)
 
 # ============================================================================
 # Configuration & Environment

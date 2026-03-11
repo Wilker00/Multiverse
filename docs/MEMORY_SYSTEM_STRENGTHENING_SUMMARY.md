@@ -422,7 +422,7 @@ print(f'P50: {sorted(times)[50]*1000:.2f}ms')
 ### Test Files
 
 - `tests/test_memory_thread_safety.py` - Thread-safety suite (8 tests)
-- `tests/test_memory_performance.py` - Performance benchmarks (TODO)
+- `tests/test_memory_performance.py` - Performance benchmarks (Completed)
 - `tests/test_central_repository_perf_hardening.py` - Existing perf tests
 
 ---

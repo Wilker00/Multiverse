@@ -56,7 +56,12 @@ TOOL_CLASSIFICATION: Dict[str, Tuple[str, str]] = {
     "run_fixed_seed_benchmark.py": ("SUPPORT", "Reproducibility benchmark"),
     "run_paper_readiness_pack.py": ("SUPPORT", "Paper-readiness validation"),
     "run_autonomous_cycle.py": ("SUPPORT",  "Autonomous training loop"),
+    "run_curiosity_loop.py":   ("SUPPORT",  "Long-running curiosity loop"),
     "production_readiness_gate.py": ("SUPPORT", "Production readiness gate"),
+    "eval_harness.py":         ("SUPPORT",  "CLI wrapper for strict A/B evaluation gate"),
+    "promotion_sentinel.py":   ("SUPPORT",  "Bounded promotion monitoring loop"),
+    "promotion_board_decision.py": ("SUPPORT", "Record human promotion decisions"),
+    "promotion_report.py":     ("SUPPORT",  "Promotion benchmark report generator"),
     "marl_run.py":             ("SUPPORT",  "Multi-agent RL runner"),
     "mcts_cycle.py":           ("SUPPORT",  "MCTS training loop"),
     "neural_forensics.py":     ("SUPPORT",  "Agent neural behavior analysis"),
@@ -69,6 +74,15 @@ TOOL_CLASSIFICATION: Dict[str, Tuple[str, str]] = {
     "validate_transfer.py":    ("SUPPORT",  "Transfer validation script"),
     "validate_hard_cliff_multiseed.py": ("SUPPORT", "Cliff multi-seed validation"),
     "run_cognitive_upgrade_kpi.py": ("SUPPORT", "Cognitive KPI tracker"),
+    "validation_stats.py":     ("SUPPORT",  "Statistical validation utilities"),
+    "update_centroid.py":      ("SUPPORT",  "Centroid policy training utilities"),
+    "multiverse_cli_runs.py":  ("SUPPORT",  "Run inspection helpers for the CLI"),
+    "multiverse_cli_shell.py": ("SUPPORT",  "Interactive shell helpers for the CLI"),
+    "build_near_universe_source_bank.py": ("SUPPORT", "Build near-universe transfer source banks"),
+    "memory_soak_gate.py":     ("SUPPORT",  "Memory soak and RSS slope gate"),
+    "watch.py":                ("SUPPORT",  "Live verse renderer"),
+    "watch_pygame.py":         ("SUPPORT",  "Graphical verse viewer"),
+    "parallel_rollout.py":     ("SUPPORT",  "CLI wrapper for parallel rollouts"),
     "cleanup_artifacts.py":    ("SUPPORT",  "Clean up run artifacts"),
     "knowledge_graph.py":      ("SUPPORT",  "Knowledge graph viewer"),
     "knowledge_market.py":     ("SUPPORT",  "Knowledge market interface"),
@@ -116,7 +130,14 @@ TOOL_CLASSIFICATION: Dict[str, Tuple[str, str]] = {
     "uas_case_study.py":       ("RESEARCH", "UAS case study"),
     "benchmark_meta_stages.py": ("RESEARCH", "Meta-stage benchmarks"),
     "mcts_telemetry_dashboard.py": ("RESEARCH", "MCTS telemetry dashboard"),
-    "run_cognitive_upgrade_kpi.py": ("RESEARCH", "Cognitive upgrade KPI"),
+    "cross_verse_dagger.py":   ("RESEARCH", "Cross-verse DAgger pipeline"),
+    "eval_generalist.py":      ("RESEARCH", "Generalist model deployment evaluation"),
+    "eval_memory_bridge.py":   ("RESEARCH", "Memory bridge evaluation"),
+    "fit_sf_direct_triad_model.py": ("RESEARCH", "Successor-feature direct triad model fitting"),
+    "fit_sf_gate_model.py":    ("RESEARCH", "Successor-feature gate model fitting"),
+    "measure_recall_lift.py":  ("RESEARCH", "Causal recall-lift analysis"),
+    "run_recall_lift_preset.py": ("RESEARCH", "Preset recall-lift experiment runner"),
+    "sweep_sf_adaptive_gate.py": ("RESEARCH", "Adaptive successor-feature gate sweep"),
     "run_pipeline.py":         ("RESEARCH", "Experimental pipeline runner"),
     "universe_hub.py":         ("RESEARCH", "Universe hub experiments"),
     "semantic_bridge.py":      ("RESEARCH", "Semantic bridge experiments"),
@@ -134,11 +155,8 @@ TOOL_CLASSIFICATION: Dict[str, Tuple[str, str]] = {
     "ingest_warehouse_expert.py": ("STALE", "One-off ingest script — superseded by build_warehouse_expert"),
     "generate_warehouse_planner_dataset.py": ("STALE", "One-off dataset generator"),
     "build_labyrinth_recovery_dna.py": ("STALE", "One-off DNA extraction script"),
-    "validation_stats.py":     ("STALE",    "Old validation stats — superseded by verse_eval.py"),
     "analysis.py":             ("STALE",    "Generic analysis script — purpose unclear"),
     "smoke_v2_verses.py":      ("STALE",    "Superseded by validate_all_verses.py"),
-    "update_centroid.py":      ("STALE",    "One-off centroid update script"),
-    "eval_harness.py":         ("STALE",    "Old eval harness — superseded by verse_eval.py"),
 }
 
 TIER_ORDER = ["CORE", "SUPPORT", "RESEARCH", "STALE"]
@@ -195,10 +213,13 @@ def audit_tools(fix: bool = False) -> None:
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("# Stale Tools\n\n")
         f.write("These scripts have been identified as stale, one-off artifacts, or superseded.\n")
-        f.write("They are kept for reference but should not be relied on.\n\n")
+        f.write("This report covers active files directly under `tools/`.\n\n")
         f.write("| Script | Reason |\n|---|---|\n")
-        for name, notes in stale:
-            f.write(f"| `{name}` | {notes} |\n")
+        if stale:
+            for name, notes in stale:
+                f.write(f"| `{name}` | {notes} |\n")
+        else:
+            f.write("| _None in active tools/_ | Active stale entries have already been moved or removed. |\n")
         f.write("\n## How to handle\n\n")
         f.write("1. Review each script before deleting\n")
         f.write("2. If superseded, verify the replacement works first\n")

@@ -1,20 +1,20 @@
 # Multiverse: Project Introduction
 
-Last updated: 2026-02-17
+Last updated: 2026-03-11
 
 ## What this project is
-Multiverse is a local reinforcement-learning platform for training and evaluating many agent types across many custom environments (called "verses"). It combines:
+Multiverse is a local reinforcement-learning operations framework for training, evaluating, and promoting agents across many custom environments (called "verses"). It combines:
 - environment simulation
 - pluggable agent algorithms
 - rollout/training orchestration
 - safety controls during action selection
 - cross-run memory and retrieval
-- local operational tooling and gating workflows
+- benchmark, health, and promotion workflows
 
-In plain language: this repo is an RL lab + runtime framework where you can prototype policies, run them in varied worlds, and attach safety/memory systems so behavior can be monitored and promoted more safely.
+In plain language: this repo is a safe, memory-augmented RL framework where you can prototype policies, run them in varied worlds, and wrap them with safety checks, memory recall, and promotion gates before trusting them further.
 
 ## Technical one-paragraph summary
-At runtime, a `VerseSpec` and `AgentSpec` are validated (`core/types.py`), created via registries (`verses/registry.py`, `agents/registry.py`), executed through the rollout engine (`core/rollout.py`) and trainer (`orchestrator/trainer.py`), optionally guarded by `SafeExecutor` (`core/safe_executor.py`), logged to per-run JSONL artifacts, and indexed into memory stores for retrieval (`memory/episode_index.py`, `memory/retrieval.py`, `memory/central_repository.py`). Supporting tools in `tools/` handle CI gates, benchmarking, model services, and operational workflows.
+At runtime, a `VerseSpec` and `AgentSpec` are validated (`core/types.py`), created via registries (`verses/registry.py`, `agents/registry.py`), executed through the rollout engine (`core/rollout.py`) and trainer (`orchestrator/trainer.py`), optionally guarded by `SafeExecutor` (`core/safe_executor.py`), logged to per-run JSONL artifacts, and indexed into memory stores for retrieval (`memory/episode_index.py`, `memory/retrieval.py`, `memory/central_repository.py`). Supporting tools in `tools/` handle CI gates, benchmarking, health checks, promotion sentinels, and model services.
 
 ## How the repo is organized
 - `core/`: runtime contracts and execution primitives (types, rollout loop, safe executor, MCTS/planning helpers).
@@ -23,7 +23,7 @@ At runtime, a `VerseSpec` and `AgentSpec` are validated (`core/types.py`), creat
 - `orchestrator/`: training/evaluation orchestration, curriculum, promotion-board logic.
 - `memory/`: indexing, retrieval, embedding/similarity, central memory repository.
 - `models/`: model artifacts, datasets, policy manifests, and reports.
-- `tools/`: CLIs for training, benchmarking, evaluation, deployment checks, and maintenance.
+- `tools/`: CLIs for training, benchmarking, evaluation, deployment checks, promotion monitoring, and maintenance.
 - `tests/`: pytest suites covering runtime and feature behavior.
 
 ## Core execution flow
@@ -66,17 +66,18 @@ From repo root:
 - Run tests: `python -m pytest -q`
 - Single training run: `python tools/train_agent.py --algo random --verse line_world --episodes 20 --max_steps 40`
 - Distributed local run: `python tools/train_distributed.py --mode sharded --algo q --verse line_world --episodes 100`
+- Promotion sentinel status: `python tools/promotion_sentinel.py --status`
 
-## Maturity snapshot (as of 2026-02-17)
-- Local verification run: `python -m pytest -q`
-- Result observed: `206 passed, 2 warnings`
-- The top-level `readme.md` still says `197 passed` (also dated 2026-02-17), so that status line is currently stale versus the latest run.
+## Maturity snapshot (as of 2026-03-11)
+- Current repo-local pytest collection: `329 tests collected` via `python -m pytest tests --collect-only -q`
+- Recent focused verification covers safety, memory, CLI, promotion sentinel, and DT memory paths
+- Current repo shape is normalized: runtime code in `core/` and `memory/`, operational scripts in `tools/`, tests in `tests/`
 
 ## What this project is best for
 - experimenting with agent algorithms across many small/medium custom environments
 - validating runtime safety interventions in-loop
 - testing retrieval/memory-augmented behavior
-- running local benchmark/gate workflows before promotion/deployment decisions
+- running local benchmark, health, and promotion-gate workflows before deployment decisions
 
 ## Where to start reading (by role)
 Runtime/agent engineer:
@@ -104,3 +105,4 @@ Memory/retrieval engineer:
 - This repo contains many generated/runtime artifacts (`runs*`, `central_memory*`, benchmark outputs, datasets) alongside code. Treat executable code and tests as source-of-truth for behavior.
 - The working tree currently has extensive in-progress changes; this is an actively evolving codebase.
 - Documentation policy in this repo is intentionally strict: claims should track tested behavior, not aspirational roadmap language.
+- This is not a general-purpose autonomous-agent platform; its strongest current identity is safe, memory-augmented RL operations.
