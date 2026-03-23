@@ -1,68 +1,69 @@
-# Documentation
+# Multiverse Documentation
 
-This folder contains the core documentation for Multiverse, a safe, memory-augmented reinforcement-learning operations framework.
+This directory contains the documentation that is present in this repository today.
 
-## Key Documents
+The previous local rewrite of this file pointed at many files and commands that do not exist. This version is intentionally smaller and only links to material that is actually in the tree.
 
-- **[Project Introduction](PROJECT_INTRO.md)**: High-level overview of the project's goals, architecture, and organization. Start here to understand *what* Multiverse is.
-- **[Full Paper](PAPER.md)**: The comprehensive, technical paper describing the framework's methodology, safety systems, memory architecture, and evaluation results. This is the **primary technical reference**.
-- **[Engineering Audit](ENGINEERING_AUDIT.md)**: Current notes on oversized modules, cleanup work completed on 2026-03-01, and the next refactor targets.
+## Start Here
 
-## Current Framing
+- [Project Introduction](PROJECT_INTRO.md)
+- [Quickstart](QUICKSTART.md)
+- [Setup](SETUP.md)
+- [Configuration](CONFIGURATION.md)
+- [YAML Configuration](YAML_CONFIGURATION.md)
+- [Hot Reload](HOT_RELOAD.md)
+- [Paper](PAPER.md)
 
-Use the docs with this framing in mind:
+## Learning
 
-- Multiverse is an RL framework for custom environments, runtime safety, cross-run memory, and promotion workflows.
-- `tools/` contains the operational surface: training, benchmarking, health checks, sentinel flows, and deployment gates.
-- `tests/` is the automated source-of-truth for current behavior.
+- [Learning Path](LEARNING_PATH.md)
+- [RL Concepts](RL_CONCEPTS.md)
+- [Tutorial 01: What is an Agent?](tutorials/01_hello_world.md)
 
-## Other Resources
+Interactive notebooks:
 
-- **[../BENCHMARKS.md](../BENCHMARKS.md)**: Details on running benchmarks and interpreting their results.
-- **[../CONTRIBUTING.md](../CONTRIBUTING.md)**: Guidelines for contributing to the codebase.
-- **[../SECURITY.md](../SECURITY.md)**: Security policy and reporting instructions.
+- [01 Hello World](interactive/01_hello_world.ipynb)
+- [02 Exploration](interactive/02_exploration.ipynb)
+- [03 Value Learning](interactive/03_value_learning.ipynb)
+- [04 Policy Optimization](interactive/04_policy_optimization.ipynb)
+- [05 Memory Systems](interactive/05_memory_systems.ipynb)
+- [06 Custom Verses](interactive/06_custom_verses.ipynb)
+- [07 Advanced Training](interactive/07_advanced_training.ipynb)
 
-## Working Scale Profile
+## Architecture And Audits
 
-Use the locked working transfer profile for multiseed scaling:
+- [Engineering Audit](ENGINEERING_AUDIT.md)
+- [Memory System Strengthening Summary](MEMORY_SYSTEM_STRENGTHENING_SUMMARY.md)
+- [Phase 2 Implementation Guide](PHASE2_IMPLEMENTATION_GUIDE.md)
+- [Cleanup Report](../CLEANUP_REPORT_20260322.md)
+- [Session Improvements](../SESSION_IMPROVEMENTS.md)
+- [Stale Tools](../STALE_TOOLS.md)
+
+## Verse Integration Notes
+
+These verse docs currently live at the repo root:
+
+- [Verse Documentation Index](../VERSE_DOCUMENTATION_INDEX.md)
+- [Verse Integration Analysis](../VERSE_INTEGRATION_ANALYSIS.md)
+- [Verse Flow Diagrams](../VERSE_FLOW_DIAGRAMS.md)
+- [Verse Quick Reference](../VERSE_QUICK_REFERENCE.md)
+
+## Verified CLI Commands
+
+These commands were checked against the current CLI surface:
 
 ```bash
-python tools/run_fixed_seed_benchmark.py \
-  --runs_root runs_success_scale_working \
-  --report_dir models/validation/success_scale_working \
-  --out_json models/validation/success_scale_working/summary.json \
-  --episodes 120 \
-  --max_steps 100 \
-  --seeds 101,123,149,223,337,401 \
-  --challenge_arg=--bridge_behavioral_enabled \
-  --challenge_arg=--transfer_warmstart_reward_scale --challenge_arg=0.01 \
-  --challenge_arg=--no-transfer_warmstart_use_transfer_score \
-  --challenge_arg=--transfer_q_warehouse_obs_key_mode --challenge_arg=direction_only \
-  --challenge_arg=--baseline_q_warehouse_obs_key_mode --challenge_arg=direction_only \
-  --challenge_arg=--transfer_epsilon_start --challenge_arg=0.05 \
-  --challenge_arg=--transfer_epsilon_min --challenge_arg=0.01 \
-  --challenge_arg=--transfer_epsilon_decay --challenge_arg=0.999 \
-  --challenge_arg=--baseline_epsilon_start --challenge_arg=0.05 \
-  --challenge_arg=--baseline_epsilon_min --challenge_arg=0.01 \
-  --challenge_arg=--baseline_epsilon_decay --challenge_arg=0.999 \
-  --challenge_arg=--transfer_learn_hazard_penalty --challenge_arg=0.0 \
-  --challenge_arg=--transfer_learn_success_bonus --challenge_arg=0.0 \
-  --challenge_arg=--no-dynamic_transfer_mix \
-  --challenge_arg=--no-safe_transfer \
-  --challenge_arg=--no-safe_baseline \
-  --challenge_arg=--no-enable_mcts
+multiverse doctor
+multiverse universe list
+multiverse train --algo q --verse line_world --episodes 50
+multiverse runs latest
+multiverse sim list
+multiverse sim preview --provider multiverse_local --verse line_world --episodes 1 --dry-run
+multiverse sim2real --dry-run
 ```
 
-Current canonical benchmark artifacts:
+## Notes
 
-- `models/validation/success_scale_working/summary.json`
-- `models/validation/fixed_seed_working_v1_nosrc/summary.json`
-- `experiment/transfer_working_profile_v1.json` (locked control profile definition)
-- `experiment/fixed_seed_working_profile_v1.json` (fixed-seed recovery profile)
-- `models/validation/targeted_simple_recovery/working_only_summary.json` (simple-verse non-regression keep set)
-- `models/validation/targeted_simple_recovery/scale_working_summary.json` (scaled confirmation on simple verses)
-- `experiment/simple_verses_working_profile_v1.json` (simple-verse working profile)
-
-Supplementary smoke artifact:
-
-- `models/validation/working_base_smoke.json`
+- The `multiverse analyze ...` and `multiverse compare ...` commands are not part of the current top-level CLI.
+- The lightweight simulator is exposed through `multiverse sim list` and `multiverse sim preview`.
+- If you add new docs, keep links in this file restricted to files that actually exist in the repository.
