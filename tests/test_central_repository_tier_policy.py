@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from memory.central_repository import CentralMemoryConfig, backfill_memory_metadata
+from memory.central_repository_support import _load_tier_policy, _tier_policy_for_verse
 
 
 class TestCentralRepositoryTierPolicy(unittest.TestCase):
@@ -270,6 +271,28 @@ class TestCentralRepositoryTierPolicy(unittest.TestCase):
             self.assertEqual(int(stats.ltm_rows), 1)
             self.assertEqual(int(stats.stm_rows), 19)
             self.assertEqual(int(stats.support_guard_demotions), 19)
+
+    def test_tier_policy_for_verse_reuses_merged_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "tier_policy.json"), "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "default": {"ltm_reward_threshold": 2.0, "promotion_score_threshold": 1.0},
+                        "by_verse": {"warehouse_world": {"ltm_reward_threshold": 0.5}},
+                    },
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            cfg = CentralMemoryConfig(root_dir=td, tier_policy_filename="tier_policy.json")
+            policy = _load_tier_policy(cfg)
+            first = _tier_policy_for_verse("warehouse_world", policy)
+            second = _tier_policy_for_verse("warehouse_world", policy)
+
+            self.assertIs(first, second)
+            self.assertEqual(float(first.get("ltm_reward_threshold", 0.0)), 0.5)
+            self.assertEqual(float(first.get("promotion_score_threshold", 0.0)), 1.0)
 
 
 if __name__ == "__main__":

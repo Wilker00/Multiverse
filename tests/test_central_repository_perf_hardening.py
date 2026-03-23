@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import threading
 import unittest
 
 from memory.central_repository import (
@@ -14,6 +15,7 @@ from memory.central_repository import (
     save_similarity_canary,
 )
 import memory.central_repository as central_repository
+from memory.central_repository_similarity_support import _ann_candidate_count_support
 
 
 def _count_jsonl_rows(path: str) -> int:
@@ -28,6 +30,24 @@ def _count_jsonl_rows(path: str) -> int:
 
 
 class TestCentralRepositoryPerfHardening(unittest.TestCase):
+    def test_ann_candidate_count_default_factor_is_32(self):
+        old_factor = os.environ.get("MULTIVERSE_SIM_ANN_FACTOR")
+        lock = threading.Lock()
+        try:
+            os.environ.pop("MULTIVERSE_SIM_ANN_FACTOR", None)
+            out = _ann_candidate_count_support(
+                top_n=16,
+                n_rows=5000,
+                ann_dynamic_factor=None,
+                get_mp_locks_fn=lambda: (lock, lock, lock, lock),
+            )
+        finally:
+            if old_factor is None:
+                os.environ.pop("MULTIVERSE_SIM_ANN_FACTOR", None)
+            else:
+                os.environ["MULTIVERSE_SIM_ANN_FACTOR"] = old_factor
+        self.assertEqual(out, 512)
+
     def test_ingest_run_uses_sqlite_dedupe_and_skips_replays(self):
         with tempfile.TemporaryDirectory() as td:
             runs_root = os.path.join(td, "runs")
@@ -299,6 +319,74 @@ class TestCentralRepositoryPerfHardening(unittest.TestCase):
                 os.environ.pop("MULTIVERSE_SIM_ANN_MAX_DRIFT", None)
             else:
                 os.environ["MULTIVERSE_SIM_ANN_MAX_DRIFT"] = old_max
+
+    def test_similarity_cache_tracks_verse_positions_and_builds_ann_index(self):
+        if central_repository.NearestNeighbors is None:
+            self.skipTest("scikit-learn is not available")
+        with tempfile.TemporaryDirectory() as td:
+            mem_path = os.path.join(td, "memories.jsonl")
+            rows = []
+            for i in range(40):
+                rows.append(
+                    {
+                        "run_id": f"run_grid_{i}",
+                        "episode_id": f"ep_grid_{i}",
+                        "step_idx": i,
+                        "t_ms": i + 1,
+                        "verse_name": "grid_world",
+                        "obs": {"x": 1, "y": 0},
+                        "obs_vector": [1.0, 0.0],
+                        "obs_vector_u": [1.0] + ([0.0] * 63),
+                        "action": 0,
+                        "reward": 0.0,
+                        "memory_tier": "stm",
+                        "memory_family": "procedural",
+                        "memory_type": "spatial_procedural",
+                    }
+                )
+            for i in range(25):
+                rows.append(
+                    {
+                        "run_id": f"run_wh_{i}",
+                        "episode_id": f"ep_wh_{i}",
+                        "step_idx": i,
+                        "t_ms": 100 + i,
+                        "verse_name": "warehouse_world",
+                        "obs": {"x": 0, "y": 1},
+                        "obs_vector": [0.0, 1.0],
+                        "obs_vector_u": [0.0, 1.0] + ([0.0] * 62),
+                        "action": 1,
+                        "reward": 1.0,
+                        "memory_tier": "ltm",
+                        "memory_family": "procedural",
+                        "memory_type": "spatial_procedural",
+                    }
+                )
+            with open(mem_path, "w", encoding="utf-8") as f:
+                for row in rows:
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+            cfg = CentralMemoryConfig(root_dir=td)
+            cache = central_repository._get_similarity_cache_for_path(mem_path=mem_path, tier_policy=None)
+            self.assertIn(2, cache.positions_by_dim_and_verse)
+            self.assertEqual(len(cache.positions_by_dim_and_verse[2]["grid_world"]), 40)
+            self.assertEqual(len(cache.positions_by_dim_and_verse[2]["warehouse_world"]), 25)
+            self.assertEqual(len(cache.universal_row_indices_by_verse["grid_world"]), 40)
+            self.assertEqual(len(cache.universal_row_indices_by_verse["warehouse_world"]), 25)
+
+            ann_index = central_repository._get_ann_index(cache, 2)
+            self.assertIsNotNone(ann_index)
+            self.assertIn(2, cache.ann_by_dim)
+
+            out = find_similar(
+                obs={"x": 0, "y": 1},
+                cfg=cfg,
+                top_k=3,
+                min_score=-1.0,
+                verse_name="warehouse_world",
+            )
+            self.assertEqual(len(out), 3)
+            self.assertTrue(all(str(m.verse_name) == "warehouse_world" for m in out))
 
 
 if __name__ == "__main__":
