@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
+from core.sf_transfer_features import _adaptive_triage_direct_features
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -22,7 +23,6 @@ from tools.fit_sf_gate_model import (
     _safe_float,
     _train_test_split_indices,
 )
-from tools.validate_sf_transfer import _adaptive_triage_direct_features
 
 
 def _softmax_np(z: np.ndarray) -> np.ndarray:

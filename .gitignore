@@ -29,6 +29,8 @@ runs_*/
 runs-*/
 central_memory/
 central_memory*/
+tmp/
+%TEMP%/
 tmp_moe/
 tmp_*.log
 data/memory_smoke/

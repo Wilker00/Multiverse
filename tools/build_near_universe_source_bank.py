@@ -24,17 +24,13 @@ if __package__ in (None, ""):
         sys.path.insert(0, _PROJECT_ROOT)
 
 from core.universe_registry import build_transfer_source_plan
-from tools.run_transfer_challenge import (
-    _discover_transfer_sources,
-    _iter_jsonl,
-    _merge_jsonl,
-)
+from orchestrator.transfer_sources import discover_transfer_sources, iter_jsonl, merge_jsonl
 
 
 def _count_rows(path: str) -> int:
     if not os.path.isfile(path):
         return 0
-    return sum(1 for _ in _iter_jsonl(path))
+    return sum(1 for _ in iter_jsonl(path))
 
 
 def _safe_int(x: Any, default: int = 0) -> int:
@@ -59,7 +55,7 @@ def main() -> None:
 
     plan = build_transfer_source_plan(str(args.target_verse))
     near_set = set(str(v).strip().lower() for v in (plan.get("near_sources") or []) if str(v).strip())
-    all_sources = _discover_transfer_sources(
+    all_sources = discover_transfer_sources(
         target_verse=str(args.target_verse),
         runs_root=str(args.runs_root),
         max_runs_per_verse=max(1, int(args.max_runs_per_verse)),
@@ -93,7 +89,7 @@ def main() -> None:
     total_rows = 0
     for verse in sorted(by_verse.keys()):
         merged_path = os.path.join(out_dir, f"{verse}.jsonl")
-        rows = _merge_jsonl(
+        rows = merge_jsonl(
             paths=list(by_verse.get(verse, [])),
             out_path=merged_path,
             max_rows_per_file=max(0, int(args.max_rows_per_file)),

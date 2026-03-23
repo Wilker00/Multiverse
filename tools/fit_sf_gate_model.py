@@ -9,12 +9,11 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
+from core.sf_transfer_features import _adaptive_gate_model_features
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-from tools.validate_sf_transfer import _adaptive_gate_model_features
 
 
 DEFAULT_FEATURE_NAMES: List[str] = [
