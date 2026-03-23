@@ -106,6 +106,10 @@ class InteractiveShell:
     def _suggestion_pages(self) -> List[Dict[str, Any]]:
         base = [
             "status",
+            "doctor",
+            "sim list",
+            "sim preview --provider multiverse_local",
+            "sim2real --dry-run",
             "u ls --contains line",
             "t --profile quick",
             "t --profile research --dry-run",
@@ -136,6 +140,9 @@ class InteractiveShell:
         ]
         system = [
             "status",
+            "doctor",
+            "sim list",
+            "sim2real --dry-run",
             "u ls",
             "help",
             ":layout compact",
@@ -287,6 +294,9 @@ class InteractiveShell:
         base = [
             "status",
             "st",
+            "doctor",
+            "sim list",
+            "sim2real --dry-run",
             "u ls",
             "universe list",
             "t --profile quick",
