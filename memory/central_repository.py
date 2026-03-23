@@ -26,6 +26,7 @@ from memory.central_repository_cache_support import (
     _build_cache_from_rows,
     _build_similarity_cache_for_path,
     _file_signature,
+    _get_ann_index,
     _legacy_simcache_path,
     _simcache_path,
     _universal_obs_dim,
@@ -411,6 +412,7 @@ def find_similar(
     return find_similar_support(
         ensure_repo_fn=_ensure_repo,
         get_similarity_cache_for_path_fn=_get_similarity_cache_for_path,
+        get_ann_index_fn=_get_ann_index,
         memories_path_fn=_memories_path,
         ltm_memories_path_fn=_ltm_memories_path,
         stm_memories_path_fn=_stm_memories_path,

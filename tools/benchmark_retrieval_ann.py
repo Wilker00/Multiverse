@@ -66,12 +66,22 @@ def _build_memory(rows: int, value_max: int, seed: int) -> str:
     return td
 
 
-def _run_pass(cfg: CentralMemoryConfig, queries: int, value_max: int, seed: int, ann_enabled: bool, top_k: int) -> float:
+def _run_pass(
+    cfg: CentralMemoryConfig,
+    queries: int,
+    value_max: int,
+    seed: int,
+    ann_enabled: bool,
+    top_k: int,
+    ann_factor: int,
+) -> float:
     rng = random.Random(int(seed))
     q = [{"x": rng.randint(0, value_max), "y": rng.randint(0, value_max)} for _ in range(max(1, int(queries)))]
     old_ann = os.environ.get("MULTIVERSE_SIM_USE_ANN")
+    old_factor = os.environ.get("MULTIVERSE_SIM_ANN_FACTOR")
     try:
         os.environ["MULTIVERSE_SIM_USE_ANN"] = "1" if ann_enabled else "0"
+        os.environ["MULTIVERSE_SIM_ANN_FACTOR"] = str(max(1, int(ann_factor)))
         start = time.perf_counter()
         for obs in q:
             find_similar(obs=obs, cfg=cfg, top_k=max(1, int(top_k)), min_score=-1.0)
@@ -81,6 +91,10 @@ def _run_pass(cfg: CentralMemoryConfig, queries: int, value_max: int, seed: int,
             os.environ.pop("MULTIVERSE_SIM_USE_ANN", None)
         else:
             os.environ["MULTIVERSE_SIM_USE_ANN"] = old_ann
+        if old_factor is None:
+            os.environ.pop("MULTIVERSE_SIM_ANN_FACTOR", None)
+        else:
+            os.environ["MULTIVERSE_SIM_ANN_FACTOR"] = old_factor
 
 
 def main() -> None:
@@ -89,6 +103,7 @@ def main() -> None:
     ap.add_argument("--queries", type=int, default=150)
     ap.add_argument("--value_max", type=int, default=1999)
     ap.add_argument("--top_k", type=int, default=5)
+    ap.add_argument("--ann_factor", type=int, default=32)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out_json", type=str, default=os.path.join("models", "validation", "retrieval_ann_benchmark_v1.json"))
     args = ap.parse_args()
@@ -109,6 +124,7 @@ def main() -> None:
         seed=int(args.seed) + 17,
         ann_enabled=False,
         top_k=int(args.top_k),
+        ann_factor=int(args.ann_factor),
     )
     ann_s = _run_pass(
         cfg=cfg,
@@ -117,6 +133,7 @@ def main() -> None:
         seed=int(args.seed) + 17,
         ann_enabled=True,
         top_k=int(args.top_k),
+        ann_factor=int(args.ann_factor),
     )
     speedup = float(exact_s / max(ann_s, 1e-12))
     out = {
@@ -126,6 +143,7 @@ def main() -> None:
             "queries": int(args.queries),
             "value_max": int(args.value_max),
             "top_k": int(args.top_k),
+            "ann_factor": int(args.ann_factor),
             "seed": int(args.seed),
         },
         "results": {

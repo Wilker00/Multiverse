@@ -42,7 +42,7 @@ def _ann_candidate_count_support(
 ) -> int:
     _, _, ann_tune_lock, _ = get_mp_locks_fn()
 
-    factor_raw = os.environ.get("MULTIVERSE_SIM_ANN_FACTOR", "64")
+    factor_raw = os.environ.get("MULTIVERSE_SIM_ANN_FACTOR", "32")
     try:
         factor = max(1, int(factor_raw))
     except Exception:
@@ -103,8 +103,8 @@ def _ann_record_drift_support(
             return
         current = int(runtime_state.get("dynamic_factor") or 0)
         if current <= 0:
-            current = 64
-        max_factor = max(64, int(max(1, n_rows) / max(1, top_n)))
+            current = 32
+        max_factor = max(32, int(max(1, n_rows) / max(1, top_n)))
         runtime_state["dynamic_factor"] = min(max_factor, max(current + 8, int(current * 1.5)))
 
 
@@ -289,6 +289,7 @@ def find_similar_support(
     *,
     ensure_repo_fn: Callable[[CentralMemoryConfig], None],
     get_similarity_cache_for_path_fn: Callable[..., _SimilarityCacheEntry],
+    get_ann_index_fn: Callable[[_SimilarityCacheEntry, int], Optional[Any]],
     memories_path_fn: Callable[[CentralMemoryConfig], str],
     ltm_memories_path_fn: Callable[[CentralMemoryConfig], str],
     stm_memories_path_fn: Callable[[CentralMemoryConfig], str],
@@ -340,8 +341,19 @@ def find_similar_support(
         if not os.path.isfile(mem_path):
             continue
         cache = get_similarity_cache_for_path_fn(mem_path=mem_path, tier_policy=tier_policy)
-        dim_row_idxs = list(cache.row_indices_by_dim.get(q_dim, []))
+        dim_row_idxs = cache.row_indices_by_dim.get(q_dim, [])
         raw_dim_available = bool(q_dim > 0 and dim_row_idxs)
+        verse_positions = (
+            cache.positions_by_dim_and_verse.get(q_dim, {}).get(target_verse, [])
+            if target_verse and raw_dim_available
+            else []
+        )
+        verse_position_set = set(verse_positions) if verse_positions else set()
+        scan_positions_all: Iterable[int]
+        if target_verse and raw_dim_available:
+            scan_positions_all = verse_positions
+        else:
+            scan_positions_all = range(len(dim_row_idxs))
 
         q_norm: Optional[Any] = None
         sims: Optional[Any] = None
@@ -405,7 +417,7 @@ def find_similar_support(
 
             candidate_positions: Optional[List[int]] = None
             if ann_enabled_fn() and q_norm is not None and len(dim_row_idxs) > top_n:
-                ann_index = cache.ann_by_dim.get(q_dim)
+                ann_index = get_ann_index_fn(cache, q_dim)
                 if ann_index is not None:
                     try:
                         n_candidates = ann_candidate_count_fn(top_n, len(dim_row_idxs))
@@ -421,6 +433,8 @@ def find_similar_support(
                                 for raw_pos in list(idxs[0]):
                                     pos = int(raw_pos)
                                     if pos < 0 or pos >= len(dim_row_idxs) or pos in seen:
+                                        continue
+                                    if target_verse and pos not in verse_position_set:
                                         continue
                                     seen.add(pos)
                                     candidate_positions.append(pos)
@@ -438,17 +452,17 @@ def find_similar_support(
                     push_row(row, score, recency_weight, True)
 
             if candidate_positions is None:
-                scan_positions(range(len(dim_row_idxs)))
+                scan_positions(scan_positions_all)
             else:
                 visited = set(candidate_positions)
                 did_full_scan = False
                 scan_positions(candidate_positions)
                 if len(heap) < top_n:
                     did_full_scan = True
-                    scan_positions(pos for pos in range(len(dim_row_idxs)) if pos not in visited)
+                    scan_positions(pos for pos in scan_positions_all if pos not in visited)
                 if not did_full_scan and ann_should_check_drift_fn():
                     exact_best = float("-inf")
-                    for pos in range(len(dim_row_idxs)):
+                    for pos in scan_positions_all:
                         scored = score_position(pos)
                         if scored is None:
                             continue
@@ -488,10 +502,18 @@ def find_similar_support(
         need_universal = bool((len(heap) < top_n) or (not raw_dim_available))
         if not need_universal or q_u_dim <= 0:
             continue
-        row_indices = list(cache.universal_row_indices or [])
+        row_indices = (
+            list(cache.universal_row_indices_by_verse.get(target_verse, []))
+            if target_verse
+            else list(cache.universal_row_indices or [])
+        )
         if not row_indices:
             continue
         u_mat = cache.universal_vectors
+        if target_verse:
+            universal_score_source = None
+        else:
+            universal_score_source = u_mat
         for pos, row_idx in enumerate(row_indices):
             row = cache.rows[int(row_idx)]
             if raw_dim_available and len(row.obs_vector) == q_dim:
@@ -507,9 +529,9 @@ def find_similar_support(
                 type_filter=type_filter,
             ):
                 continue
-            if np is not None and u_mat is not None:
+            if np is not None and universal_score_source is not None:
                 try:
-                    raw_score = float(u_mat[pos] @ q_u_norm) if q_u_norm is not None else 0.0
+                    raw_score = float(universal_score_source[pos] @ q_u_norm) if q_u_norm is not None else 0.0
                 except Exception:
                     raw_score = cosine_similarity(query_vec_u, row.obs_vector_u)
             else:

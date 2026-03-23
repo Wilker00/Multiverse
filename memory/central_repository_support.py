@@ -232,7 +232,7 @@ def _default_tier_policy() -> Dict[str, Any]:
 
 
 def _load_tier_policy(cfg: CentralMemoryConfig) -> Dict[str, Any]:
-    policy = {"default": _default_tier_policy(), "by_verse": {}}
+    policy = {"default": _default_tier_policy(), "by_verse": {}, "_merged_by_verse_cache": {}}
     path = _tier_policy_path(cfg)
     if not path or not os.path.isfile(path):
         return policy
@@ -260,12 +260,20 @@ def _load_tier_policy(cfg: CentralMemoryConfig) -> Dict[str, Any]:
                 continue
             out[vname] = {str(k).strip(): val for k, val in block.items() if str(k).strip()}
         policy["by_verse"] = out
+    policy["_merged_by_verse_cache"] = {}
     return policy
 
 
 def _tier_policy_for_verse(verse_name: str, tier_policy: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    out = _default_tier_policy()
     policy = tier_policy if isinstance(tier_policy, dict) else {}
+    verse_key = str(verse_name).strip().lower()
+    cache = policy.get("_merged_by_verse_cache")
+    if isinstance(cache, dict) and verse_key in cache:
+        cached = cache.get(verse_key)
+        if isinstance(cached, dict):
+            return cached
+
+    out = _default_tier_policy()
     default_block = policy.get("default")
     if isinstance(default_block, dict):
         for k, v in default_block.items():
@@ -275,12 +283,14 @@ def _tier_policy_for_verse(verse_name: str, tier_policy: Optional[Dict[str, Any]
 
     by_verse = policy.get("by_verse")
     if isinstance(by_verse, dict):
-        verse_block = by_verse.get(str(verse_name).strip().lower())
+        verse_block = by_verse.get(verse_key)
         if isinstance(verse_block, dict):
             for k, v in verse_block.items():
                 kk = str(k).strip()
                 if kk:
                     out[kk] = v
+    if isinstance(cache, dict):
+        cache[verse_key] = out
     return out
 
 

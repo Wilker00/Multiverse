@@ -57,9 +57,11 @@ class _SimilarityCacheEntry:
     by_verse: Dict[str, List[int]]
     vectors_by_dim: Dict[int, Any]
     row_indices_by_dim: Dict[int, List[int]]
+    positions_by_dim_and_verse: Dict[int, Dict[str, List[int]]]
     ann_by_dim: Dict[int, Any]
     universal_vectors: Any
     universal_row_indices: List[int]
+    universal_row_indices_by_verse: Dict[str, List[int]]
     built_at_ms: int
 
 
@@ -138,6 +140,20 @@ def _vectorize_rows_by_dim(rows: List[_PreparedMemoryRow]) -> tuple[Dict[int, An
     return vectors_by_dim, row_indices_by_dim
 
 
+def _index_positions_by_dim_and_verse(
+    rows: List[_PreparedMemoryRow],
+    row_indices_by_dim: Dict[int, List[int]],
+) -> Dict[int, Dict[str, List[int]]]:
+    out: Dict[int, Dict[str, List[int]]] = {}
+    for dim, indices in row_indices_by_dim.items():
+        by_verse: Dict[str, List[int]] = {}
+        for pos, row_idx in enumerate(indices):
+            verse = str(rows[int(row_idx)].verse_name or "")
+            by_verse.setdefault(verse, []).append(int(pos))
+        out[int(dim)] = by_verse
+    return out
+
+
 def _vectorize_universal_rows(rows: List[_PreparedMemoryRow]) -> tuple[Any, List[int]]:
     indices: List[int] = []
     if np is None:
@@ -157,6 +173,17 @@ def _vectorize_universal_rows(rows: List[_PreparedMemoryRow]) -> tuple[Any, List
     norms = np.where(norms > 1e-12, norms, 1.0)
     mat = mat / norms
     return mat, indices
+
+
+def _index_universal_rows_by_verse(
+    rows: List[_PreparedMemoryRow],
+    row_indices: List[int],
+) -> Dict[str, List[int]]:
+    out: Dict[str, List[int]] = {}
+    for row_idx in row_indices:
+        verse = str(rows[int(row_idx)].verse_name or "")
+        out.setdefault(verse, []).append(int(row_idx))
+    return out
 
 
 def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
@@ -254,16 +281,20 @@ def _build_cache_from_rows(
 ) -> _SimilarityCacheEntry:
     by_verse = _index_rows_by_verse(rows)
     vectors_by_dim, row_indices_by_dim = _vectorize_rows_by_dim(rows)
+    positions_by_dim_and_verse = _index_positions_by_dim_and_verse(rows, row_indices_by_dim)
     universal_vectors, universal_row_indices = _vectorize_universal_rows(rows)
+    universal_row_indices_by_verse = _index_universal_rows_by_verse(rows, universal_row_indices)
     return _SimilarityCacheEntry(
         signature=signature,
         rows=rows,
         by_verse=by_verse,
         vectors_by_dim=vectors_by_dim,
         row_indices_by_dim=row_indices_by_dim,
+        positions_by_dim_and_verse=positions_by_dim_and_verse,
         ann_by_dim={},
         universal_vectors=universal_vectors,
         universal_row_indices=[int(i) for i in universal_row_indices],
+        universal_row_indices_by_verse=universal_row_indices_by_verse,
         built_at_ms=int(time.time() * 1000),
     )
 
