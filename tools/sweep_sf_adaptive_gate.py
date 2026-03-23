@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.validate_sf_transfer import _adaptive_gate_cfg, _adaptive_gate_decision
+from core.sf_transfer_gate import _adaptive_gate_cfg, _adaptive_gate_decision
 
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
