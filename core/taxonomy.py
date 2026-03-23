@@ -24,16 +24,17 @@ TAXONOMY: Dict[str, List[str]] = {
         "memory_vault_world",
         "maze_world",
         "wind_master_world",
+        "world_3d",
     ],
     "strategy_games": ["chess_world", "go_world", "uno_world", "chess_world_v2", "go_world_v2", "uno_world_v2"],
     "board_control": ["chess_world", "go_world", "chess_world_v2", "go_world_v2"],
     "card_strategy": ["uno_world", "uno_world_v2"],
-    "complex_navigation": ["labyrinth_world", "swamp_world", "escape_world"],
-    "physics": ["pursuit_world", "labyrinth_world"],
+    "complex_navigation": ["labyrinth_world", "swamp_world", "escape_world", "world_3d"],
+    "physics": ["pursuit_world", "labyrinth_world", "world_3d"],
     "interaction": ["park_world"],
     "resource_management": ["labyrinth_world", "warehouse_world", "harvest_world", "trade_world"],
-    "obstacle_navigation": ["grid_world", "labyrinth_world", "warehouse_world", "harvest_world", "escape_world"],
-    "risk_sensitive": ["cliff_world", "labyrinth_world", "warehouse_world", "bridge_world", "swamp_world", "escape_world", "trade_world"],
+    "obstacle_navigation": ["grid_world", "labyrinth_world", "warehouse_world", "harvest_world", "escape_world", "world_3d"],
+    "risk_sensitive": ["cliff_world", "labyrinth_world", "warehouse_world", "bridge_world", "swamp_world", "escape_world", "trade_world", "world_3d"],
     "dynamic_hazards": ["labyrinth_world", "swamp_world"],
     "transferable_logic": ["chess_world", "go_world", "uno_world"],
     "planning": ["bridge_world", "factory_world"],
@@ -201,6 +202,17 @@ VERSE_TAGS: Dict[str, List[str]] = {
         "transferable_logic",
         "turn_based",
     ],
+    "world_3d": [
+        "navigation",
+        "complex_navigation",
+        "3d",
+        "terrain",
+        "spatial",
+        "physics",
+        "risk_sensitive",
+        "obstacle_navigation",
+        "sim2real",
+    ],
 }
 
 # Cognitive memory taxonomy used by memory routing.
@@ -230,6 +242,7 @@ VERSE_MEMORY_TYPES: Dict[str, str] = {
     "maze_world": "spatial_procedural",
     "wind_master_world": "spatial_procedural",
     "risk_tutorial_world": "declarative_adaptive",
+    "world_3d": "spatial_procedural",
 }
 
 
@@ -254,6 +267,7 @@ VERSE_UNIVERSES: Dict[str, str] = {
     "swamp_world": "navigation_risk",
     "risk_tutorial_world": "navigation_risk",
     "wind_master_world": "navigation_risk",
+    "world_3d": "navigation_risk",
     # Navigation with moving entities/opponents / dynamic interaction
     "park_world": "navigation_dynamic",
     "pursuit_world": "navigation_dynamic",

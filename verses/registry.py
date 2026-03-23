@@ -85,6 +85,8 @@ def _default_adr_keys(verse_name: str) -> list[str]:
         return ["step_penalty", "gust_probability", "edge_penalty", "margin_reward_scale", "target_margin"]
     if v == "maze_world":
         return ["step_penalty", "bump_penalty", "explore_bonus", "hazard_penalty"]
+    if v == "world_3d":
+        return ["step_penalty", "roughness", "pit_density", "max_climb", "max_height"]
     return []
 
 
@@ -225,6 +227,7 @@ def register_builtin() -> None:
     from verses.go_world_v2 import GoWorldV2Factory
     from verses.uno_world_v2 import UnoWorldV2Factory
     from verses.maze_world import MazeWorldFactory
+    from verses.world_3d import World3DFactory
 
     builtins = {
         "line_world": LineWorldFactory(),
@@ -251,6 +254,7 @@ def register_builtin() -> None:
         "go_world_v2": GoWorldV2Factory(),
         "uno_world_v2": UnoWorldV2Factory(),
         "maze_world": MazeWorldFactory(),
+        "world_3d":   World3DFactory(),
     }
     for name, factory in builtins.items():
         if name not in _FACTORIES:

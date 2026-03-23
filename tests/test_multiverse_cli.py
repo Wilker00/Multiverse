@@ -9,8 +9,11 @@ from tools.multiverse_cli import (
     _normalize_remainder,
     apply_distributed_profile,
     apply_train_profile,
+    build_doctor_report,
     build_parser,
     build_promotion_sentinel_cmd,
+    build_sim_control_cmd,
+    build_sim2real_cmd,
     build_train_agent_cmd,
     build_train_distributed_cmd,
     discover_runs,
@@ -86,6 +89,48 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertIn("--deploy_verse", cmd)
         self.assertIn("line_world", cmd)
 
+    def test_build_sim2real_cmd_includes_core_flags(self):
+        ap = build_parser()
+        args = ap.parse_args(
+            [
+                "sim2real",
+                "--universe",
+                "warehouse_world",
+                "--algo",
+                "gateway",
+                "--profiles",
+                "mild,severe",
+                "--json",
+            ]
+        )
+        cmd = build_sim2real_cmd(args)
+        self.assertIn("evaluate_sim2real.py", cmd[1].replace("\\", "/"))
+        self.assertIn("--profiles", cmd)
+        self.assertIn("mild,severe", cmd)
+        self.assertIn("--json", cmd)
+
+    def test_build_sim_control_cmd_includes_preview_flags(self):
+        ap = build_parser()
+        args = ap.parse_args(
+            [
+                "sim",
+                "preview",
+                "--provider",
+                "multiverse_local",
+                "--universe",
+                "line_world",
+                "--episodes",
+                "2",
+                "--show-final-frame",
+            ]
+        )
+        cmd = build_sim_control_cmd(args)
+        self.assertIn("multiverse_sim.py", cmd[1].replace("\\", "/"))
+        self.assertIn("preview", cmd)
+        self.assertIn("--provider", cmd)
+        self.assertIn("multiverse_local", cmd)
+        self.assertIn("--show-final-frame", cmd)
+
     def test_train_profile_applies_defaults(self):
         ap = build_parser()
         raw = ["train", "--profile", "research"]
@@ -124,8 +169,45 @@ class TestMultiverseCli(unittest.TestCase):
         args2 = ap.parse_args(["st"])
         self.assertEqual(args2.command, "st")
 
+        args_doctor = ap.parse_args(["check"])
+        self.assertEqual(args_doctor.command, "check")
+
+        args_sim_list = ap.parse_args(["sims", "ls"])
+        self.assertEqual(args_sim_list.command, "sims")
+        self.assertEqual(args_sim_list.sim_command, "ls")
+
+        args_sim = ap.parse_args(["s2r", "--dry-run"])
+        self.assertEqual(args_sim.command, "s2r")
+
         args3 = ap.parse_args(["shell", "--runs-root", "runs"])
         self.assertEqual(args3.command, "shell")
+
+    def test_build_doctor_report_surfaces_core_readiness(self):
+        with tempfile.TemporaryDirectory() as td:
+            runs_root = os.path.join(td, "runs")
+            mem_root = os.path.join(td, "central_memory")
+            os.makedirs(runs_root, exist_ok=True)
+            os.makedirs(mem_root, exist_ok=True)
+            with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
+                f.write("{\"run_id\":\"r1\"}\n")
+
+            report = build_doctor_report(runs_root=runs_root, central_memory_dir=mem_root)
+            self.assertIn("readiness", report)
+            self.assertIn("tools", report)
+            self.assertIn("next_actions", report)
+            self.assertTrue(bool(report["tools"]["train_agent"]["exists"]))
+            self.assertTrue(bool(report["readiness"]["core_tools_ready"]))
+            self.assertTrue(bool(report["readiness"]["memory_bank_present"]))
+
+    def test_execute_argv_doctor_json(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = execute_argv(["doctor", "--json"])
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn("\"product\"", text)
+        self.assertIn("\"readiness\"", text)
+        self.assertIn("\"next_actions\"", text)
 
     def test_execute_argv_train_profile_dry_run(self):
         buf = io.StringIO()
@@ -155,6 +237,25 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertIn("promotion_sentinel.py", text.replace("\\", "/"))
         self.assertIn("--status", text)
         self.assertIn("--json", text)
+
+    def test_execute_argv_sim2real_dry_run(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = execute_argv(["sim2real", "--profiles", "mild", "--dry-run"])
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn("evaluate_sim2real.py", text.replace("\\", "/"))
+        self.assertIn("--profiles mild", text)
+
+    def test_execute_argv_sim_preview_dry_run(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = execute_argv(["sim", "preview", "--provider", "multiverse_local", "--dry-run"])
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn("multiverse_sim.py", text.replace("\\", "/"))
+        self.assertIn("preview", text)
+        self.assertIn("multiverse_local", text)
 
     def test_shell_autocomplete_and_theme_controls(self):
         sh = InteractiveShell(
@@ -188,6 +289,10 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertGreaterEqual(len(pages), 2)
         self.assertIn("title", pages[0])
         self.assertIn("items", pages[0])
+        flat = " ".join(" ".join(page.get("items", [])) for page in pages)
+        self.assertIn("doctor", flat)
+        self.assertIn("sim list", flat)
+        self.assertIn("sim2real", flat)
 
     def test_discover_and_resolve_runs(self):
         with tempfile.TemporaryDirectory() as td:

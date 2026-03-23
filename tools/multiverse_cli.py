@@ -170,6 +170,18 @@ def _render_cmd(cmd: List[str]) -> str:
     return shlex.join([str(x) for x in cmd])
 
 
+def _human_bytes(n: int) -> str:
+    size = float(max(0, int(n)))
+    units = ["B", "KB", "MB", "GB", "TB"]
+    idx = 0
+    while size >= 1024.0 and idx < len(units) - 1:
+        size /= 1024.0
+        idx += 1
+    if idx == 0:
+        return f"{int(size)}{units[idx]}"
+    return f"{size:.1f}{units[idx]}"
+
+
 def run_process(cmd: List[str], *, capture_output: bool = False) -> str:
     proc = subprocess.run(
         cmd,
@@ -313,8 +325,167 @@ def cmd_status(args: argparse.Namespace) -> int:
     print("Quick Start")
     print("-----------")
     print("multiverse universe list")
+    print("multiverse sim list")
+    print("multiverse doctor")
+    print("multiverse sim2real --dry-run")
     print("multiverse train --profile quick")
     print("multiverse runs latest")
+    return 0
+
+
+def _latest_matching_artifact(*patterns: str) -> Path | None:
+    best: Path | None = None
+    for pattern in patterns:
+        for path in PROJECT_ROOT.glob(pattern):
+            if not path.is_file():
+                continue
+            if best is None or path.stat().st_mtime > best.stat().st_mtime:
+                best = path
+    return best
+
+
+def build_doctor_report(
+    *,
+    runs_root: str,
+    central_memory_dir: str,
+) -> Dict[str, Any]:
+    register_builtin()
+    runs_path = PROJECT_ROOT / str(runs_root)
+    memory_path = PROJECT_ROOT / str(central_memory_dir)
+    tools_dir = PROJECT_ROOT / "tools"
+
+    required_tools = {
+        "train_agent": tools_dir / "train_agent.py",
+        "train_distributed": tools_dir / "train_distributed.py",
+        "multiverse_cli": tools_dir / "multiverse_cli.py",
+        "promotion_sentinel": tools_dir / "promotion_sentinel.py",
+    }
+    tool_status = {
+        name: {
+            "path": str(path),
+            "exists": bool(path.is_file()),
+        }
+        for name, path in required_tools.items()
+    }
+
+    snap = _run_snapshot(str(runs_path))
+    memory_files = {}
+    for name in ("memories.jsonl", "ltm_memories.jsonl", "stm_memories.jsonl", "tier_policy.json"):
+        path = memory_path / name
+        memory_files[name] = {
+            "path": str(path),
+            "exists": bool(path.is_file()),
+            "size_bytes": int(path.stat().st_size) if path.is_file() else 0,
+            "size_human": _human_bytes(path.stat().st_size) if path.is_file() else "0B",
+        }
+
+    latest_benchmark = _latest_matching_artifact("models/validation/retrieval_ann_benchmark*.json")
+    latest_sentinel = _latest_matching_artifact("models/tuning/promotion_sentinel/**/*.json", "models/tuning/promotion_sentinel/*.json")
+    latest_pack = _latest_matching_artifact("models/paper/paper_readiness/latest/*.json")
+
+    suggestions: List[str] = []
+    if not runs_path.exists():
+        suggestions.append("Run `multiverse train --profile quick` to create your first run artifact.")
+    elif int(snap.get("run_count", 0)) <= 0:
+        suggestions.append("Run `multiverse train --profile quick` to generate a baseline run.")
+    else:
+        suggestions.append("Inspect your latest run with `multiverse runs inspect --count-events`.")
+
+    if not memory_path.exists():
+        suggestions.append("Create central memory by running a memory-enabled workflow or ingesting runs.")
+    elif not memory_files["memories.jsonl"]["exists"]:
+        suggestions.append("Central memory root exists, but `memories.jsonl` is missing.")
+    elif not memory_files["tier_policy.json"]["exists"]:
+        suggestions.append("Add `central_memory/tier_policy.json` to control LTM/STM promotion behavior.")
+
+    if latest_benchmark is None:
+        suggestions.append("Run `python tools/benchmark_retrieval_ann.py --out_json models/validation/retrieval_ann_benchmark_v1.json` to baseline retrieval speed.")
+    if latest_sentinel is None:
+        suggestions.append("Run `multiverse sentinel --status` or `multiverse sentinel --dry-run` to validate promotion operations.")
+
+    readiness_checks = {
+        "core_tools_ready": all(bool(item["exists"]) for item in tool_status.values()),
+        "runs_root_exists": bool(runs_path.is_dir()),
+        "central_memory_exists": bool(memory_path.is_dir()),
+        "memory_bank_present": bool(memory_files["memories.jsonl"]["exists"]),
+        "benchmark_present": bool(latest_benchmark is not None),
+        "sentinel_artifact_present": bool(latest_sentinel is not None),
+    }
+
+    return {
+        "product": {
+            "name": "Multiverse",
+            "positioning": "Safe, memory-augmented RL operations framework",
+            "project_root": str(PROJECT_ROOT),
+            "python": sys.executable,
+        },
+        "readiness": readiness_checks,
+        "tools": tool_status,
+        "runs": snap,
+        "central_memory": {
+            "root": str(memory_path),
+            "exists": bool(memory_path.is_dir()),
+            "files": memory_files,
+        },
+        "artifacts": {
+            "latest_retrieval_benchmark": (str(latest_benchmark) if latest_benchmark is not None else None),
+            "latest_sentinel_summary": (str(latest_sentinel) if latest_sentinel is not None else None),
+            "latest_paper_readiness_artifact": (str(latest_pack) if latest_pack is not None else None),
+        },
+        "next_actions": suggestions,
+    }
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    report = build_doctor_report(
+        runs_root=str(args.runs_root),
+        central_memory_dir=str(args.central_memory_dir),
+    )
+    if bool(args.json):
+        print(json.dumps(report, indent=2))
+        return 0
+
+    print("Multiverse Doctor")
+    print("-----------------")
+    print(f"Product         : {report['product']['positioning']}")
+    print(f"Project root    : {report['product']['project_root']}")
+    print(f"Python          : {report['product']['python']}")
+    print("")
+    print("Readiness")
+    print("---------")
+    for key, ok in report["readiness"].items():
+        label = key.replace("_", " ")
+        print(f"{label:<22}: {'ok' if ok else 'needs attention'}")
+    print("")
+    print("Core Tools")
+    print("----------")
+    for name, info in report["tools"].items():
+        print(f"{name:<18}: {'present' if info['exists'] else 'missing'}")
+    print("")
+    print("Runs")
+    print("----")
+    print(f"Runs root       : {report['runs']['runs_root']}")
+    print(f"Run count       : {report['runs']['run_count']}")
+    latest = report["runs"].get("latest")
+    print(f"Latest run      : {latest['run_id'] if latest else 'none'}")
+    print("")
+    print("Central Memory")
+    print("--------------")
+    for name, info in report["central_memory"]["files"].items():
+        state = info["size_human"] if info["exists"] else "missing"
+        print(f"{name:<18}: {state}")
+    print("")
+    print("Artifacts")
+    print("---------")
+    artifacts = report["artifacts"]
+    print(f"Retrieval bench : {artifacts['latest_retrieval_benchmark'] or 'missing'}")
+    print(f"Sentinel summary: {artifacts['latest_sentinel_summary'] or 'missing'}")
+    print(f"Paper artifact  : {artifacts['latest_paper_readiness_artifact'] or 'missing'}")
+    print("")
+    print("Next Actions")
+    print("------------")
+    for item in report["next_actions"]:
+        print(f"- {item}")
     return 0
 
 
@@ -330,6 +501,100 @@ def cmd_hub(args: argparse.Namespace) -> int:
     if bool(args.once):
         cmd.append("--once")
     cmd.extend(_normalize_remainder(args.extra))
+    if bool(args.dry_run):
+        print(_render_cmd(cmd))
+        return 0
+    capture = bool(getattr(args, "_capture_subprocess_output", False))
+    out = run_process(cmd, capture_output=capture)
+    if capture and out:
+        print(out.rstrip("\n"))
+    return 0
+
+
+def build_sim_control_cmd(args: argparse.Namespace) -> List[str]:
+    cmd = [
+        sys.executable,
+        str(PROJECT_ROOT / "tools" / "multiverse_sim.py"),
+        str(args.sim_command),
+    ]
+    if str(args.sim_command) in ("list", "ls"):
+        if bool(args.json):
+            cmd.append("--json")
+        return cmd
+    if str(args.sim_command) in ("preview", "show"):
+        cmd.extend(
+            [
+                "--provider",
+                str(args.provider),
+                "--verse",
+                str(args.verse),
+                "--episodes",
+                str(int(args.episodes)),
+                "--max_steps",
+                str(int(args.max_steps)),
+                "--seed",
+                str(int(args.seed)),
+            ]
+        )
+        if bool(args.show_final_frame):
+            cmd.append("--show-final-frame")
+        if bool(args.json):
+            cmd.append("--json")
+        cmd.extend(_normalize_remainder(args.extra))
+        return cmd
+    raise ValueError(f"Unknown sim subcommand: {args.sim_command}")
+
+
+def cmd_sim(args: argparse.Namespace) -> int:
+    cmd = build_sim_control_cmd(args)
+    if bool(args.dry_run):
+        print(_render_cmd(cmd))
+        return 0
+    capture = bool(getattr(args, "_capture_subprocess_output", False))
+    out = run_process(cmd, capture_output=capture)
+    if capture and out:
+        print(out.rstrip("\n"))
+    return 0
+
+
+def build_sim2real_cmd(args: argparse.Namespace) -> List[str]:
+    cmd = [
+        sys.executable,
+        str(PROJECT_ROOT / "tools" / "evaluate_sim2real.py"),
+        "--verse",
+        str(args.verse),
+        "--algo",
+        str(args.algo),
+        "--episodes",
+        str(int(args.episodes)),
+        "--max_steps",
+        str(int(args.max_steps)),
+        "--seed",
+        str(int(args.seed)),
+        "--runs_root",
+        str(args.runs_root),
+        "--profiles",
+        str(args.profiles),
+        "--max_success_rate_drop",
+        str(float(args.max_success_rate_drop)),
+        "--max_return_drop",
+        str(float(args.max_return_drop)),
+    ]
+    if bool(args.train):
+        cmd.append("--train")
+    if str(args.manifest_path).strip():
+        cmd.extend(["--manifest_path", str(args.manifest_path).strip()])
+    if str(args.out_json).strip():
+        cmd.extend(["--out_json", str(args.out_json).strip()])
+    if bool(args.json):
+        cmd.append("--json")
+    for item in _normalize_remainder(args.extra):
+        cmd.append(str(item))
+    return cmd
+
+
+def cmd_sim2real(args: argparse.Namespace) -> int:
+    cmd = build_sim2real_cmd(args)
     if bool(args.dry_run):
         print(_render_cmd(cmd))
         return 0
@@ -443,6 +708,9 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  multiverse status\n"
+            "  multiverse sim list\n"
+            "  multiverse doctor\n"
+            "  multiverse sim2real --dry-run\n"
             "  multiverse shell\n"
             "  multiverse universe list --contains line\n"
             "  multiverse train --profile quick\n"
@@ -458,6 +726,57 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--runs-root", type=str, default="runs")
     p_status.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
     p_status.set_defaults(func=cmd_status)
+
+    p_doctor = sub.add_parser("doctor", aliases=["check"], help="Environment readiness and recommended next actions.")
+    p_doctor.add_argument("--runs-root", type=str, default="runs")
+    p_doctor.add_argument("--central-memory-dir", dest="central_memory_dir", type=str, default="central_memory")
+    p_doctor.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_doctor.set_defaults(func=cmd_doctor)
+
+    p_sim = sub.add_parser(
+        "sim",
+        aliases=["sims"],
+        help="Simulator provider commands and local visual preview.",
+    )
+    sub_sim = p_sim.add_subparsers(dest="sim_command", required=True)
+    p_sim_list = sub_sim.add_parser("list", aliases=["ls"], help="List known simulator providers.")
+    p_sim_list.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_sim_list.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
+    p_sim_list.set_defaults(func=cmd_sim)
+
+    p_sim_preview = sub_sim.add_parser("preview", aliases=["show"], help="Preview the built-in local visual simulator.")
+    p_sim_preview.add_argument("--provider", type=str, default="multiverse_local")
+    p_sim_preview.add_argument("--universe", "--verse", dest="verse", type=str, default="line_world")
+    p_sim_preview.add_argument("--episodes", type=int, default=1)
+    p_sim_preview.add_argument("--max-steps", dest="max_steps", type=int, default=12)
+    p_sim_preview.add_argument("--seed", type=int, default=123)
+    p_sim_preview.add_argument("--show-final-frame", dest="show_final_frame", action=argparse.BooleanOptionalAction, default=False)
+    p_sim_preview.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_sim_preview.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
+    p_sim_preview.add_argument("extra", nargs=argparse.REMAINDER, help="Extra flags for multiverse_sim.py (use -- before extras).")
+    p_sim_preview.set_defaults(func=cmd_sim)
+
+    p_sim2real = sub.add_parser(
+        "sim2real",
+        aliases=["s2r"],
+        help="Evaluate a policy under bounded sim-to-real stress profiles.",
+    )
+    p_sim2real.add_argument("--universe", "--verse", dest="verse", type=str, default="warehouse_world")
+    p_sim2real.add_argument("--algo", type=str, default="gateway")
+    p_sim2real.add_argument("--episodes", type=int, default=20)
+    p_sim2real.add_argument("--max-steps", dest="max_steps", type=int, default=80)
+    p_sim2real.add_argument("--seed", type=int, default=123)
+    p_sim2real.add_argument("--runs-root", type=str, default="runs")
+    p_sim2real.add_argument("--profiles", type=str, default="all")
+    p_sim2real.add_argument("--manifest-path", dest="manifest_path", type=str, default=os.path.join("models", "default_policy_set.json"))
+    p_sim2real.add_argument("--train", action=argparse.BooleanOptionalAction, default=False)
+    p_sim2real.add_argument("--max-success-rate-drop", dest="max_success_rate_drop", type=float, default=0.15)
+    p_sim2real.add_argument("--max-return-drop", dest="max_return_drop", type=float, default=2.0)
+    p_sim2real.add_argument("--out-json", dest="out_json", type=str, default="")
+    p_sim2real.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_sim2real.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
+    p_sim2real.add_argument("extra", nargs=argparse.REMAINDER, help="Extra flags for evaluate_sim2real.py (use -- before extras).")
+    p_sim2real.set_defaults(func=cmd_sim2real)
 
     p_uni = sub.add_parser("universe", aliases=["u"], help="Universe (verse) commands.")
     sub_uni = p_uni.add_subparsers(dest="universe_command", required=True)
