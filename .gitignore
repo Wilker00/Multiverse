@@ -13,6 +13,7 @@ __pycache__/
 .history/
 .vscode/
 .agent/
+.claude/
 
 # Detached venv directories (left behind by broken .venv rebuild)
 Lib/
@@ -63,10 +64,14 @@ theory/gap_report*.txt
 
 # Large local binaries/checkpoints
 *.pt
+*.pt.r*
 *.pth
 *.onnx
 *.sqlite
 *.prof
+
+# Generated paper backup snapshots
+models/paper/paper_readiness/backup_*/
 
 # OS junk
 .DS_Store
