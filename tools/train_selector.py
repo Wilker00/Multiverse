@@ -261,7 +261,12 @@ def train(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", type=str, default="training_batch.pt", help="Path to the pre-compiled training data.")
+    parser.add_argument(
+        "--data_path",
+        type=str,
+        default=os.path.join("artifacts", "selector", "training_batch.pt"),
+        help="Path to the pre-compiled training data.",
+    )
     parser.add_argument("--model_save_path", type=str, default="models/micro_selector.pt", help="Path to save the trained model.")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs.")
     parser.add_argument("--batch_size", type=int, default=64, help="Training batch size.")

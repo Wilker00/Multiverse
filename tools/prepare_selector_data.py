@@ -109,7 +109,7 @@ def _pad_sequences(sequences: List[List[float]]) -> Tuple[torch.Tensor, int]:
 def prepare_data(
     runs_root: str,
     lessons_dir: str,
-    output_path: str = "training_batch.pt",
+    output_path: str = os.path.join("artifacts", "selector", "training_batch.pt"),
     reward_threshold: float = 0.8,
     verse_filter: Optional[List[str]] = None,
     episode_success_only: bool = False,
@@ -283,6 +283,9 @@ def prepare_data(
         'class_counts_after': dict(after_counts),
     }
     
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     torch.save(data, output_path)
     print(f"\\nDataset saved to {output_path}.")
     print(f"  Total samples: {len(all_states)}")
@@ -301,7 +304,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs_root", type=str, default="runs", help="Directory containing all run logs.")
     parser.add_argument("--lessons_dir", type=str, default="lessons", help="Directory containing .txt lesson files.")
-    parser.add_argument("--output_path", type=str, default="training_batch.pt", help="Path to save the output tensor file.")
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        default=os.path.join("artifacts", "selector", "training_batch.pt"),
+        help="Path to save the output tensor file.",
+    )
     parser.add_argument("--reward_threshold", type=float, default=0.8, help="Only include events with reward > threshold.")
     parser.add_argument("--verse_filter", action="append", default=None, help="Optional verse filter (repeatable).")
     parser.add_argument("--episode_success_only", action=argparse.BooleanOptionalAction, default=False, help="Keep only events from success episodes.")

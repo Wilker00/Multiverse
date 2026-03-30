@@ -829,7 +829,11 @@ def main() -> None:
     ap.add_argument("--heal_mcts_max_steps", type=int, default=80)
     ap.add_argument("--heal_meta_checkpoint", type=str, default=os.path.join("models", "meta_transformer.pt"))
     ap.add_argument("--heal_trace_out", type=str, default=os.path.join("models", "expert_datasets", "mcts_trace_dataset.jsonl"))
-    ap.add_argument("--heal_selector_batch_path", type=str, default="training_batch.pt")
+    ap.add_argument(
+        "--heal_selector_batch_path",
+        type=str,
+        default=os.path.join("artifacts", "selector", "training_batch.pt"),
+    )
     ap.add_argument("--heal_selector_model_path", type=str, default=os.path.join("models", "micro_selector.pt"))
     ap.add_argument("--heal_selector_epochs", type=int, default=8)
     ap.add_argument("--heal_selector_reward_threshold", type=float, default=0.8)

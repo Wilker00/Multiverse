@@ -47,9 +47,9 @@ multiverse sim preview --provider multiverse_local --verse line_world --episodes
 - [RL Concepts](RL_CONCEPTS.md)
 - [Project Introduction](PROJECT_INTRO.md)
 - [Quickstart](QUICKSTART.md)
-- [Verse Documentation Index](../VERSE_DOCUMENTATION_INDEX.md)
+- [Verse Documentation Index](verses/VERSE_DOCUMENTATION_INDEX.md)
 
 ## Notes
 
 - The broader tutorial set described in an earlier local draft is not complete yet. Only `tutorials/01_hello_world.md` exists today.
-- Keep future additions to this page aligned with files that are already present in `docs/` or the repository root.
+- Keep future additions to this page aligned with files that are already present in `docs/`.

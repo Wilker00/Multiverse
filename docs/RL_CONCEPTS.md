@@ -91,7 +91,7 @@ Relevant docs:
 - [Memory System Strengthening Summary](MEMORY_SYSTEM_STRENGTHENING_SUMMARY.md)
 - [Phase 2 Implementation Guide](PHASE2_IMPLEMENTATION_GUIDE.md)
 - [Engineering Audit](ENGINEERING_AUDIT.md)
-- [Verse Documentation Index](../VERSE_DOCUMENTATION_INDEX.md)
+- [Verse Documentation Index](verses/VERSE_DOCUMENTATION_INDEX.md)
 
 ## Safety And Runtime Control
 

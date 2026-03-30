@@ -35,18 +35,21 @@ Interactive notebooks:
 - [Engineering Audit](ENGINEERING_AUDIT.md)
 - [Memory System Strengthening Summary](MEMORY_SYSTEM_STRENGTHENING_SUMMARY.md)
 - [Phase 2 Implementation Guide](PHASE2_IMPLEMENTATION_GUIDE.md)
-- [Cleanup Report](../CLEANUP_REPORT_20260322.md)
-- [Session Improvements](../SESSION_IMPROVEMENTS.md)
 - [Stale Tools](../STALE_TOOLS.md)
+
+## Archived Notes
+
+- [Cleanup Report](../archive/docs_history/CLEANUP_REPORT_20260322.md)
+- [Session Improvements](../archive/docs_history/SESSION_IMPROVEMENTS.md)
 
 ## Verse Integration Notes
 
-These verse docs currently live at the repo root:
+These verse docs now live under `docs/verses/`:
 
-- [Verse Documentation Index](../VERSE_DOCUMENTATION_INDEX.md)
-- [Verse Integration Analysis](../VERSE_INTEGRATION_ANALYSIS.md)
-- [Verse Flow Diagrams](../VERSE_FLOW_DIAGRAMS.md)
-- [Verse Quick Reference](../VERSE_QUICK_REFERENCE.md)
+- [Verse Documentation Index](verses/VERSE_DOCUMENTATION_INDEX.md)
+- [Verse Integration Analysis](verses/VERSE_INTEGRATION_ANALYSIS.md)
+- [Verse Flow Diagrams](verses/VERSE_FLOW_DIAGRAMS.md)
+- [Verse Quick Reference](verses/VERSE_QUICK_REFERENCE.md)
 
 ## Verified CLI Commands
 
