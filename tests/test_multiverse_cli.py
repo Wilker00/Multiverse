@@ -104,7 +104,8 @@ class TestMultiverseCli(unittest.TestCase):
             ]
         )
         cmd = build_sim2real_cmd(args)
-        self.assertIn("evaluate_sim2real.py", cmd[1].replace("\\", "/"))
+        self.assertIn("multiverse_sim.py", cmd[1].replace("\\", "/"))
+        self.assertEqual(cmd[2], "sim2real")
         self.assertIn("--profiles", cmd)
         self.assertIn("mild,severe", cmd)
         self.assertIn("--json", cmd)
@@ -244,7 +245,8 @@ class TestMultiverseCli(unittest.TestCase):
             rc = execute_argv(["sim2real", "--profiles", "mild", "--dry-run"])
         self.assertEqual(rc, 0)
         text = buf.getvalue()
-        self.assertIn("evaluate_sim2real.py", text.replace("\\", "/"))
+        self.assertIn("multiverse_sim.py", text.replace("\\", "/"))
+        self.assertIn(" sim2real ", text)
         self.assertIn("--profiles mild", text)
 
     def test_execute_argv_sim_preview_dry_run(self):

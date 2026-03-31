@@ -6,6 +6,7 @@ Like Gymnasium's human render mode, but for Multiverse.
 
 Usage:
     py tools/watch.py --mode watch --verse maze_world --algo q --train
+    py tools/watch.py --mode watch --frontend pygame --verse maze_world --algo q --train
     py tools/watch.py --mode debug --verse maze_world --algo q --safe_guard --clear_screen
     py tools/watch.py --mode replay --run_dir runs/run_x --show_safety_heatmap
     py tools/watch.py --verse maze_world
@@ -17,6 +18,7 @@ Usage:
 
 Options:
     --mode      watch | debug | replay (default: watch)
+    --frontend  ansi | pygame for watch mode (default: ansi)
     --verse     Verse name (default: maze_world)
     --algo      Agent algorithm (default: q)
     --train     Enable online learning between episodes
@@ -512,6 +514,42 @@ def _forward_to_gym_like_viewer(
     return int(proc.returncode)
 
 
+def _forward_to_watch_pygame(args: argparse.Namespace) -> int:
+    """
+    Forward watch mode to the pygame frontend while keeping watch.py as the
+    canonical viewer entrypoint.
+    """
+    viewer_path = os.path.join(_ROOT, "tools", "watch_pygame.py")
+    cmd: List[str] = [
+        sys.executable,
+        viewer_path,
+        "--verse",
+        str(args.verse),
+        "--algo",
+        str(args.algo),
+        "--episodes",
+        str(max(0, int(args.episodes))),
+        "--fps",
+        str(max(0.0, float(args.fps))),
+        "--seed",
+        str(int(args.seed)),
+        "--width",
+        str(max(1, int(args.width))),
+        "--height",
+        str(max(1, int(args.height))),
+    ]
+    if bool(args.train):
+        cmd.append("--train")
+    if int(args.max_steps) > 0:
+        cmd.extend(["--max-steps", str(int(args.max_steps))])
+    for item in (args.vparam or []):
+        cmd.extend(["--vparam", str(item)])
+    for item in (args.aconfig or []):
+        cmd.extend(["--aconfig", str(item)])
+    proc = subprocess.run(cmd, cwd=_ROOT)
+    return int(proc.returncode)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
@@ -526,10 +564,12 @@ def main() -> None:
         epilog=(
             f"Verses : {', '.join(known_verses)}\n"
             f"Agents : {', '.join(known_algos)}\n"
+            "Note: In --mode watch, --frontend pygame forwards to tools/watch_pygame.py.\n"
             "Note: In --mode debug/replay, extra args are forwarded to tools/gym_like_viewer.py."
         ),
     )
     ap.add_argument("--mode",     default="watch", choices=["watch", "debug", "replay"], help="Viewer mode")
+    ap.add_argument("--frontend", default="ansi", choices=["ansi", "pygame"], help="Watch-mode frontend")
     ap.add_argument("--verse",    default="maze_world",  help="Verse to run")
     ap.add_argument("--algo",     default="q",           help="Agent algorithm")
     ap.add_argument("--train",    action="store_true",   help="Enable online learning")
@@ -537,6 +577,8 @@ def main() -> None:
     ap.add_argument("--fps",      type=float, default=6, help="Steps per second (0=max speed)")
     ap.add_argument("--seed",     type=int, default=42,  help="Random seed")
     ap.add_argument("--max-steps",type=int, default=0,   help="Override max steps per episode (0=verse default)")
+    ap.add_argument("--width",    type=int, default=720, help="Pygame window width")
+    ap.add_argument("--height",   type=int, default=640, help="Pygame window height")
     ap.add_argument("--vparam",   action="append", default=None, metavar="K=V", help="Verse param (repeatable)")
     ap.add_argument("--aconfig",  action="append", default=None, metavar="K=V", help="Agent config (repeatable)")
     ap.add_argument("--no-color", action="store_true",   help="Disable ANSI colour")
@@ -558,6 +600,9 @@ def main() -> None:
                 + "\nTip: use --mode debug/replay for gym_like_viewer flags."
             )
             sys.exit(2)
+        if str(args.frontend).strip().lower() == "pygame":
+            rc = _forward_to_watch_pygame(args)
+            raise SystemExit(rc)
     else:
         if args.train:
             print("[watch] Note: --train is watch-mode only; ignored in debug/replay.")

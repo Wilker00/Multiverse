@@ -560,7 +560,8 @@ def cmd_sim(args: argparse.Namespace) -> int:
 def build_sim2real_cmd(args: argparse.Namespace) -> List[str]:
     cmd = [
         sys.executable,
-        str(PROJECT_ROOT / "tools" / "evaluate_sim2real.py"),
+        str(PROJECT_ROOT / "tools" / "multiverse_sim.py"),
+        "sim2real",
         "--verse",
         str(args.verse),
         "--algo",
@@ -775,7 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sim2real.add_argument("--out-json", dest="out_json", type=str, default="")
     p_sim2real.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
     p_sim2real.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
-    p_sim2real.add_argument("extra", nargs=argparse.REMAINDER, help="Extra flags for evaluate_sim2real.py (use -- before extras).")
+    p_sim2real.add_argument("extra", nargs=argparse.REMAINDER, help="Extra flags for multiverse_sim.py sim2real (use -- before extras).")
     p_sim2real.set_defaults(func=cmd_sim2real)
 
     p_uni = sub.add_parser("universe", aliases=["u"], help="Universe (verse) commands.")
