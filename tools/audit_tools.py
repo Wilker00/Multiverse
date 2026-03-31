@@ -11,7 +11,7 @@ Run:
     .venv312\\Scripts\\python.exe tools\\audit_tools.py [--fix]
 
 With --fix: renames stale scripts with a _stale prefix and creates
-a STALE_TOOLS.md summary file in the project root.
+a STALE_TOOLS.md summary file under docs/maintenance/.
 """
 from __future__ import annotations
 
@@ -78,6 +78,8 @@ TOOL_CLASSIFICATION: Dict[str, Tuple[str, str]] = {
     "update_centroid.py":      ("SUPPORT",  "Centroid policy training utilities"),
     "multiverse_cli_runs.py":  ("SUPPORT",  "Run inspection helpers for the CLI"),
     "multiverse_cli_shell.py": ("SUPPORT",  "Interactive shell helpers for the CLI"),
+    "multiverse_sim.py":       ("SUPPORT",  "Simulator provider and preview control-plane helper"),
+    "evaluate_sim2real.py":    ("SUPPORT",  "Bounded sim-to-real assessment helper"),
     "build_near_universe_source_bank.py": ("SUPPORT", "Build near-universe transfer source banks"),
     "memory_soak_gate.py":     ("SUPPORT",  "Memory soak and RSS slope gate"),
     "watch.py":                ("SUPPORT",  "Live verse renderer"),
@@ -209,7 +211,8 @@ def audit_tools(fix: bool = False) -> None:
     print(f"{'=' * 70}")
 
     # Write STALE_TOOLS.md
-    md_path = PROJECT_ROOT / "STALE_TOOLS.md"
+    md_path = PROJECT_ROOT / "docs" / "maintenance" / "STALE_TOOLS.md"
+    md_path.parent.mkdir(parents=True, exist_ok=True)
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("# Stale Tools\n\n")
         f.write("These scripts have been identified as stale, one-off artifacts, or superseded.\n")

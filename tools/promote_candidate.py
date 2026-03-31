@@ -347,7 +347,7 @@ def _promote_manifest(
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--suite", type=str, default=os.path.join("experiment", "benchmark_suite.yaml"))
+    ap.add_argument("--suite", type=str, default="benchmark_suite.yaml")
     ap.add_argument("--history_db", type=str, default=os.path.join("models", "bench_history.sqlite"))
 
     ap.add_argument("--candidate_algo", type=str, required=True)

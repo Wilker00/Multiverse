@@ -35,7 +35,11 @@ Interactive notebooks:
 - [Engineering Audit](ENGINEERING_AUDIT.md)
 - [Memory System Strengthening Summary](MEMORY_SYSTEM_STRENGTHENING_SUMMARY.md)
 - [Phase 2 Implementation Guide](PHASE2_IMPLEMENTATION_GUIDE.md)
-- [Stale Tools](../STALE_TOOLS.md)
+
+## Maintenance
+
+- [Benchmarks](maintenance/BENCHMARKS.md)
+- [Stale Tools](maintenance/STALE_TOOLS.md)
 
 ## Archived Notes
 

@@ -1094,7 +1094,7 @@ class ExperimentConfig:
 ### 7.3 Verse Params Examples
 
 ```python
-# From experiment/benchmark_suite.yaml
+# From benchmark_suite.yaml
 
 {
   "verse_name": "cliff_world",
