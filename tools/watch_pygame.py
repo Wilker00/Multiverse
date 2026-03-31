@@ -4,6 +4,8 @@ tools/watch_pygame.py
 Gymnasium-style graphical viewer for any Multiverse verse.
 Opens a pygame window and shows the verse being trained in real time —
 color-coded tile grid for spatial worlds, stats dashboard for abstract worlds.
+This remains available directly, but `tools/watch.py --frontend pygame` is the
+canonical watch entrypoint.
 
 Usage:
     py tools/watch_pygame.py                                       # maze_world defaults

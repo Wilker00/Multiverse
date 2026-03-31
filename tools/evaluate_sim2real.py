@@ -71,7 +71,7 @@ def _parse_kv_pairs(values: Optional[Sequence[str]]) -> Dict[str, Any]:
     return out
 
 
-def _parse_profile_list(raw: str) -> List[str]:
+def parse_profile_list(raw: str) -> List[str]:
     items = [str(x).strip().lower() for x in str(raw or "").replace(";", ",").split(",") if str(x).strip()]
     if not items:
         return list_sim2real_profiles()
@@ -309,8 +309,7 @@ def _print_human_report(report: Dict[str, Any]) -> None:
         )
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Evaluate an agent under bounded sim-to-real stress profiles.")
+def add_cli_arguments(ap: argparse.ArgumentParser) -> argparse.ArgumentParser:
     ap.add_argument("--verse", type=str, default="warehouse_world")
     ap.add_argument("--algo", type=str, default="gateway")
     ap.add_argument("--episodes", type=int, default=20)
@@ -326,7 +325,15 @@ def main() -> None:
     ap.add_argument("--max_return_drop", type=float, default=2.0)
     ap.add_argument("--out_json", type=str, default="")
     ap.add_argument("--json", action="store_true")
-    args = ap.parse_args()
+    return ap
+
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description="Evaluate an agent under bounded sim-to-real stress profiles.")
+    return add_cli_arguments(ap)
+
+
+def run_cli(args: argparse.Namespace) -> int:
 
     verse_params = _parse_kv_pairs(args.vparam)
     agent_config = _parse_kv_pairs(args.aconfig)
@@ -342,7 +349,7 @@ def main() -> None:
         max_steps=int(args.max_steps),
         seed=int(args.seed),
         runs_root=str(args.runs_root),
-        profiles=_parse_profile_list(args.profiles),
+        profiles=parse_profile_list(args.profiles),
         verse_params=verse_params,
         agent_config=agent_config,
         max_success_rate_drop=float(args.max_success_rate_drop),
@@ -357,13 +364,19 @@ def main() -> None:
 
     if bool(args.json):
         print(json.dumps(report, ensure_ascii=False, indent=2))
-        return
+        return 0
 
     _print_human_report(report)
     if str(args.out_json).strip():
         print("")
         print(f"report: {str(args.out_json).strip()}")
+    return 0
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    args = build_parser().parse_args(argv)
+    return run_cli(args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

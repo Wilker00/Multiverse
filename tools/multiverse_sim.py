@@ -12,7 +12,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 if __package__ in (None, ""):
     _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,7 +21,8 @@ if __package__ in (None, ""):
 
 from integrations.local_visual_sim import preview_local_visual_sim
 from integrations.sim_registry import get_sim_provider, list_sim_provider_status
-from tools.evaluate_sim2real import assess_sim2real, list_sim2real_profiles
+from tools.evaluate_sim2real import add_cli_arguments as add_sim2real_cli_arguments
+from tools.evaluate_sim2real import run_cli as run_sim2real_cli
 
 
 def _parse_scalar(raw: str) -> Any:
@@ -104,73 +105,8 @@ def _cmd_preview(args: argparse.Namespace) -> int:
     return 0
 
 
-def _parse_profile_list(raw: str) -> List[str]:
-    items = [str(x).strip().lower() for x in str(raw or "").replace(";", ",").split(",") if str(x).strip()]
-    if not items or (len(items) == 1 and items[0] == "all"):
-        return list_sim2real_profiles()
-    return items
-
-
 def _cmd_sim2real(args: argparse.Namespace) -> int:
-    verse_params = _parse_kv_pairs(args.vparam)
-    agent_config = _parse_kv_pairs(args.aconfig)
-    if bool(args.train):
-        agent_config.setdefault("train", True)
-    if str(args.manifest_path or "").strip():
-        agent_config.setdefault("manifest_path", str(args.manifest_path).strip())
-
-    report = assess_sim2real(
-        verse_name=str(args.verse),
-        algo=str(args.algo),
-        episodes=int(args.episodes),
-        max_steps=int(args.max_steps),
-        seed=int(args.seed),
-        runs_root=str(args.runs_root),
-        profiles=_parse_profile_list(str(args.profiles)),
-        verse_params=verse_params,
-        agent_config=agent_config,
-        max_success_rate_drop=float(args.max_success_rate_drop),
-        max_return_drop=float(args.max_return_drop),
-    )
-
-    if str(args.out_json or "").strip():
-        out_path = str(args.out_json).strip()
-        import os
-        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as fh:
-            import json as _json
-            _json.dump(report, fh, ensure_ascii=False, indent=2)
-
-    if bool(args.json):
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-        return 0
-
-    summary = dict(report.get("summary") or {})
-    print("Sim-to-Real Assessment")
-    print("----------------------")
-    print(f"Verse           : {report.get('verse_name')}")
-    print(f"Algo            : {report.get('algo')}")
-    print(f"Episodes        : {report.get('episodes')}")
-    print(f"Max steps       : {report.get('max_steps')}")
-    print(f"Passed          : {summary.get('passed')}")
-    base = dict((summary.get("baseline") or {}))
-    base_metrics = dict(base.get("metrics") or {})
-    print("")
-    print("Baseline")
-    print(f"  mean_return   : {base_metrics.get('mean_return')}")
-    print(f"  success_rate  : {base_metrics.get('success_rate')}")
-    print("")
-    print("Profiles")
-    for row in summary.get("comparisons") or []:
-        print(
-            f"  {row['name']:<10} pass={row['passed']} "
-            f"return_drop={row['mean_return_drop']:.4f} "
-            f"support={row['support_level']}"
-        )
-    if str(args.out_json or "").strip():
-        print("")
-        print(f"report: {str(args.out_json).strip()}")
-    return 0
+    return int(run_sim2real_cli(args))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -197,22 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
         aliases=["s2r"],
         help="Run bounded sim-to-real stress assessment for a verse and agent.",
     )
-    p_s2r.add_argument("--verse", type=str, default="warehouse_world")
-    p_s2r.add_argument("--algo", type=str, default="random")
-    p_s2r.add_argument("--episodes", type=int, default=10)
-    p_s2r.add_argument("--max_steps", type=int, default=60)
-    p_s2r.add_argument("--seed", type=int, default=123)
-    p_s2r.add_argument("--runs_root", type=str, default="runs")
-    p_s2r.add_argument("--profiles", type=str, default="all",
-                       help="Comma-separated list of profiles or 'all'. Choices: mild, moderate, severe.")
-    p_s2r.add_argument("--vparam", action="append", default=None, help="Verse param override k=v")
-    p_s2r.add_argument("--aconfig", action="append", default=None, help="Agent config override k=v")
-    p_s2r.add_argument("--manifest_path", type=str, default="")
-    p_s2r.add_argument("--train", action="store_true")
-    p_s2r.add_argument("--max_success_rate_drop", type=float, default=0.15)
-    p_s2r.add_argument("--max_return_drop", type=float, default=2.0)
-    p_s2r.add_argument("--out_json", type=str, default="")
-    p_s2r.add_argument("--json", action="store_true")
+    add_sim2real_cli_arguments(p_s2r)
     p_s2r.set_defaults(func=_cmd_sim2real)
 
     return ap
