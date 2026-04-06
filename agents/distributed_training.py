@@ -18,6 +18,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from core.run_artifacts import write_run_artifact_manifest
 from agents.pbt_controller import PBTConfig, PBTController
 from core.types import AgentSpec, VerseSpec
 
@@ -107,7 +108,16 @@ class LocalDistributedTrainer:
 
         merged_run_id = None
         if self.config.merge_results:
-            merged_run_id = self._merge_runs(run_prefix=run_prefix, shard_results=results)
+            merged_run_id = self._merge_runs(
+                run_prefix=run_prefix,
+                shard_results=results,
+                verse_name=str(verse_spec.verse_name),
+                policy_id=str(agent_spec.policy_id),
+                algo=str(agent_spec.algo),
+                seed=int(seed),
+                episodes_requested=int(total_episodes),
+                max_steps=int(max_steps),
+            )
 
         return {
             "run_id": merged_run_id or run_prefix,
@@ -186,7 +196,18 @@ class LocalDistributedTrainer:
         rem = total % workers
         return [base + (1 if i < rem else 0) for i in range(workers)]
 
-    def _merge_runs(self, *, run_prefix: str, shard_results: List[Dict[str, Any]]) -> str:
+    def _merge_runs(
+        self,
+        *,
+        run_prefix: str,
+        shard_results: List[Dict[str, Any]],
+        verse_name: Optional[str] = None,
+        policy_id: Optional[str] = None,
+        algo: Optional[str] = None,
+        seed: Optional[int] = None,
+        episodes_requested: Optional[int] = None,
+        max_steps: Optional[int] = None,
+    ) -> str:
         merged_run_id = f"{run_prefix}_merged"
         merged_dir = os.path.join(self.config.run_root, merged_run_id)
         os.makedirs(merged_dir, exist_ok=True)
@@ -227,6 +248,19 @@ class LocalDistributedTrainer:
                 ensure_ascii=False,
                 indent=2,
             )
+        write_run_artifact_manifest(
+            merged_dir,
+            run_kind="distributed_aggregate",
+            verse_name=verse_name,
+            policy_id=policy_id,
+            algo=algo,
+            seed=seed,
+            episodes_requested=episodes_requested,
+            max_steps=max_steps,
+            worker_runs=[str(r.get("run_id")) for r in shard_results if r.get("run_id")],
+            total_steps=int(sum(int(r.get("total_steps", 0)) for r in shard_results)),
+            total_return=float(sum(float(r.get("total_return", 0.0)) for r in shard_results)),
+        )
         return merged_run_id
 
 

@@ -16,6 +16,12 @@ from core.agent_base import ActionResult
 from core.mcts_search import AgentPolicyPrior, MCTSConfig, MCTSSearch, MetaTransformerValue
 from core.planning_budget import PlanningBudget, PlanningBudgetConfig
 from core.runtime_confidence import RuntimeConfidenceMonitor
+from core.safe_executor_init_support import (
+    init_danger_map,
+    init_failure_signatures,
+    init_mcts,
+    resolve_verse_name,
+)
 from core.safe_executor_policy_support import (
     apply_mcts_overrides_for_verse_support,
     block_action_support,
@@ -92,72 +98,37 @@ class SafeExecutor:
         self._blocked_actions: Dict[str, Set[int]] = {}
         self._planner_buffer: List[int] = []
         self._planner_takeover_remaining: int = 0
-        self._mcts: Optional[MCTSSearch] = None
-        self._mcts_value_net: Optional[Any] = None
         self._last_mcts_result: Dict[str, JSONValue] = {}
-        self._shield: Optional[Any] = None # Will lazy init
+        self._shield: Optional[Any] = None  # Will lazy init
         self._runtime_error_counts: Dict[str, int] = {}
         self._runtime_error_recent: List[Dict[str, Any]] = []
-        self._danger_clusters: List[Dict[str, Any]] = []
-        self._danger_map_embedding_dim: int = 0
-        if self.config.danger_map_path and os.path.isfile(self.config.danger_map_path):
-            self._danger_clusters, self._danger_map_embedding_dim = load_danger_map_support(
-                self.config.danger_map_path, self._record_runtime_error
-            )
-        self._failure_signatures: List[Dict[str, Any]] = []
-        if self.config.failure_signature_path and os.path.isfile(self.config.failure_signature_path):
-            self._failure_signatures = self._load_failure_signatures(self.config.failure_signature_path)
+
+        # Danger map and failure signatures
+        self._danger_clusters, self._danger_map_embedding_dim = init_danger_map(
+            danger_map_path=self.config.danger_map_path,
+            record_runtime_error=self._record_runtime_error,
+            load_danger_map_fn=load_danger_map_support,
+        )
+        self._failure_signatures = init_failure_signatures(
+            failure_signature_path=self.config.failure_signature_path,
+            failure_signature_embedding_dim=int(self.config.failure_signature_embedding_dim),
+            record_runtime_error=self._record_runtime_error,
+            load_failure_signatures_fn=load_failure_signatures_support,
+        )
         self._load_confidence_model_if_available(self.config.confidence_model_path)
 
-        vname = ""
-        try:
-            vname = str(getattr(getattr(self.verse, "spec", None), "verse_name", "")).strip().lower()
-        except Exception as exc:
-            vname = ""
-            self._record_runtime_error(
-                code="verse_name_resolution_error",
-                exc=exc,
-                context="safe_executor.verse_name",
-            )
+        # Verse name resolution and planner/MCTS setup
+        vname = resolve_verse_name(self.verse, self._record_runtime_error)
         self._apply_mcts_overrides_for_verse(vname)
         allow = set(str(x).strip().lower() for x in (self.config.planner_verse_allowlist or []))
         self._planner_active = bool(self.config.planner_enabled) and (not allow or vname in allow)
-        self._mcts_active = bool(self.config.mcts_enabled)
-        if self._mcts_active:
-            try:
-                self._mcts = MCTSSearch(
-                    verse=self.verse,
-                    config=MCTSConfig(
-                        num_simulations=int(self.config.mcts_num_simulations),
-                        max_depth=int(self.config.mcts_max_depth),
-                        c_puct=float(self.config.mcts_c_puct),
-                        discount=float(self.config.mcts_discount),
-                        forced_loss_threshold=float(self.config.mcts_loss_threshold),
-                        forced_loss_min_visits=int(self.config.mcts_min_visits),
-                        value_confidence_threshold=float(self.config.mcts_value_confidence_threshold),
-                    ),
-                )
-            except Exception as exc:
-                self._mcts = None
-                self._mcts_active = False
-                self._record_runtime_error(
-                    code="mcts_init_error",
-                    exc=exc,
-                    context="safe_executor.mcts.init",
-                )
-        if self._mcts_active and str(self.config.mcts_meta_model_path).strip():
-            try:
-                self._mcts_value_net = MetaTransformerValue(
-                    checkpoint_path=str(self.config.mcts_meta_model_path).strip(),
-                    history_len=int(self.config.mcts_meta_history_len),
-                )
-            except Exception as exc:
-                self._mcts_value_net = None
-                self._record_runtime_error(
-                    code="mcts_value_model_load_error",
-                    exc=exc,
-                    context="safe_executor.mcts.value_model",
-                )
+
+        # MCTS initialization
+        self._mcts, self._mcts_value_net, self._mcts_active = init_mcts(
+            config=self.config,
+            verse=self.verse,
+            record_runtime_error=self._record_runtime_error,
+        )
 
         self._episode_counters: Dict[str, int] = {
             "shield_vetoes": 0,

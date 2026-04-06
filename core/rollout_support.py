@@ -47,10 +47,14 @@ def _build_memory_bundle(*, req: Dict[str, Any], matches: List[Any], step_idx: i
             "episode_id": str(getattr(m, "episode_id", "")),
             "step_idx": int(getattr(m, "step_idx", 0)),
             "verse_name": str(getattr(m, "verse_name", "")),
+            "policy_id": str(getattr(m, "policy_id", "")),
+            "source_verse_name": str(getattr(m, "source_verse_name", "")),
             "action": getattr(m, "action", None),
             "source_greedy_action": getattr(m, "source_greedy_action", None),
             "source_action_matches_greedy": getattr(m, "source_action_matches_greedy", None),
             "reward": float(getattr(m, "reward", 0.0)),
+            "transfer_score": getattr(m, "transfer_score", None),
+            "transfer_confidence": getattr(m, "transfer_confidence", None),
             "pointer_path": _memory_pointer(
                 run_id=str(getattr(m, "run_id", "")),
                 episode_id=str(getattr(m, "episode_id", "")),
@@ -70,6 +74,11 @@ def _build_memory_bundle(*, req: Dict[str, Any], matches: List[Any], step_idx: i
             "verse_name": (None if req.get("verse_name") in (None, "") else str(req.get("verse_name"))),
             "memory_families": sorted(list(_as_set(req.get("memory_families")) or set())),
             "memory_types": sorted(list(_as_set(req.get("memory_types")) or set())),
+            "policy_ids": sorted(list(_as_set(req.get("policy_ids")) or set())),
+            "exclude_policy_ids": sorted(list(_as_set(req.get("exclude_policy_ids")) or set())),
+            "source_verse_names": sorted(list(_as_set(req.get("source_verse_names")) or set())),
+            "min_transfer_score": req.get("min_transfer_score"),
+            "min_transfer_confidence": req.get("min_transfer_confidence"),
         },
         "matches": rows,
         "match_count": int(len(rows)),
@@ -257,11 +266,23 @@ def _memory_recall_transfer_decision_record(
         },
         "source": {
             "verse_name": str(source_verse),
+            "source_verse_name": str(top_match.get("source_verse_name", "")),
             "run_id": str(top_match.get("run_id", "")),
             "episode_id": str(top_match.get("episode_id", "")),
             "step_idx": (None if top_match.get("step_idx") is None else int(top_match.get("step_idx", 0))),
             "pointer_path": str(top_match.get("pointer_path", "")),
+            "policy_id": str(top_match.get("policy_id", "")),
             "score": _safe_float(top_match.get("score", 0.0), 0.0),
+            "transfer_score": (
+                None
+                if top_match.get("transfer_score") is None
+                else _safe_float(top_match.get("transfer_score", 0.0), 0.0)
+            ),
+            "transfer_confidence": (
+                None
+                if top_match.get("transfer_confidence") is None
+                else _safe_float(top_match.get("transfer_confidence", 0.0), 0.0)
+            ),
             "action": top_match.get("action"),
             "source_greedy_action": top_match.get("source_greedy_action"),
             "source_action_matches_greedy": top_match.get("source_action_matches_greedy"),

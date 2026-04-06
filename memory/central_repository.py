@@ -12,10 +12,7 @@ This module supports:
 
 from __future__ import annotations
 
-import os
 import sqlite3
-from collections import OrderedDict
-from multiprocessing import Manager
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from core.types import JSONValue
@@ -86,64 +83,26 @@ from memory.central_repository_similarity_support import (
     get_similarity_runtime_metrics_support,
     reset_similarity_runtime_metrics_support,
 )
+from memory.central_repository_state import (
+    ANN_RUNTIME_STATE as _ANN_RUNTIME_STATE,
+    CACHE_DELTAS as _CACHE_DELTAS,
+    CACHE_TTL_MS as _CACHE_TTL_MS,
+    DEDUPE_READY as _DEDUPE_READY,
+    DELTA_MERGE_THRESHOLD as _DELTA_MERGE_THRESHOLD,
+    LOCK_TIMEOUT as _LOCK_TIMEOUT,
+    QUERY_RESULT_CACHE as _QUERY_RESULT_CACHE,
+    QUERY_RESULT_CACHE_SIZE as _QUERY_RESULT_CACHE_SIZE,
+    SIM_CACHE as _SIM_CACHE,
+    fcntl_mod as fcntl,
+    get_mp_locks as _get_mp_locks,
+    msvcrt_mod as msvcrt,
+)
 from memory.selection import SelectionConfig
 
 try:
     from sklearn.neighbors import NearestNeighbors  # type: ignore
 except Exception:  # pragma: no cover
     NearestNeighbors = None
-
-try:
-    import msvcrt  # type: ignore
-except Exception:  # pragma: no cover
-    msvcrt = None
-
-try:
-    import fcntl  # type: ignore
-except Exception:  # pragma: no cover
-    fcntl = None
-
-# Multiprocess-safe locks and caches for ProcessPoolExecutor compatibility
-# Use lazy initialization to avoid Manager() at module level (Windows compatibility)
-_mp_manager: Optional[Any] = None
-_SIM_CACHE_LOCK: Optional[Any] = None
-_DEDUPE_READY_LOCK: Optional[Any] = None
-_ANN_TUNE_LOCK: Optional[Any] = None
-_REPO_LOCK: Optional[Any] = None
-
-
-def _get_mp_locks():
-    """Lazy initialization of multiprocess manager and locks (Windows-safe)."""
-    global _mp_manager, _SIM_CACHE_LOCK, _DEDUPE_READY_LOCK, _ANN_TUNE_LOCK, _REPO_LOCK
-    if _mp_manager is None:
-        _mp_manager = Manager()
-        _SIM_CACHE_LOCK = _mp_manager.Lock()
-        _DEDUPE_READY_LOCK = _mp_manager.Lock()
-        _ANN_TUNE_LOCK = _mp_manager.Lock()
-        _REPO_LOCK = _mp_manager.Lock()
-    return _SIM_CACHE_LOCK, _DEDUPE_READY_LOCK, _ANN_TUNE_LOCK, _REPO_LOCK
-
-
-# Note: Keep _SIM_CACHE as OrderedDict (process-local) for move_to_end() LRU support
-# The shared lock coordinates cache invalidation across processes
-# Each process maintains its own cache copy, which is acceptable for memory retrieval
-_SIM_CACHE: "OrderedDict[str, _SimilarityCacheEntry]" = OrderedDict()
-# Phase 2.5: Incremental cache delta tracking
-_CACHE_DELTAS: Dict[str, List[_SimilarityCacheDelta]] = {}
-_DELTA_MERGE_THRESHOLD = int(os.environ.get("MULTIVERSE_MEMORY_DELTA_MERGE_THRESHOLD", "1000"))
-# Note: Keep _DEDUPE_READY as Set (process-local) for standard set operations
-# The shared lock coordinates access across processes
-_DEDUPE_READY: Set[str] = set()
-# Note: These counters remain process-local and are exposed through wrapper helpers.
-_ANN_RUNTIME_STATE: Dict[str, Any] = {
-    "dynamic_factor": None,
-    "query_count": 0,
-    "drift_checks": 0,
-    "last_drift": 0.0,
-    "max_drift": 0.0,
-}
-# Lock timeout in seconds (configurable via environment variable)
-_LOCK_TIMEOUT = int(os.environ.get("MULTIVERSE_MEMORY_LOCK_TIMEOUT", "30"))
 
 
 
@@ -384,12 +343,6 @@ def ingest_run(
     )
 
 
-# LRU cache with configurable size and TTL
-_QUERY_RESULT_CACHE_SIZE = int(os.environ.get("MULTIVERSE_MEMORY_QUERY_CACHE_SIZE", "10000"))
-_QUERY_RESULT_CACHE: Dict[str, Tuple[List[ScenarioMatch], int]] = {}  # key -> (results, timestamp_ms)
-_CACHE_TTL_MS = int(os.environ.get("MULTIVERSE_MEMORY_QUERY_CACHE_TTL_MS", "60000"))  # 1 minute default
-
-
 def find_similar(
     *,
     obs: JSONValue,
@@ -403,6 +356,11 @@ def find_similar(
     memory_tiers: Optional[Set[str]] = None,
     memory_families: Optional[Set[str]] = None,
     memory_types: Optional[Set[str]] = None,
+    policy_ids: Optional[Set[str]] = None,
+    exclude_policy_ids: Optional[Set[str]] = None,
+    source_verse_names: Optional[Set[str]] = None,
+    min_transfer_score: Optional[float] = None,
+    min_transfer_confidence: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
 ) -> List[ScenarioMatch]:
@@ -434,6 +392,11 @@ def find_similar(
         memory_tiers=memory_tiers,
         memory_families=memory_families,
         memory_types=memory_types,
+        policy_ids=policy_ids,
+        exclude_policy_ids=exclude_policy_ids,
+        source_verse_names=source_verse_names,
+        min_transfer_score=min_transfer_score,
+        min_transfer_confidence=min_transfer_confidence,
         stm_decay_lambda=stm_decay_lambda,
         trajectory_window=trajectory_window,
     )
@@ -452,6 +415,11 @@ def find_similar_cached(
     memory_tiers: Optional[Set[str]] = None,
     memory_families: Optional[Set[str]] = None,
     memory_types: Optional[Set[str]] = None,
+    policy_ids: Optional[Set[str]] = None,
+    exclude_policy_ids: Optional[Set[str]] = None,
+    source_verse_names: Optional[Set[str]] = None,
+    min_transfer_score: Optional[float] = None,
+    min_transfer_confidence: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
 ) -> List[ScenarioMatch]:
@@ -484,6 +452,11 @@ def find_similar_cached(
         memory_tiers=memory_tiers,
         memory_families=memory_families,
         memory_types=memory_types,
+        policy_ids=policy_ids,
+        exclude_policy_ids=exclude_policy_ids,
+        source_verse_names=source_verse_names,
+        min_transfer_score=min_transfer_score,
+        min_transfer_confidence=min_transfer_confidence,
         stm_decay_lambda=stm_decay_lambda,
         trajectory_window=trajectory_window,
     )

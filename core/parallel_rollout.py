@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from concurrent.futures.process import BrokenProcessPool
 
 from core.adversary_sampler import AdversaryBundle, AdversarySampler
+from core.run_artifacts import write_run_artifact_manifest
 from core.types import AgentSpec, VerseSpec
 
 try:
@@ -327,6 +328,12 @@ class DistributedRolloutManager:
             run_prefix=run_prefix,
             worker_results=worker_results,
             annotate_worker_id=bool(self.config.annotate_parallel_worker_id),
+            verse_name=str(verse_spec.verse_name),
+            policy_id=str(agent_spec.policy_id),
+            algo=str(agent_spec.algo),
+            seed=int(seed),
+            episodes_requested=int(total_episodes),
+            max_steps=int(max_steps),
         )
         total_return = float(sum(float(r.get("total_return", 0.0)) for r in worker_results if not r.get("skipped")))
         total_steps = int(sum(int(r.get("total_steps", 0)) for r in worker_results if not r.get("skipped")))
@@ -361,6 +368,12 @@ class DistributedRolloutManager:
         run_prefix: str,
         worker_results: List[Dict[str, Any]],
         annotate_worker_id: bool = False,
+        verse_name: Optional[str] = None,
+        policy_id: Optional[str] = None,
+        algo: Optional[str] = None,
+        seed: Optional[int] = None,
+        episodes_requested: Optional[int] = None,
+        max_steps: Optional[int] = None,
     ) -> str:
         agg_run_id = f"{run_prefix}_merged"
         agg_dir = os.path.join(self.config.run_root, agg_run_id)
@@ -407,6 +420,21 @@ class DistributedRolloutManager:
         }
         with open(os.path.join(agg_dir, "parallel_meta.json"), "w", encoding="utf-8") as mf:
             json.dump(meta, mf, ensure_ascii=False, indent=2)
+        write_run_artifact_manifest(
+            agg_dir,
+            run_kind="parallel_aggregate",
+            verse_name=verse_name,
+            policy_id=policy_id,
+            algo=algo,
+            seed=seed,
+            episodes_requested=episodes_requested,
+            max_steps=max_steps,
+            worker_runs=[str(wr.get("run_id")) for wr in worker_results if wr.get("run_id")],
+            total_steps=int(sum(int(wr.get("total_steps", 0)) for wr in worker_results if not wr.get("skipped"))),
+            total_return=float(
+                sum(float(wr.get("total_return", 0.0)) for wr in worker_results if not wr.get("skipped"))
+            ),
+        )
         return agg_run_id
 
     def shutdown(self) -> None:

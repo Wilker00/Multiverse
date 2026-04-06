@@ -51,6 +51,19 @@ class TestPlannerRecallAgent(unittest.TestCase):
         self.assertEqual(list(req.get("memory_families", [])), ["declarative"])
         self.assertIn("phase_early", str(req.get("reason", "")))
 
+    def test_bootstrap_request_uses_phase_family(self):
+        ag = self._agent(
+            {
+                "bootstrap_recall_enabled": True,
+                "planner_expected_horizon": 30,
+            }
+        )
+        req = ag.memory_bootstrap_request(obs={"t": 0}, step_idx=0)
+        self.assertIsNotNone(req)
+        assert isinstance(req, dict)
+        self.assertEqual(str(req.get("reason", "")), "phase_early_bootstrap_planner")
+        self.assertEqual(list(req.get("memory_families", [])), ["declarative"])
+
 
 if __name__ == "__main__":
     unittest.main()

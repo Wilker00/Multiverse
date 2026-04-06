@@ -487,6 +487,7 @@ def ingest_run_support(
                         "episode_id": str(ev.get("episode_id", "")),
                         "step_idx": _safe_int(ev.get("step_idx", 0)),
                         "verse_name": verse_name,
+                        "source_verse_name": str(ev.get("source_verse_name", "")),
                         "tags": tags_for_verse(verse_name),
                         "memory_type": memory_type,
                         "memory_family": memory_family,
@@ -501,6 +502,14 @@ def ingest_run_support(
                         "obs_vector_u": project_vector(obs_vec, dim=_universal_obs_dim()),
                         "action": ev.get("action"),
                         "reward": _safe_float(ev.get("reward", 0.0)),
+                        "transfer_score": (
+                            None if ev.get("transfer_score") is None else _safe_float(ev.get("transfer_score", 0.0))
+                        ),
+                        "transfer_confidence": (
+                            None
+                            if ev.get("transfer_confidence") is None
+                            else _safe_float(ev.get("transfer_confidence", 0.0))
+                        ),
                         "done": bool(ev.get("done", False)),
                         "info": ev.get("info", {}),
                     }

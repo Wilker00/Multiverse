@@ -19,9 +19,8 @@ import os
 import random
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
+from core.memory_runtime import request_memory_payload, resolve_memory_request
 from core.rollout_support import (
-    _as_set,
-    _build_memory_bundle,
     _memory_recall_transfer_decision_record,
     _record_runtime_warning,
     _selector_routing_telemetry,
@@ -53,6 +52,7 @@ class RolloutConfig:
         retriever: Optional[Any] = None,
         retrieval_interval: Optional[int] = None,
         on_demand_memory_enabled: bool = False,
+        bootstrap_memory_enabled: bool = False,
         on_demand_memory_root: str = "central_memory",
         on_demand_query_budget: Optional[int] = None,
         on_demand_min_interval: Optional[int] = None,
@@ -71,6 +71,7 @@ class RolloutConfig:
             else int(os.environ.get("MULTIVERSE_ROLLOUT_RETRIEVAL_INTERVAL", "10"))
         )
         self.on_demand_memory_enabled = bool(on_demand_memory_enabled)
+        self.bootstrap_memory_enabled = bool(bootstrap_memory_enabled)
         self.on_demand_memory_root = str(on_demand_memory_root)
         self.on_demand_query_budget = max(0, int(
             on_demand_query_budget if on_demand_query_budget is not None
@@ -168,7 +169,7 @@ def run_episode(
 
     on_demand_find_similar = None
     on_demand_mem_cfg = None
-    if bool(config.on_demand_memory_enabled):
+    if bool(config.on_demand_memory_enabled) or bool(config.bootstrap_memory_enabled):
         try:
             from memory.central_repository import CentralMemoryConfig, find_similar
 
@@ -185,6 +186,70 @@ def run_episode(
                 step_idx=None,
                 exc=exc,
             )
+
+    bootstrap_memory_state: Dict[str, Any] = {
+        "enabled": bool(config.bootstrap_memory_enabled),
+        "query_requested": False,
+        "query_executed": False,
+        "match_count": 0,
+        "block_reason": "",
+        "query_reason": "",
+        "active_on_step": False,
+    }
+    bootstrap_hint: Optional[Dict[str, Any]] = None
+    if bool(config.bootstrap_memory_enabled):
+        if on_demand_find_similar is None or on_demand_mem_cfg is None:
+            bootstrap_memory_state["block_reason"] = "lookup_unavailable"
+        elif not hasattr(agent, "memory_bootstrap_request"):
+            bootstrap_memory_state["block_reason"] = "agent_no_bootstrap_api"
+        else:
+            bootstrap_req = request_memory_payload(
+                agent=agent,
+                method_name="memory_bootstrap_request",
+                request_obs=obs,
+                request_step_idx=0,
+                on_error=lambda code, component, step_idx_local, exc: _record_runtime_warning(
+                    counters=runtime_error_counters,
+                    warnings=pending_runtime_warnings,
+                    code=code,
+                    component=component,
+                    step_idx=step_idx_local,
+                    exc=exc,
+                ),
+                error_code="memory_bootstrap_request_error",
+                component="rollout.memory.bootstrap_request",
+            )
+            if isinstance(bootstrap_req, dict):
+                bootstrap_memory_state["query_requested"] = True
+                bootstrap_memory_state["query_reason"] = str(bootstrap_req.get("reason", "bootstrap"))
+                bootstrap_resolved = resolve_memory_request(
+                    agent=agent,
+                    req=bootstrap_req,
+                    default_obs=obs,
+                    request_step_idx=0,
+                    find_similar_fn=on_demand_find_similar,
+                    memory_cfg=on_demand_mem_cfg,
+                    on_error=lambda code, component, step_idx_local, exc: _record_runtime_warning(
+                        counters=runtime_error_counters,
+                        warnings=pending_runtime_warnings,
+                        code=code,
+                        component=component,
+                        step_idx=step_idx_local,
+                        exc=exc,
+                    ),
+                    lookup_error_code="memory_bootstrap_lookup_error",
+                    lookup_component="rollout.memory.bootstrap_lookup",
+                    response_error_code="memory_bootstrap_response_error",
+                )
+                if isinstance(bootstrap_resolved, dict):
+                    bootstrap_memory_state["query_executed"] = True
+                    bootstrap_memory_state["match_count"] = int(bootstrap_resolved.get("match_count", 0))
+                    bootstrap_memory_state["block_reason"] = "executed"
+                    bootstrap_hint = {"memory_recall": bootstrap_resolved["bundle"]}
+                else:
+                    bootstrap_memory_state["block_reason"] = "lookup_error"
+            else:
+                bootstrap_memory_state["block_reason"] = "agent_declined"
 
     while not done and step_idx < config.max_steps:
         step_runtime_warnings: List[Dict[str, Any]] = list(pending_runtime_warnings)
@@ -210,6 +275,13 @@ def run_episode(
             "reason": "",
         }
         hint = None
+        bootstrap_active_on_step = bool(
+            step_idx == 0
+            and isinstance(bootstrap_hint, dict)
+            and isinstance(bootstrap_hint.get("memory_recall"), dict)
+        )
+        if bootstrap_active_on_step:
+            hint = dict(bootstrap_hint)
         if config.retriever and step_idx % retrieval_interval == 0:
             try:
                 from memory.retrieval import EpisodeFilter
@@ -244,7 +316,9 @@ def run_episode(
                     exc=exc,
                 )
 
-        if bool(config.on_demand_memory_enabled) and hasattr(agent, "memory_query_request"):
+        if bootstrap_active_on_step:
+            memory_query_state["block_reason"] = "bootstrap_prefetched"
+        elif bool(config.on_demand_memory_enabled) and hasattr(agent, "memory_query_request"):
             can_budget = bool(memory_queries_used < int(query_budget))
             can_cooldown = bool((step_idx - last_memory_query_step) >= int(config.on_demand_min_interval))
             can_query = bool(can_budget and can_cooldown)
@@ -256,91 +330,58 @@ def run_episode(
             else:
                 memory_query_state["block_reason"] = "ready"
             if can_query:
-                req = None
-                try:
-                    req = agent.memory_query_request(obs=obs, step_idx=step_idx)  # type: ignore[attr-defined]
-                except TypeError:
-                    try:
-                        req = agent.memory_query_request(obs)  # type: ignore[attr-defined]
-                    except Exception as exc:
-                        req = None
-                        _record_runtime_warning(
-                            counters=runtime_error_counters,
-                            warnings=step_runtime_warnings,
-                            code="memory_query_request_error",
-                            component="rollout.memory.request",
-                            step_idx=step_idx,
-                            exc=exc,
-                        )
-                except Exception as exc:
-                    req = None
-                    _record_runtime_warning(
+                req = request_memory_payload(
+                    agent=agent,
+                    method_name="memory_query_request",
+                    request_obs=obs,
+                    request_step_idx=step_idx,
+                    on_error=lambda code, component, step_idx_local, exc: _record_runtime_warning(
                         counters=runtime_error_counters,
                         warnings=step_runtime_warnings,
-                        code="memory_query_request_error",
-                        component="rollout.memory.request",
-                        step_idx=step_idx,
+                        code=code,
+                        component=component,
+                        step_idx=step_idx_local,
                         exc=exc,
-                    )
-
+                    ),
+                    error_code="memory_query_request_error",
+                    component="rollout.memory.request",
+                )
                 if isinstance(req, dict):
                     memory_query_state["query_requested"] = True
                     memory_query_state["query_reason"] = str(req.get("reason", "agent_request"))
-                    try:
-                        if on_demand_find_similar is None or on_demand_mem_cfg is None:
-                            raise RuntimeError("on-demand memory lookup unavailable")
-                        query_obs = req.get("query_obs", obs)
-                        top_k = max(1, int(req.get("top_k", 3)))
-                        min_score = float(req.get("min_score", -1.0))
-                        trajectory_window = max(0, int(req.get("trajectory_window", 0)))
-                        verse_name = req.get("verse_name")
-                        verse_name = None if verse_name in (None, "") else str(verse_name).strip().lower()
-                        memory_families = _as_set(req.get("memory_families"))
-                        memory_types = _as_set(req.get("memory_types"))
-                        matches = on_demand_find_similar(
-                            obs=query_obs,
-                            cfg=on_demand_mem_cfg,
-                            top_k=top_k,
-                            verse_name=verse_name,
-                            min_score=min_score,
-                            memory_families=memory_families,
-                            memory_types=memory_types,
-                            trajectory_window=trajectory_window,
-                        )
+                    resolved = resolve_memory_request(
+                        agent=agent,
+                        req=req,
+                        default_obs=obs,
+                        request_step_idx=step_idx,
+                        find_similar_fn=on_demand_find_similar,
+                        memory_cfg=on_demand_mem_cfg,
+                        on_error=lambda code, component, step_idx_local, exc: _record_runtime_warning(
+                            counters=runtime_error_counters,
+                            warnings=step_runtime_warnings,
+                            code=code,
+                            component=component,
+                            step_idx=step_idx_local,
+                            exc=exc,
+                        ),
+                        lookup_error_code="memory_lookup_error",
+                        lookup_component="rollout.memory.lookup",
+                        response_error_code="memory_query_response_error",
+                    )
+                    if isinstance(resolved, dict):
                         memory_queries_used += 1
                         last_memory_query_step = int(step_idx)
                         memory_query_state["query_executed"] = True
-                        memory_query_state["match_count"] = int(len(matches))
+                        memory_query_state["match_count"] = int(resolved.get("match_count", 0))
                         memory_query_state["block_reason"] = "executed"
                         memory_query_state["used"] = int(memory_queries_used)
                         memory_query_state["remaining"] = int(max(0, query_budget - int(memory_queries_used)))
                         memory_query_state["last_query_step_idx"] = int(last_memory_query_step)
-                        bundle = _build_memory_bundle(req=req, matches=matches, step_idx=step_idx)
                         if not isinstance(hint, dict):
                             hint = {}
-                        hint["memory_recall"] = bundle
-                        if hasattr(agent, "on_memory_response"):
-                            try:
-                                agent.on_memory_response(bundle)  # type: ignore[attr-defined]
-                            except Exception as exc:
-                                _record_runtime_warning(
-                                    counters=runtime_error_counters,
-                                    warnings=step_runtime_warnings,
-                                    code="memory_query_response_error",
-                                    component="rollout.memory.on_memory_response",
-                                    step_idx=step_idx,
-                                    exc=exc,
-                                )
-                    except Exception as exc:
+                        hint["memory_recall"] = resolved["bundle"]
+                    else:
                         memory_query_state["block_reason"] = "lookup_error"
-                        _record_runtime_warning(
-                            counters=runtime_error_counters,
-                            warnings=step_runtime_warnings,
-                            code="memory_lookup_error",
-                            component="rollout.memory.lookup",
-                            step_idx=step_idx,
-                            exc=exc,
-                        )
                 else:
                     memory_query_state["block_reason"] = "agent_declined"
         elif bool(config.on_demand_memory_enabled) and not hasattr(agent, "memory_query_request"):
@@ -444,6 +485,9 @@ def run_episode(
             )
         memory_query_state["used"] = int(memory_queries_used)
         memory_query_state["remaining"] = int(max(0, query_budget - int(memory_queries_used)))
+        bootstrap_event_state = dict(bootstrap_memory_state)
+        bootstrap_event_state["active_on_step"] = bool(bootstrap_active_on_step)
+        event_info["memory_bootstrap"] = bootstrap_event_state
         event_info["memory_query"] = memory_query_state
         event_info["memory_recall_ablation"] = recall_ablation_state
         if transfer_decision_records:

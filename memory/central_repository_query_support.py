@@ -21,6 +21,11 @@ def _query_cache_key(
     memory_tiers: Optional[Set[str]],
     memory_families: Optional[Set[str]],
     memory_types: Optional[Set[str]],
+    policy_ids: Optional[Set[str]],
+    exclude_policy_ids: Optional[Set[str]],
+    source_verse_names: Optional[Set[str]],
+    min_transfer_score: Optional[float],
+    min_transfer_confidence: Optional[float],
     exclude_run_ids: Optional[Set[str]],
 ) -> str:
     import hashlib
@@ -33,6 +38,11 @@ def _query_cache_key(
         str(sorted(memory_tiers) if memory_tiers else ""),
         str(sorted(memory_families) if memory_families else ""),
         str(sorted(memory_types) if memory_types else ""),
+        str(sorted(policy_ids) if policy_ids else ""),
+        str(sorted(exclude_policy_ids) if exclude_policy_ids else ""),
+        str(sorted(source_verse_names) if source_verse_names else ""),
+        str(min_transfer_score if min_transfer_score is not None else ""),
+        str(min_transfer_confidence if min_transfer_confidence is not None else ""),
         str(sorted(exclude_run_ids) if exclude_run_ids else ""),
     ]
     key_str = "||".join(key_parts)
@@ -60,6 +70,11 @@ def find_similar_cached_support(
     memory_tiers: Optional[Set[str]] = None,
     memory_families: Optional[Set[str]] = None,
     memory_types: Optional[Set[str]] = None,
+    policy_ids: Optional[Set[str]] = None,
+    exclude_policy_ids: Optional[Set[str]] = None,
+    source_verse_names: Optional[Set[str]] = None,
+    min_transfer_score: Optional[float] = None,
+    min_transfer_confidence: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
 ) -> List[ScenarioMatch]:
@@ -76,6 +91,11 @@ def find_similar_cached_support(
             memory_tiers=memory_tiers,
             memory_families=memory_families,
             memory_types=memory_types,
+            policy_ids=policy_ids,
+            exclude_policy_ids=exclude_policy_ids,
+            source_verse_names=source_verse_names,
+            min_transfer_score=min_transfer_score,
+            min_transfer_confidence=min_transfer_confidence,
             stm_decay_lambda=stm_decay_lambda,
             trajectory_window=trajectory_window,
         )
@@ -88,6 +108,11 @@ def find_similar_cached_support(
         memory_tiers=memory_tiers,
         memory_families=memory_families,
         memory_types=memory_types,
+        policy_ids=policy_ids,
+        exclude_policy_ids=exclude_policy_ids,
+        source_verse_names=source_verse_names,
+        min_transfer_score=min_transfer_score,
+        min_transfer_confidence=min_transfer_confidence,
         exclude_run_ids=exclude_run_ids,
     )
 
@@ -110,6 +135,11 @@ def find_similar_cached_support(
         memory_tiers=memory_tiers,
         memory_families=memory_families,
         memory_types=memory_types,
+        policy_ids=policy_ids,
+        exclude_policy_ids=exclude_policy_ids,
+        source_verse_names=source_verse_names,
+        min_transfer_score=min_transfer_score,
+        min_transfer_confidence=min_transfer_confidence,
         stm_decay_lambda=stm_decay_lambda,
         trajectory_window=trajectory_window,
     )

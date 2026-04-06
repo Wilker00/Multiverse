@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from core.agent_base import Agent, ExperienceBatch, Transition
 from core.communication import Message, MessageBus, SharedMemoryPool
+from core.memory_runtime import request_memory_payload, resolve_memory_request
 from core.rollout import RolloutConfig
 from core.types import AgentRef, RunRef, VerseRef, VerseSpec, AgentSpec, make_step_event
 from memory.event_log import EventLogConfig, EventLogger, make_on_step_writer
@@ -109,6 +110,7 @@ class MARLConfig:
     shared_memory_top_k: int = 4
     negotiation_interval: int = 1
     lexicon_min_support: int = 2
+    bootstrap_memory_enabled: bool = False
     on_demand_memory_enabled: bool = False
     on_demand_memory_root: str = "central_memory"
     on_demand_query_budget: int = 6
@@ -156,7 +158,7 @@ class MultiAgentTrainer:
         shared_pool = SharedMemoryPool() if bool(config.shared_memory_enabled) else None
         central_mem_cfg = (
             CentralMemoryConfig(root_dir=str(config.on_demand_memory_root))
-            if bool(config.on_demand_memory_enabled)
+            if bool(config.on_demand_memory_enabled) or bool(config.bootstrap_memory_enabled)
             else None
         )
 
@@ -207,6 +209,19 @@ class MultiAgentTrainer:
                 step_counts = [0 for _ in agents]
                 memory_queries_used = [0 for _ in agents]
                 last_memory_query_step = [-(10**9) for _ in agents]
+                bootstrap_memory_states: List[Dict[str, Any]] = [
+                    {
+                        "enabled": bool(config.bootstrap_memory_enabled),
+                        "query_requested": False,
+                        "query_executed": False,
+                        "match_count": 0,
+                        "block_reason": "",
+                        "query_reason": "",
+                        "active_on_step": False,
+                    }
+                    for _ in agents
+                ]
+                bootstrap_hints: List[Optional[Dict[str, Any]]] = [None for _ in agents]
 
                 for idx, verse in enumerate(verses):
                     ep_seed = None if seed is None else seed + ep + idx
@@ -223,6 +238,47 @@ class MultiAgentTrainer:
                             agents[idx].on_social_contract(contract)  # type: ignore[attr-defined]
                         except Exception:
                             pass
+                    if bool(config.bootstrap_memory_enabled):
+                        if central_mem_cfg is None:
+                            bootstrap_memory_states[idx]["block_reason"] = "lookup_unavailable"
+                        else:
+                            bootstrap_req = request_memory_payload(
+                                agent=agents[idx],
+                                method_name="memory_bootstrap_request",
+                                request_obs=obs_list[idx],
+                                request_step_idx=0,
+                                on_error=lambda code, component, step_idx_local, exc: None,
+                                error_code="memory_bootstrap_request_error",
+                                component="marl.memory.bootstrap_request",
+                            )
+                            if isinstance(bootstrap_req, dict):
+                                bootstrap_memory_states[idx]["query_requested"] = True
+                                bootstrap_memory_states[idx]["query_reason"] = str(
+                                    bootstrap_req.get("reason", "bootstrap")
+                                )
+                                bootstrap_resolved = resolve_memory_request(
+                                    agent=agents[idx],
+                                    req=bootstrap_req,
+                                    default_obs=obs_list[idx],
+                                    request_step_idx=0,
+                                    find_similar_fn=find_similar,
+                                    memory_cfg=central_mem_cfg,
+                                    on_error=lambda code, component, step_idx_local, exc: None,
+                                    lookup_error_code="memory_bootstrap_lookup_error",
+                                    lookup_component="marl.memory.bootstrap_lookup",
+                                    response_error_code="memory_bootstrap_response_error",
+                                )
+                                if isinstance(bootstrap_resolved, dict):
+                                    bootstrap_memory_states[idx]["query_executed"] = True
+                                    bootstrap_memory_states[idx]["match_count"] = int(
+                                        bootstrap_resolved.get("match_count", 0)
+                                    )
+                                    bootstrap_memory_states[idx]["block_reason"] = "executed"
+                                    bootstrap_hints[idx] = {"memory_recall": bootstrap_resolved["bundle"]}
+                                else:
+                                    bootstrap_memory_states[idx]["block_reason"] = "lookup_error"
+                            else:
+                                bootstrap_memory_states[idx]["block_reason"] = "agent_declined"
 
                 for t in range(config.max_steps):
                     all_done = True
@@ -244,7 +300,16 @@ class MultiAgentTrainer:
                             "last_query_step_idx": int(last_memory_query_step[idx]),
                         }
                         hint: Optional[Dict[str, Any]] = None
-                        if (
+                        bootstrap_active_on_step = bool(
+                            int(step_idx[idx]) == 0
+                            and isinstance(bootstrap_hints[idx], dict)
+                            and isinstance((bootstrap_hints[idx] or {}).get("memory_recall"), dict)
+                        )
+                        if bootstrap_active_on_step:
+                            hint = dict(bootstrap_hints[idx] or {})
+                            memory_query_state["block_reason"] = "bootstrap_prefetched"
+                            can_query = False
+                        elif (
                             central_mem_cfg is not None
                             and hasattr(agent, "memory_query_request")
                         ):
@@ -267,97 +332,43 @@ class MultiAgentTrainer:
                                 memory_query_state["block_reason"] = "agent_no_query_api"
 
                         if can_query:
-                            req = None
-                            try:
-                                req = agent.memory_query_request(obs=obs_list[idx], step_idx=step_idx[idx])  # type: ignore[attr-defined]
-                            except TypeError:
-                                try:
-                                    req = agent.memory_query_request(obs_list[idx])  # type: ignore[attr-defined]
-                                except Exception:
-                                    req = None
-                            except Exception:
-                                req = None
+                            req = request_memory_payload(
+                                agent=agent,
+                                method_name="memory_query_request",
+                                request_obs=obs_list[idx],
+                                request_step_idx=step_idx[idx],
+                                on_error=lambda code, component, step_idx_local, exc: None,
+                                error_code="memory_query_request_error",
+                                component="marl.memory.request",
+                            )
                             if isinstance(req, dict):
                                 memory_query_state["query_requested"] = True
                                 memory_query_state["query_reason"] = str(req.get("reason", "agent_request"))
-                                try:
-                                    raw_types = req.get("memory_types")
-                                    memory_types = None
-                                    if isinstance(raw_types, (list, set, tuple)):
-                                        memory_types = set(
-                                            str(x).strip().lower() for x in raw_types if str(x).strip()
-                                        )
-                                        if not memory_types:
-                                            memory_types = None
-                                    raw_families = req.get("memory_families")
-                                    memory_families = None
-                                    if isinstance(raw_families, (list, set, tuple)):
-                                        memory_families = set(
-                                            str(x).strip().lower() for x in raw_families if str(x).strip()
-                                        )
-                                        if not memory_families:
-                                            memory_families = None
-                                    query_obs = req.get("query_obs", obs_list[idx])
-                                    matches = find_similar(
-                                        obs=query_obs,
-                                        cfg=central_mem_cfg,
-                                        top_k=max(1, int(req.get("top_k", 3))),
-                                        verse_name=(
-                                            None
-                                            if req.get("verse_name") in (None, "")
-                                            else str(req.get("verse_name")).strip().lower()
-                                        ),
-                                        min_score=float(req.get("min_score", -1.0)),
-                                        memory_families=memory_families,
-                                        memory_types=memory_types,
-                                    )
-                                    rows: List[Dict[str, Any]] = []
-                                    for m in matches:
-                                        rows.append(
-                                            {
-                                                "score": float(getattr(m, "score", 0.0)),
-                                                "run_id": str(getattr(m, "run_id", "")),
-                                                "episode_id": str(getattr(m, "episode_id", "")),
-                                                "step_idx": int(getattr(m, "step_idx", 0)),
-                                                "verse_name": str(getattr(m, "verse_name", "")),
-                                                "action": getattr(m, "action", None),
-                                                "reward": float(getattr(m, "reward", 0.0)),
-                                                "pointer_path": (
-                                                    f"runs/{str(getattr(m, 'run_id', ''))}/events.jsonl"
-                                                    f"#episode_id={str(getattr(m, 'episode_id', ''))};"
-                                                    f"step_idx={int(getattr(m, 'step_idx', 0))}"
-                                                ),
-                                            }
-                                        )
-                                    hint = {
-                                        "memory_recall": {
-                                            "mode": "on_demand",
-                                            "reason": str(req.get("reason", "agent_request")),
-                                            "query_step_idx": int(step_idx[idx]),
-                                            "query": {
-                                                "memory_families": sorted(list(memory_families or set())),
-                                                "memory_types": sorted(list(memory_types or set())),
-                                            },
-                                            "matches": rows,
-                                            "match_count": int(len(rows)),
-                                        }
-                                    }
+                                resolved = resolve_memory_request(
+                                    agent=agent,
+                                    req=req,
+                                    default_obs=obs_list[idx],
+                                    request_step_idx=step_idx[idx],
+                                    find_similar_fn=find_similar,
+                                    memory_cfg=central_mem_cfg,
+                                    on_error=lambda code, component, step_idx_local, exc: None,
+                                    lookup_error_code="memory_lookup_error",
+                                    lookup_component="marl.memory.lookup",
+                                    response_error_code="memory_query_response_error",
+                                )
+                                if isinstance(resolved, dict):
                                     memory_queries_used[idx] += 1
                                     last_memory_query_step[idx] = int(step_idx[idx])
                                     memory_query_state["query_executed"] = True
-                                    memory_query_state["match_count"] = int(len(rows))
+                                    memory_query_state["match_count"] = int(resolved.get("match_count", 0))
                                     memory_query_state["used"] = int(memory_queries_used[idx])
                                     memory_query_state["remaining"] = int(
                                         max(0, query_budget - int(memory_queries_used[idx]))
                                     )
                                     memory_query_state["last_query_step_idx"] = int(last_memory_query_step[idx])
                                     memory_query_state["block_reason"] = "executed"
-                                    if hasattr(agent, "on_memory_response"):
-                                        try:
-                                            agent.on_memory_response(hint["memory_recall"])  # type: ignore[attr-defined]
-                                        except Exception:
-                                            pass
-                                except Exception:
+                                    hint = {"memory_recall": resolved["bundle"]}
+                                else:
                                     memory_query_state["block_reason"] = "lookup_error"
                             else:
                                 memory_query_state["block_reason"] = "agent_declined"
@@ -383,6 +394,9 @@ class MultiAgentTrainer:
                         memory_query_state["remaining"] = int(
                             max(0, query_budget - int(memory_queries_used[idx]))
                         )
+                        bootstrap_event_state = dict(bootstrap_memory_states[idx])
+                        bootstrap_event_state["active_on_step"] = bool(bootstrap_active_on_step)
+                        event_info["memory_bootstrap"] = bootstrap_event_state
                         event_info["memory_query"] = memory_query_state
                         if shared_pool is not None:
                             event_info["social_contract"] = shared_pool.safety_contract(

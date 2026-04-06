@@ -1,0 +1,32 @@
+[tool.coverage.run]
+source = [
+    "core",
+    "memory",
+    "orchestrator",
+    "agents",
+    "verses",
+    "tools",
+]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/experiments/*",
+    "*/archive/*",
+    ".venv312/*",
+]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError",
+    "except Exception:  # pragma: no cover",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

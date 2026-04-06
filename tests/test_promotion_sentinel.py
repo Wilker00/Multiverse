@@ -43,6 +43,7 @@ class TestPromotionSentinel(unittest.TestCase):
             deploy_skip_promotion_board=True,
             deploy_ingest_memory=True,
             out_dir=os.path.join("models", "tuning", "promotion_sentinel"),
+            artifact_index_path=os.path.join("models", "ops", "artifact_index.json"),
             cycles=1,
             sleep_seconds=0.0,
         )
@@ -54,6 +55,7 @@ class TestPromotionSentinel(unittest.TestCase):
         self.assertIn("--auto_heal", cmd)
         self.assertIn("--out_json", cmd)
         self.assertIn("health.json", cmd)
+        self.assertIn("--artifact_index_path", cmd)
 
     def test_build_readiness_cmd(self):
         args = self._args()
@@ -62,6 +64,7 @@ class TestPromotionSentinel(unittest.TestCase):
         self.assertIn("--require_benchmark", cmd)
         self.assertIn("--min_success_rate", cmd)
         self.assertIn("readiness.json", cmd)
+        self.assertIn("--artifact_index_path", cmd)
 
     def test_build_deploy_cmd(self):
         args = self._args()

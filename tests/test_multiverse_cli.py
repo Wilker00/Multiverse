@@ -1,15 +1,20 @@
 import io
+import json
 import os
 import tempfile
 import time
 import unittest
 from contextlib import redirect_stdout
 
+from core.artifact_index import register_artifact
+from core.run_artifacts import write_run_artifact_manifest
+from memory.embeddings import obs_to_vector
 from tools.multiverse_cli import (
     _normalize_remainder,
     apply_distributed_profile,
     apply_train_profile,
     build_doctor_report,
+    build_operator_status_report,
     build_parser,
     build_promotion_sentinel_cmd,
     build_sim_control_cmd,
@@ -169,6 +174,7 @@ class TestMultiverseCli(unittest.TestCase):
 
         args2 = ap.parse_args(["st"])
         self.assertEqual(args2.command, "st")
+        self.assertFalse(bool(args2.verbose))
 
         args_doctor = ap.parse_args(["check"])
         self.assertEqual(args_doctor.command, "check")
@@ -189,16 +195,151 @@ class TestMultiverseCli(unittest.TestCase):
             mem_root = os.path.join(td, "central_memory")
             os.makedirs(runs_root, exist_ok=True)
             os.makedirs(mem_root, exist_ok=True)
+            artifact_index = os.path.join(td, "artifact_index.json")
+            run_dir = os.path.join(runs_root, "run_a")
+            os.makedirs(run_dir, exist_ok=True)
+            with open(os.path.join(run_dir, "events.jsonl"), "w", encoding="utf-8") as f:
+                f.write("{\"episode_id\":\"1\"}\n")
+            with open(os.path.join(run_dir, "metrics.jsonl"), "w", encoding="utf-8") as f:
+                f.write("{\"loss\":0.1}\n")
+            write_run_artifact_manifest(run_dir, verse_name="line_world", policy_id="random", algo="random")
             with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
                 f.write("{\"run_id\":\"r1\"}\n")
+            register_artifact(
+                artifact_type="agent_health_report",
+                artifact_path=os.path.join(td, "health.json"),
+                status="ok",
+                index_path=artifact_index,
+            )
 
-            report = build_doctor_report(runs_root=runs_root, central_memory_dir=mem_root)
+            report = build_doctor_report(
+                runs_root=runs_root,
+                central_memory_dir=mem_root,
+                artifact_index_path=artifact_index,
+            )
             self.assertIn("readiness", report)
             self.assertIn("tools", report)
             self.assertIn("next_actions", report)
             self.assertTrue(bool(report["tools"]["train_agent"]["exists"]))
             self.assertTrue(bool(report["readiness"]["core_tools_ready"]))
             self.assertTrue(bool(report["readiness"]["memory_bank_present"]))
+            self.assertTrue(bool(report["readiness"]["latest_run_manifest_present"]))
+            self.assertTrue(bool(report["readiness"]["latest_run_artifacts_ok"]))
+            self.assertTrue(bool(report["readiness"]["artifact_index_present"]))
+            self.assertTrue(bool(report["readiness"]["health_report_indexed"]))
+            self.assertIn("latest_run_artifacts", report["artifacts"])
+
+    def test_build_operator_status_report_surfaces_latest_sentinel_decision(self):
+        with tempfile.TemporaryDirectory() as td:
+            runs_root = os.path.join(td, "runs")
+            mem_root = os.path.join(td, "central_memory")
+            sentinel_root = os.path.join(td, "sentinel")
+            artifact_index = os.path.join(td, "artifact_index.json")
+            os.makedirs(runs_root, exist_ok=True)
+            os.makedirs(mem_root, exist_ok=True)
+            os.makedirs(os.path.join(sentinel_root, "cycle_001"), exist_ok=True)
+            with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
+                f.write("{\"run_id\":\"r1\"}\n")
+            summary_path = os.path.join(sentinel_root, "cycle_001", "promotion_sentinel_summary.json")
+            with open(summary_path, "w", encoding="utf-8") as f:
+                f.write(
+                    """{
+  "created_at_iso": "2026-03-31T00:00:00Z",
+  "cycles": 1,
+  "cycle_rows": [
+    {
+      "cycle": 1,
+      "decision": {
+        "readiness_ok": true,
+        "health_ok": false,
+        "deploy_allowed": false,
+        "block_reasons": ["critical_agents_exceeded"],
+        "health": {
+          "agents_scored": 3,
+          "critical_count": 1,
+          "unhealthy_count": 0
+        }
+      },
+      "deploy": {
+        "attempted": false,
+        "returncode": null
+      }
+    }
+  ]
+}"""
+                )
+
+            report = build_operator_status_report(
+                runs_root=runs_root,
+                central_memory_dir=mem_root,
+                sentinel_out_dir=sentinel_root,
+                artifact_index_path=artifact_index,
+            )
+            self.assertIn("latest_run", report)
+            self.assertIn("indexed_artifacts", report)
+            self.assertIn("sentinel", report)
+            self.assertTrue(bool(report["readiness"]["sentinel_summary_present"]))
+            self.assertEqual(report["sentinel"]["latest_cycle"], 1)
+            self.assertTrue(bool(report["sentinel"]["readiness_ok"]))
+            self.assertFalse(bool(report["sentinel"]["health_ok"]))
+            self.assertEqual(report["sentinel"]["critical_agents"], 1)
+            self.assertIn("critical_agents_exceeded", report["sentinel"]["block_reasons"])
+
+    def test_build_operator_status_report_can_use_indexed_sentinel_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            runs_root = os.path.join(td, "runs")
+            mem_root = os.path.join(td, "central_memory")
+            sentinel_root = os.path.join(td, "sentinel")
+            artifact_index = os.path.join(td, "artifact_index.json")
+            os.makedirs(runs_root, exist_ok=True)
+            os.makedirs(mem_root, exist_ok=True)
+            os.makedirs(sentinel_root, exist_ok=True)
+            with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
+                f.write("{\"run_id\":\"r1\"}\n")
+            summary_path = os.path.join(td, "promotion_sentinel_summary.json")
+            with open(summary_path, "w", encoding="utf-8") as f:
+                f.write(
+                    """{
+  "created_at_iso": "2026-03-31T00:00:00Z",
+  "cycles": 1,
+  "cycle_rows": [
+    {
+      "cycle": 1,
+      "decision": {
+        "readiness_ok": true,
+        "health_ok": true,
+        "deploy_allowed": true,
+        "block_reasons": [],
+        "health": {
+          "agents_scored": 1,
+          "critical_count": 0,
+          "unhealthy_count": 0
+        }
+      },
+      "deploy": {
+        "attempted": false,
+        "returncode": null
+      }
+    }
+  ]
+}"""
+                )
+            register_artifact(
+                artifact_type="promotion_sentinel_summary",
+                artifact_path=summary_path,
+                status="passed",
+                index_path=artifact_index,
+            )
+
+            report = build_operator_status_report(
+                runs_root=runs_root,
+                central_memory_dir=mem_root,
+                sentinel_out_dir=sentinel_root,
+                artifact_index_path=artifact_index,
+            )
+            self.assertTrue(bool(report["sentinel"]["found"]))
+            self.assertEqual(report["sentinel"]["summary_path"], summary_path)
+            self.assertTrue(bool(report["sentinel"]["deploy_allowed"]))
 
     def test_execute_argv_doctor_json(self):
         buf = io.StringIO()
@@ -209,6 +350,69 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertIn("\"product\"", text)
         self.assertIn("\"readiness\"", text)
         self.assertIn("\"next_actions\"", text)
+
+    def test_execute_argv_status_verbose_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            runs_root = os.path.join(td, "runs")
+            mem_root = os.path.join(td, "central_memory")
+            sentinel_root = os.path.join(td, "sentinel")
+            artifact_index = os.path.join(td, "artifact_index.json")
+            os.makedirs(runs_root, exist_ok=True)
+            os.makedirs(mem_root, exist_ok=True)
+            os.makedirs(sentinel_root, exist_ok=True)
+            with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
+                f.write("{\"run_id\":\"r1\"}\n")
+            with open(os.path.join(sentinel_root, "promotion_sentinel_summary.json"), "w", encoding="utf-8") as f:
+                f.write(
+                    """{
+  "created_at_iso": "2026-03-31T00:00:00Z",
+  "cycles": 1,
+  "cycle_rows": [
+    {
+      "cycle": 1,
+      "decision": {
+        "readiness_ok": false,
+        "health_ok": true,
+        "deploy_allowed": false,
+        "block_reasons": ["readiness_failed"],
+        "health": {
+          "agents_scored": 2,
+          "critical_count": 0,
+          "unhealthy_count": 0
+        }
+      },
+      "deploy": {
+        "attempted": false,
+        "returncode": null
+      }
+    }
+  ]
+}"""
+                )
+
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = execute_argv(
+                    [
+                        "status",
+                        "--json",
+                        "--verbose",
+                        "--runs-root",
+                        runs_root,
+                        "--central-memory-dir",
+                        mem_root,
+                        "--sentinel-out-dir",
+                        sentinel_root,
+                        "--artifact-index-path",
+                        artifact_index,
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            text = buf.getvalue()
+            self.assertIn("\"operator\"", text)
+            self.assertIn("\"latest_run\"", text)
+            self.assertIn("\"sentinel\"", text)
+            self.assertIn("\"readiness_failed\"", text)
 
     def test_execute_argv_train_profile_dry_run(self):
         buf = io.StringIO()
@@ -223,21 +427,23 @@ class TestMultiverseCli(unittest.TestCase):
     def test_execute_argv_sentinel_dry_run(self):
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = execute_argv(["sentinel", "--require-benchmark", "--dry-run"])
+            rc = execute_argv(["sentinel", "--require-benchmark", "--artifact-index-path", "artifacts/index.json", "--dry-run"])
         self.assertEqual(rc, 0)
         text = buf.getvalue()
         self.assertIn("promotion_sentinel.py", text.replace("\\", "/"))
         self.assertIn("--require_benchmark", text)
+        self.assertIn("--artifact_index_path", text)
 
     def test_execute_argv_sentinel_status_dry_run(self):
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = execute_argv(["sentinel", "--status", "--json", "--dry-run"])
+            rc = execute_argv(["sentinel", "--status", "--json", "--artifact-index-path", "artifacts/index.json", "--dry-run"])
         self.assertEqual(rc, 0)
         text = buf.getvalue()
         self.assertIn("promotion_sentinel.py", text.replace("\\", "/"))
         self.assertIn("--status", text)
         self.assertIn("--json", text)
+        self.assertIn("--artifact_index_path", text)
 
     def test_execute_argv_sim2real_dry_run(self):
         buf = io.StringIO()
@@ -258,6 +464,120 @@ class TestMultiverseCli(unittest.TestCase):
         self.assertIn("multiverse_sim.py", text.replace("\\", "/"))
         self.assertIn("preview", text)
         self.assertIn("multiverse_local", text)
+
+    def test_execute_argv_memory_inspect_bootstrap_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            mem_root = os.path.join(td, "central_memory")
+            os.makedirs(mem_root, exist_ok=True)
+            obs0 = {"pos": 0, "goal": 4, "t": 0}
+            row = {
+                "run_id": "cli_bootstrap_source",
+                "episode_id": "ep_bootstrap",
+                "step_idx": 0,
+                "t_ms": 1,
+                "verse_name": "line_world",
+                "obs": obs0,
+                "obs_vector": obs_to_vector(obs0),
+                "action": 1,
+                "reward": 1.0,
+                "memory_tier": "ltm",
+                "memory_family": "procedural",
+                "memory_type": "spatial_procedural",
+            }
+            with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = execute_argv(
+                    [
+                        "memory",
+                        "inspect",
+                        "--algo",
+                        "memory_recall",
+                        "--universe",
+                        "line_world",
+                        "--central-memory-dir",
+                        mem_root,
+                        "--obs-json",
+                        json.dumps(obs0),
+                        "--aconfig",
+                        "bootstrap_recall_enabled=true",
+                        "--aconfig",
+                        "bootstrap_top_k=1",
+                        "--aconfig",
+                        "bootstrap_min_score=-1.0",
+                        "--json",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            payload = json.loads(buf.getvalue())
+            self.assertEqual(payload["status"], "resolved")
+            self.assertEqual(payload["mode"], "bootstrap")
+            self.assertEqual(payload["request"]["reason"], "episode_bootstrap")
+            self.assertEqual(int(payload["match_count"]), 1)
+            self.assertIn(
+                "runs/cli_bootstrap_source/events.jsonl",
+                str((payload["bundle"]["matches"][0] or {}).get("pointer_path", "")),
+            )
+
+    def test_execute_argv_memory_inspect_on_demand_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            mem_root = os.path.join(td, "central_memory")
+            os.makedirs(mem_root, exist_ok=True)
+            obs0 = {"risk": 9, "pos": 0, "goal": 4, "t": 0}
+            row = {
+                "run_id": "cli_on_demand_source",
+                "episode_id": "ep_on_demand",
+                "step_idx": 0,
+                "t_ms": 1,
+                "verse_name": "line_world",
+                "obs": obs0,
+                "obs_vector": obs_to_vector(obs0),
+                "action": 1,
+                "reward": 1.0,
+                "memory_tier": "ltm",
+                "memory_family": "procedural",
+                "memory_type": "spatial_procedural",
+            }
+            with open(os.path.join(mem_root, "memories.jsonl"), "w", encoding="utf-8") as f:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = execute_argv(
+                    [
+                        "memory",
+                        "inspect",
+                        "--algo",
+                        "memory_recall",
+                        "--mode",
+                        "on_demand",
+                        "--universe",
+                        "line_world",
+                        "--central-memory-dir",
+                        mem_root,
+                        "--obs-json",
+                        json.dumps(obs0),
+                        "--aconfig",
+                        "recall_risk_threshold=1.0",
+                        "--aconfig",
+                        "recall_top_k=1",
+                        "--aconfig",
+                        "recall_min_score=-1.0",
+                        "--json",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            payload = json.loads(buf.getvalue())
+            self.assertEqual(payload["status"], "resolved")
+            self.assertEqual(payload["mode"], "on_demand")
+            self.assertEqual(payload["request"]["reason"], "high_risk")
+            self.assertEqual(int(payload["match_count"]), 1)
+            self.assertIn(
+                "runs/cli_on_demand_source/events.jsonl",
+                str((payload["bundle"]["matches"][0] or {}).get("pointer_path", "")),
+            )
 
     def test_shell_autocomplete_and_theme_controls(self):
         sh = InteractiveShell(

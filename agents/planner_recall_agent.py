@@ -58,6 +58,15 @@ class PlannerRecallAgent(MemoryRecallAgent):
                 "min_score": float(self._recall_min_score),
                 "verse_name": (self._verse_name if bool(self._recall_same_verse_only and self._verse_name) else None),
                 "memory_types": (sorted(list(self._recall_memory_types)) if self._recall_memory_types else None),
+                "policy_ids": (sorted(list(self._recall_policy_ids)) if self._recall_policy_ids else None),
+                "exclude_policy_ids": (
+                    sorted(list(self._recall_exclude_policy_ids)) if self._recall_exclude_policy_ids else None
+                ),
+                "source_verse_names": (
+                    sorted(list(self._recall_source_verse_names)) if self._recall_source_verse_names else None
+                ),
+                "min_transfer_score": self._recall_min_transfer_score,
+                "min_transfer_confidence": self._recall_min_transfer_confidence,
                 "memory_families": [str(family)],
                 "reason": f"phase_{phase}_planner",
             }
@@ -69,6 +78,15 @@ class PlannerRecallAgent(MemoryRecallAgent):
             return req
         req["reason"] = f"{str(req.get('reason', 'agent_request'))}:phase_{phase}"
         req["memory_families"] = [str(family)]
+        return req
+
+    def memory_bootstrap_request(self, *, obs: JSONValue, step_idx: int = 0) -> Optional[Dict[str, Any]]:
+        req = super().memory_bootstrap_request(obs=obs, step_idx=step_idx)
+        if not isinstance(req, dict):
+            return req
+        phase = self._phase_name(obs)
+        req["reason"] = f"phase_{phase}_bootstrap_planner"
+        req["memory_families"] = [str(self._family_for_phase(phase))]
         return req
 
     def _phase_name(self, obs: JSONValue) -> str:

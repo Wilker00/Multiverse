@@ -27,6 +27,8 @@ if __package__ in (None, ""):
     if _PROJECT_ROOT not in sys.path:
         sys.path.insert(0, _PROJECT_ROOT)
 
+from core.artifact_index import DEFAULT_ARTIFACT_INDEX_PATH, register_artifact
+
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
     try:
@@ -77,6 +79,8 @@ def build_health_cmd(*, py: str, args: argparse.Namespace, out_json: str) -> Lis
         "json",
         "--out_json",
         str(out_json),
+        "--artifact_index_path",
+        str(args.artifact_index_path),
     ]
     if bool(args.auto_heal):
         cmd.append("--auto_heal")
@@ -102,6 +106,8 @@ def build_readiness_cmd(*, py: str, args: argparse.Namespace, out_json: str) -> 
         str(float(args.max_bench_age_hours)),
         "--out_json",
         str(out_json),
+        "--artifact_index_path",
+        str(args.artifact_index_path),
     ]
     if bool(args.require_benchmark):
         cmd.append("--require_benchmark")
@@ -271,6 +277,7 @@ def main() -> None:
     ap.add_argument("--deploy_skip_promotion_board", action="store_true")
     ap.add_argument("--deploy_ingest_memory", action="store_true")
     ap.add_argument("--out_dir", type=str, default=os.path.join("models", "tuning", "promotion_sentinel"))
+    ap.add_argument("--artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     args = ap.parse_args()
 
     if bool(args.status):
@@ -299,11 +306,25 @@ def main() -> None:
         print(f"[{cycle_tag}] running agent health monitor...")
         _run_cmd(health_cmd, cwd=os.getcwd(), allow_failure=False)
         health = _read_json(health_json)
+        register_artifact(
+            artifact_type="promotion_sentinel_cycle_health",
+            artifact_path=health_json,
+            status=("critical" if int(_health_summary(health).get("critical_count", 0)) > 0 else "ok"),
+            metadata={"cycle": int(cycle_no)},
+            index_path=str(args.artifact_index_path),
+        )
 
         readiness_cmd = build_readiness_cmd(py=py, args=args, out_json=readiness_json)
         print(f"[{cycle_tag}] running production readiness gate...")
         readiness_rc = _run_cmd(readiness_cmd, cwd=os.getcwd(), allow_failure=True)
         readiness = _read_json(readiness_json)
+        register_artifact(
+            artifact_type="promotion_sentinel_cycle_readiness",
+            artifact_path=readiness_json,
+            status=("passed" if bool(readiness.get("passed", False)) else "failed"),
+            metadata={"cycle": int(cycle_no), "returncode": int(readiness_rc)},
+            index_path=str(args.artifact_index_path),
+        )
 
         decision = _decide_cycle(
             health=health,
@@ -353,6 +374,20 @@ def main() -> None:
     out_json = _summary_path_from_args(args)
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
+    latest_decision = cycle_rows[-1]["decision"] if cycle_rows else {}
+    register_artifact(
+        artifact_type="promotion_sentinel_summary",
+        artifact_path=out_json,
+        status=("passed" if bool(latest_decision.get("deploy_allowed", False)) else "blocked"),
+        created_at_iso=str(summary.get("created_at_iso", "")),
+        metadata={
+            "cycles": int(len(cycle_rows)),
+            "readiness_ok": bool(latest_decision.get("readiness_ok", False)),
+            "health_ok": bool(latest_decision.get("health_ok", False)),
+            "deploy_allowed": bool(latest_decision.get("deploy_allowed", False)),
+        },
+        index_path=str(args.artifact_index_path),
+    )
     print(f"promotion_sentinel_summary={out_json}")
 
 

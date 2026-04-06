@@ -46,6 +46,10 @@ class ScenarioMatch:
     action: JSONValue
     reward: float
     obs: JSONValue
+    policy_id: str = ""
+    source_verse_name: str = ""
+    transfer_score: Optional[float] = None
+    transfer_confidence: Optional[float] = None
     source_greedy_action: Optional[int] = None
     source_action_matches_greedy: Optional[bool] = None
     recency_weight: float = 1.0

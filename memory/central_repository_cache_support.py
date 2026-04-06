@@ -38,12 +38,16 @@ class _PreparedMemoryRow:
     step_idx: int
     t_ms: int
     verse_name: str
+    policy_id: str
+    source_verse_name: str
     row_type: str
     row_family: str
     row_tier: str
     action: JSONValue
     reward: float
     obs: JSONValue
+    transfer_score: Optional[float]
+    transfer_confidence: Optional[float]
     source_greedy_action: Optional[int]
     source_action_matches_greedy: Optional[bool]
     obs_vector: List[float]
@@ -209,12 +213,22 @@ def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
         step_idx=_safe_int(raw.get("step_idx", 0)),
         t_ms=_safe_int(raw.get("t_ms", 0)),
         verse_name=str(raw.get("verse_name", "")),
+        policy_id=str(raw.get("policy_id", "")),
+        source_verse_name=str(raw.get("source_verse_name", "")),
         row_type=str(raw.get("row_type", "")),
         row_family=str(raw.get("row_family", "")),
         row_tier=str(raw.get("row_tier", "")),
         action=raw.get("action"),
         reward=_safe_float(raw.get("reward", 0.0)),
         obs=raw.get("obs"),
+        transfer_score=(
+            None if raw.get("transfer_score") is None else _safe_float(raw.get("transfer_score"), 0.0)
+        ),
+        transfer_confidence=(
+            None
+            if raw.get("transfer_confidence") is None
+            else _safe_float(raw.get("transfer_confidence"), 0.0)
+        ),
         source_greedy_action=(
             None if raw.get("source_greedy_action") in (None, "") else _safe_int(raw.get("source_greedy_action"), -1)
         ),
@@ -235,12 +249,16 @@ def _prepared_row_to_dict(row: _PreparedMemoryRow) -> Dict[str, Any]:
         "step_idx": int(row.step_idx),
         "t_ms": int(row.t_ms),
         "verse_name": str(row.verse_name),
+        "policy_id": str(row.policy_id),
+        "source_verse_name": str(row.source_verse_name),
         "row_type": str(row.row_type),
         "row_family": str(row.row_family),
         "row_tier": str(row.row_tier),
         "action": row.action,
         "reward": float(row.reward),
         "obs": row.obs,
+        "transfer_score": row.transfer_score,
+        "transfer_confidence": row.transfer_confidence,
         "source_greedy_action": (None if row.source_greedy_action is None else int(row.source_greedy_action)),
         "source_action_matches_greedy": (
             None if row.source_action_matches_greedy is None else bool(row.source_action_matches_greedy)
@@ -367,12 +385,22 @@ def _build_similarity_cache_for_path(
                 step_idx=_safe_int(row.get("step_idx", 0)),
                 t_ms=_safe_int(row.get("t_ms", 0)),
                 verse_name=row_verse,
+                policy_id=str(row.get("policy_id", "")),
+                source_verse_name=str(row.get("source_verse_name", "")),
                 row_type=row_type,
                 row_family=row_family,
                 row_tier=row_tier,
                 action=row.get("action"),
                 reward=_safe_float(row.get("reward", 0.0)),
                 obs=row.get("obs"),
+                transfer_score=(
+                    None if row.get("transfer_score") is None else _safe_float(row.get("transfer_score"), 0.0)
+                ),
+                transfer_confidence=(
+                    None
+                    if row.get("transfer_confidence") is None
+                    else _safe_float(row.get("transfer_confidence"), 0.0)
+                ),
                 source_greedy_action=(
                     None
                     if not isinstance(row.get("info"), dict)
