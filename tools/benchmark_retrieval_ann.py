@@ -22,6 +22,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from memory.central_repository import CentralMemoryConfig, NearestNeighbors, find_similar
+from core.artifact_index import DEFAULT_ARTIFACT_INDEX_PATH, register_artifact
 
 
 def _safe_mkdir_parent(path: str) -> None:
@@ -106,6 +107,7 @@ def main() -> None:
     ap.add_argument("--ann_factor", type=int, default=32)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out_json", type=str, default=os.path.join("models", "validation", "retrieval_ann_benchmark_v1.json"))
+    ap.add_argument("--artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     args = ap.parse_args()
 
     if NearestNeighbors is None:
@@ -157,6 +159,19 @@ def main() -> None:
         },
     }
     _write_json(args.out_json, out)
+    register_artifact(
+        artifact_type="retrieval_ann_benchmark",
+        artifact_path=str(args.out_json),
+        status=("passed" if bool(out["interpretation"]["ann_faster"]) else "failed"),
+        created_at_iso=str(out.get("created_at_iso", "")),
+        metadata={
+            "speedup_exact_over_ann": float(speedup),
+            "meets_66x": bool(out["interpretation"]["meets_66x"]),
+            "rows": int(args.rows),
+            "queries": int(args.queries),
+        },
+        index_path=str(args.artifact_index_path),
+    )
     print(f"out_json={args.out_json.replace(chr(92), '/')}")
     print(f"speedup_exact_over_ann={speedup:.3f}x")
 

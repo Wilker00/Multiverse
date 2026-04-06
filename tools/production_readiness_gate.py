@@ -10,7 +10,15 @@ import argparse
 import datetime as dt
 import json
 import os
+import sys
 from typing import Any, Dict, List, Tuple
+
+if __package__ in (None, ""):
+    _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
+
+from core.artifact_index import DEFAULT_ARTIFACT_INDEX_PATH, register_artifact
 
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
@@ -176,6 +184,7 @@ def main() -> None:
     ap.add_argument("--max_safety_violation_rate", type=float, default=0.2)
     ap.add_argument("--require_run_dirs", action="store_true")
     ap.add_argument("--out_json", type=str, default=None)
+    ap.add_argument("--artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     args = ap.parse_args()
 
     report: Dict[str, Any] = {"passed": False, "checks": {}, "errors": []}
@@ -213,6 +222,18 @@ def main() -> None:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
+        register_artifact(
+            artifact_type="production_readiness_report",
+            artifact_path=out_path,
+            status=("passed" if bool(report["passed"]) else "failed"),
+            metadata={
+                "error_count": int(len(all_errors)),
+                "require_benchmark": bool(args.require_benchmark),
+                "manifest_path": str(args.manifest_path),
+                "bench_json": str(args.bench_json),
+            },
+            index_path=str(args.artifact_index_path),
+        )
 
     print("production readiness report")
     print(f"passed: {report['passed']}")

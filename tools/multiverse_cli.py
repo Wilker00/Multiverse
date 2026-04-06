@@ -26,7 +26,14 @@ if __package__ in (None, ""):
     if _PROJECT_ROOT not in sys.path:
         sys.path.insert(0, _PROJECT_ROOT)
 
+from core.artifact_index import (
+    DEFAULT_ARTIFACT_INDEX_PATH,
+    latest_artifact,
+    load_artifact_index,
+    summarize_artifact_index,
+)
 from verses.registry import list_verses, register_builtin
+from core.run_artifacts import get_run_artifact_summary
 from tools.multiverse_cli_runs import (
     cmd_runs_files,
     cmd_runs_inspect,
@@ -37,6 +44,7 @@ from tools.multiverse_cli_runs import (
     resolve_run_dir as _resolve_run_dir,
     run_snapshot as _run_snapshot,
 )
+from tools.multiverse_cli_memory import cmd_memory_inspect
 from tools.multiverse_cli_shell import run_shell
 
 
@@ -304,6 +312,15 @@ def cmd_status(args: argparse.Namespace) -> int:
         "universes": {"count": len(verses), "sample": verses[:10]},
         "runs": snap,
     }
+    operator: Dict[str, Any] | None = None
+    if bool(getattr(args, "verbose", False)):
+        operator = build_operator_status_report(
+            runs_root=str(args.runs_root),
+            central_memory_dir=str(args.central_memory_dir),
+            sentinel_out_dir=str(args.sentinel_out_dir),
+            artifact_index_path=str(args.artifact_index_path),
+        )
+        payload["operator"] = operator
     if bool(args.json):
         print(json.dumps(payload, indent=2))
         return 0
@@ -321,6 +338,37 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"Latest size    : {latest['size_human']}")
     else:
         print("Latest run     : none")
+    if operator is not None:
+        readiness = operator["readiness"]
+        sentinel = operator["sentinel"]
+        latest_run = operator.get("latest_run", {})
+        indexed = operator.get("indexed_artifacts", {})
+        print("")
+        print("Operator View")
+        print("-------------")
+        print(f"Core tools ok  : {bool(readiness['core_tools_ready'])}")
+        print(f"Memory bank    : {bool(readiness['memory_bank_present'])}")
+        print(f"Benchmark      : {bool(readiness['benchmark_present'])}")
+        print(f"Artifact index : {bool(readiness['artifact_index_present'])}")
+        print(f"Run manifest   : {bool(readiness['latest_run_manifest_present'])}")
+        print(f"Artifacts ok   : {bool(readiness['latest_run_artifacts_ok'])}")
+        if latest_run:
+            print(f"Manifest stale : {bool(latest_run.get('manifest_stale', False))}")
+        if indexed:
+            print(f"Indexed types  : {len(list(indexed.get('artifact_types', [])))}")
+        print(f"Sentinel found : {bool(sentinel['found'])}")
+        if bool(sentinel["found"]):
+            print(f"Sentinel path  : {sentinel['summary_path']}")
+            print(f"Readiness ok   : {sentinel['readiness_ok']}")
+            print(f"Health ok      : {sentinel['health_ok']}")
+            print(f"Deploy allowed : {sentinel['deploy_allowed']}")
+            print(f"Critical agents: {sentinel['critical_agents']}")
+            print(f"Unhealthy      : {sentinel['unhealthy_agents']}")
+            reasons = sentinel.get("block_reasons", [])
+            if isinstance(reasons, list) and reasons:
+                print(f"Block reasons  : {', '.join(str(x) for x in reasons)}")
+            if sentinel.get("error"):
+                print(f"Sentinel error : {sentinel['error']}")
     print("")
     print("Quick Start")
     print("-----------")
@@ -344,10 +392,66 @@ def _latest_matching_artifact(*patterns: str) -> Path | None:
     return best
 
 
+def _read_json_object(path: Path) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        obj = json.load(f)
+    if not isinstance(obj, dict):
+        raise ValueError(f"Expected JSON object: {path}")
+    return obj
+
+
+def _latest_json_artifact_under(root: str | Path) -> Path | None:
+    base = Path(root)
+    if not base.is_absolute():
+        base = PROJECT_ROOT / base
+    if not base.exists():
+        return None
+    best: Path | None = None
+    for path in base.rglob("*.json"):
+        if not path.is_file():
+            continue
+        if best is None or path.stat().st_mtime > best.stat().st_mtime:
+            best = path
+    return best
+
+
+def _summarize_sentinel_summary(summary: Dict[str, Any], *, summary_path: Path) -> Dict[str, Any]:
+    cycle_rows = summary.get("cycle_rows", []) if isinstance(summary.get("cycle_rows"), list) else []
+    latest = cycle_rows[-1] if cycle_rows else {}
+    latest_decision = latest.get("decision", {}) if isinstance(latest.get("decision"), dict) else {}
+    latest_health = latest_decision.get("health", {}) if isinstance(latest_decision.get("health"), dict) else {}
+    latest_deploy = latest.get("deploy", {}) if isinstance(latest.get("deploy"), dict) else {}
+    return {
+        "found": True,
+        "summary_path": str(summary_path),
+        "created_at_iso": str(summary.get("created_at_iso", "")).strip() or None,
+        "cycles": int(summary.get("cycles", len(cycle_rows)) or len(cycle_rows)),
+        "latest_cycle": (None if not latest else int(latest.get("cycle", 0) or 0)),
+        "readiness_ok": (None if not latest else bool(latest_decision.get("readiness_ok", False))),
+        "health_ok": (None if not latest else bool(latest_decision.get("health_ok", False))),
+        "deploy_allowed": (None if not latest else bool(latest_decision.get("deploy_allowed", False))),
+        "block_reasons": (
+            [str(x) for x in latest_decision.get("block_reasons", [])]
+            if isinstance(latest_decision.get("block_reasons"), list)
+            else []
+        ),
+        "critical_agents": (None if not latest else int(latest_health.get("critical_count", 0) or 0)),
+        "unhealthy_agents": (None if not latest else int(latest_health.get("unhealthy_count", 0) or 0)),
+        "agents_scored": (None if not latest else int(latest_health.get("agents_scored", 0) or 0)),
+        "deploy_attempted": (None if not latest else bool(latest_deploy.get("attempted", False))),
+        "deploy_returncode": (
+            None
+            if (not latest or latest_deploy.get("returncode") is None)
+            else int(latest_deploy.get("returncode", 0))
+        ),
+    }
+
+
 def build_doctor_report(
     *,
     runs_root: str,
     central_memory_dir: str,
+    artifact_index_path: str = DEFAULT_ARTIFACT_INDEX_PATH,
 ) -> Dict[str, Any]:
     register_builtin()
     runs_path = PROJECT_ROOT / str(runs_root)
@@ -369,6 +473,21 @@ def build_doctor_report(
     }
 
     snap = _run_snapshot(str(runs_path))
+    latest_run_artifacts: Dict[str, Any] | None = None
+    latest = snap.get("latest")
+    if isinstance(latest, dict) and str(latest.get("path", "")).strip():
+        try:
+            latest_run_artifacts = get_run_artifact_summary(str(latest["path"]))
+        except Exception as exc:
+            latest_run_artifacts = {
+                "run_id": str(latest.get("run_id", "")),
+                "run_dir": str(latest.get("path", "")),
+                "manifest_present": False,
+                "manifest_status": "inspection_error",
+                "manifest_stale": False,
+                "missing_required_artifacts": [],
+                "error": str(exc),
+            }
     memory_files = {}
     for name in ("memories.jsonl", "ltm_memories.jsonl", "stm_memories.jsonl", "tier_policy.json"):
         path = memory_path / name
@@ -382,6 +501,13 @@ def build_doctor_report(
     latest_benchmark = _latest_matching_artifact("models/validation/retrieval_ann_benchmark*.json")
     latest_sentinel = _latest_matching_artifact("models/tuning/promotion_sentinel/**/*.json", "models/tuning/promotion_sentinel/*.json")
     latest_pack = _latest_matching_artifact("models/paper/paper_readiness/latest/*.json")
+    artifact_index = summarize_artifact_index(str(artifact_index_path))
+    artifact_index_obj = load_artifact_index(str(artifact_index_path))
+    indexed_health = latest_artifact(artifact_index_obj, "agent_health_report")
+    indexed_readiness = latest_artifact(artifact_index_obj, "production_readiness_report")
+    indexed_sentinel = latest_artifact(artifact_index_obj, "promotion_sentinel_summary")
+    indexed_fixed_seed = latest_artifact(artifact_index_obj, "fixed_seed_benchmark_latest")
+    indexed_ann = latest_artifact(artifact_index_obj, "retrieval_ann_benchmark")
 
     suggestions: List[str] = []
     if not runs_path.exists():
@@ -390,6 +516,12 @@ def build_doctor_report(
         suggestions.append("Run `multiverse train --profile quick` to generate a baseline run.")
     else:
         suggestions.append("Inspect your latest run with `multiverse runs inspect --count-events`.")
+        if latest_run_artifacts is not None and not bool(latest_run_artifacts.get("manifest_present", False)):
+            suggestions.append("Backfill `run_manifest.json` for the latest run to make artifact state inspectable.")
+        elif latest_run_artifacts is not None and bool(latest_run_artifacts.get("manifest_stale", False)):
+            suggestions.append("Regenerate the latest run manifest because artifacts changed after the manifest was written.")
+        elif latest_run_artifacts is not None and list(latest_run_artifacts.get("missing_required_artifacts", [])):
+            suggestions.append("Latest run is missing required artifacts. Rebuild the run or repair the artifact set.")
 
     if not memory_path.exists():
         suggestions.append("Create central memory by running a memory-enabled workflow or ingesting runs.")
@@ -402,14 +534,22 @@ def build_doctor_report(
         suggestions.append("Run `python tools/benchmark_retrieval_ann.py --out_json models/validation/retrieval_ann_benchmark_v1.json` to baseline retrieval speed.")
     if latest_sentinel is None:
         suggestions.append("Run `multiverse sentinel --status` or `multiverse sentinel --dry-run` to validate promotion operations.")
+    if not bool(artifact_index.get("exists", False)):
+        suggestions.append("Generate operator artifacts so `models/ops/artifact_index.json` can track health, readiness, and benchmark state.")
 
     readiness_checks = {
         "core_tools_ready": all(bool(item["exists"]) for item in tool_status.values()),
         "runs_root_exists": bool(runs_path.is_dir()),
         "central_memory_exists": bool(memory_path.is_dir()),
         "memory_bank_present": bool(memory_files["memories.jsonl"]["exists"]),
-        "benchmark_present": bool(latest_benchmark is not None),
-        "sentinel_artifact_present": bool(latest_sentinel is not None),
+        "benchmark_present": bool(latest_benchmark is not None or indexed_fixed_seed is not None or indexed_ann is not None),
+        "sentinel_artifact_present": bool(latest_sentinel is not None or indexed_sentinel is not None),
+        "latest_run_manifest_present": bool((latest_run_artifacts or {}).get("manifest_present", False)),
+        "latest_run_manifest_stale": bool((latest_run_artifacts or {}).get("manifest_stale", False)),
+        "latest_run_artifacts_ok": not bool((latest_run_artifacts or {}).get("missing_required_artifacts", [])),
+        "artifact_index_present": bool(artifact_index.get("exists", False)),
+        "health_report_indexed": bool(indexed_health is not None),
+        "readiness_report_indexed": bool(indexed_readiness is not None),
     }
 
     return {
@@ -431,8 +571,90 @@ def build_doctor_report(
             "latest_retrieval_benchmark": (str(latest_benchmark) if latest_benchmark is not None else None),
             "latest_sentinel_summary": (str(latest_sentinel) if latest_sentinel is not None else None),
             "latest_paper_readiness_artifact": (str(latest_pack) if latest_pack is not None else None),
+            "latest_run_artifacts": latest_run_artifacts,
+            "artifact_index": artifact_index,
+            "indexed_health_report": indexed_health,
+            "indexed_readiness_report": indexed_readiness,
+            "indexed_sentinel_summary": indexed_sentinel,
+            "indexed_fixed_seed_benchmark": indexed_fixed_seed,
+            "indexed_retrieval_ann_benchmark": indexed_ann,
         },
         "next_actions": suggestions,
+    }
+
+
+def build_operator_status_report(
+    *,
+    runs_root: str,
+    central_memory_dir: str,
+    sentinel_out_dir: str,
+    artifact_index_path: str = DEFAULT_ARTIFACT_INDEX_PATH,
+) -> Dict[str, Any]:
+    doctor = build_doctor_report(
+        runs_root=str(runs_root),
+        central_memory_dir=str(central_memory_dir),
+        artifact_index_path=str(artifact_index_path),
+    )
+    sentinel_path = _latest_json_artifact_under(str(sentinel_out_dir))
+    indexed_sentinel = doctor["artifacts"].get("indexed_sentinel_summary")
+    if sentinel_path is None and isinstance(indexed_sentinel, dict) and str(indexed_sentinel.get("path", "")).strip():
+        sentinel_path = Path(str(indexed_sentinel["path"]))
+    sentinel: Dict[str, Any]
+    if sentinel_path is None:
+        sentinel = {
+            "found": False,
+            "summary_path": None,
+            "created_at_iso": None,
+            "cycles": 0,
+            "latest_cycle": None,
+            "readiness_ok": None,
+            "health_ok": None,
+            "deploy_allowed": None,
+            "block_reasons": [],
+            "critical_agents": None,
+            "unhealthy_agents": None,
+            "agents_scored": None,
+            "deploy_attempted": None,
+            "deploy_returncode": None,
+        }
+    else:
+        try:
+            sentinel = _summarize_sentinel_summary(_read_json_object(sentinel_path), summary_path=sentinel_path)
+        except Exception as exc:
+            sentinel = {
+                "found": True,
+                "summary_path": str(sentinel_path),
+                "created_at_iso": None,
+                "cycles": 0,
+                "latest_cycle": None,
+                "readiness_ok": None,
+                "health_ok": None,
+                "deploy_allowed": None,
+                "block_reasons": [],
+                "critical_agents": None,
+                "unhealthy_agents": None,
+                "agents_scored": None,
+                "deploy_attempted": None,
+                "deploy_returncode": None,
+                "error": str(exc),
+            }
+
+    readiness = dict(doctor["readiness"])
+    readiness.update(
+        {
+            "sentinel_summary_present": bool(sentinel.get("found", False)),
+            "latest_sentinel_readiness_ok": sentinel.get("readiness_ok"),
+            "latest_sentinel_health_ok": sentinel.get("health_ok"),
+            "latest_sentinel_deploy_allowed": sentinel.get("deploy_allowed"),
+        }
+    )
+    return {
+        "readiness": readiness,
+        "artifacts": dict(doctor["artifacts"]),
+        "latest_run": dict((doctor["artifacts"].get("latest_run_artifacts") or {})),
+        "indexed_artifacts": dict((doctor["artifacts"].get("artifact_index") or {})),
+        "sentinel": sentinel,
+        "next_actions": list(doctor["next_actions"]),
     }
 
 
@@ -440,6 +662,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     report = build_doctor_report(
         runs_root=str(args.runs_root),
         central_memory_dir=str(args.central_memory_dir),
+        artifact_index_path=str(args.artifact_index_path),
     )
     if bool(args.json):
         print(json.dumps(report, indent=2))
@@ -481,6 +704,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"Retrieval bench : {artifacts['latest_retrieval_benchmark'] or 'missing'}")
     print(f"Sentinel summary: {artifacts['latest_sentinel_summary'] or 'missing'}")
     print(f"Paper artifact  : {artifacts['latest_paper_readiness_artifact'] or 'missing'}")
+    print(f"Artifact index  : {(artifacts.get('artifact_index') or {}).get('path', 'missing')}")
     print("")
     print("Next Actions")
     print("------------")
@@ -616,6 +840,7 @@ def build_promotion_sentinel_cmd(args: argparse.Namespace) -> List[str]:
         cmd.extend(["--out_dir", str(args.out_dir)])
         if str(args.summary_json).strip():
             cmd.extend(["--summary_json", str(args.summary_json).strip()])
+        cmd.extend(["--artifact_index_path", str(args.artifact_index_path)])
         if bool(args.json):
             cmd.append("--json")
         return cmd
@@ -659,6 +884,8 @@ def build_promotion_sentinel_cmd(args: argparse.Namespace) -> List[str]:
             str(int(args.deploy_seed)),
             "--out_dir",
             str(args.out_dir),
+            "--artifact_index_path",
+            str(args.artifact_index_path),
         ]
     )
     if bool(args.auto_heal):
@@ -709,6 +936,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  multiverse status\n"
+            "  multiverse status --verbose\n"
             "  multiverse sim list\n"
             "  multiverse doctor\n"
             "  multiverse sim2real --dry-run\n"
@@ -718,6 +946,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  multiverse train --profile research --dry-run\n"
             "  multiverse sentinel --dry-run\n"
             "  multiverse runs inspect --count-events\n"
+            "  multiverse memory inspect --algo memory_recall --universe line_world --obs-json '{\"pos\":0,\"goal\":4,\"t\":0}' --json\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -725,12 +954,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser("status", aliases=["st"], help="Snapshot summary of universes and runs.")
     p_status.add_argument("--runs-root", type=str, default="runs")
+    p_status.add_argument("--central-memory-dir", dest="central_memory_dir", type=str, default="central_memory")
+    p_status.add_argument(
+        "--sentinel-out-dir",
+        dest="sentinel_out_dir",
+        type=str,
+        default=os.path.join("models", "tuning", "promotion_sentinel"),
+    )
+    p_status.add_argument("--artifact-index-path", dest="artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
+    p_status.add_argument("--verbose", action=argparse.BooleanOptionalAction, default=False)
     p_status.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
     p_status.set_defaults(func=cmd_status)
 
     p_doctor = sub.add_parser("doctor", aliases=["check"], help="Environment readiness and recommended next actions.")
     p_doctor.add_argument("--runs-root", type=str, default="runs")
     p_doctor.add_argument("--central-memory-dir", dest="central_memory_dir", type=str, default="central_memory")
+    p_doctor.add_argument("--artifact-index-path", dest="artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     p_doctor.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
     p_doctor.set_defaults(func=cmd_doctor)
 
@@ -859,6 +1098,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_runs_inspect.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
     p_runs_inspect.set_defaults(func=cmd_runs_inspect)
 
+    p_memory = sub.add_parser("memory", aliases=["mem"], help="Memory inspection and retrieval commands.")
+    sub_memory = p_memory.add_subparsers(dest="memory_command", required=True)
+
+    p_memory_inspect = sub_memory.add_parser("inspect", aliases=["i"], help="Inspect what memory an agent would request and receive.")
+    p_memory_inspect.add_argument("--algo", type=str, default="memory_recall")
+    p_memory_inspect.add_argument("--universe", "--verse", dest="verse", type=str, default="line_world")
+    p_memory_inspect.add_argument("--verse-version", dest="verse_version", type=str, default="0.1")
+    p_memory_inspect.add_argument("--policy-id", dest="policy_id", type=str, default=None)
+    p_memory_inspect.add_argument("--mode", type=str, default="bootstrap", choices=["bootstrap", "on_demand"])
+    p_memory_inspect.add_argument("--step-idx", dest="step_idx", type=int, default=0)
+    p_memory_inspect.add_argument("--seed", type=int, default=123)
+    p_memory_inspect.add_argument("--central-memory-dir", dest="central_memory_dir", type=str, default="central_memory")
+    p_memory_inspect.add_argument("--obs-json", dest="obs_json", type=str, default="")
+    p_memory_inspect.add_argument("--obs-file", dest="obs_file", type=str, default="")
+    p_memory_inspect.add_argument("--vparam", action="append", default=None)
+    p_memory_inspect.add_argument("--aconfig", action="append", default=None)
+    p_memory_inspect.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_memory_inspect.set_defaults(func=cmd_memory_inspect)
+
     p_shell = sub.add_parser(
         "shell",
         aliases=["live", "session"],
@@ -911,6 +1169,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sentinel.add_argument("--deploy-skip-promotion-board", dest="deploy_skip_promotion_board", action=argparse.BooleanOptionalAction, default=False)
     p_sentinel.add_argument("--deploy-ingest-memory", dest="deploy_ingest_memory", action=argparse.BooleanOptionalAction, default=False)
     p_sentinel.add_argument("--out-dir", dest="out_dir", type=str, default=os.path.join("models", "tuning", "promotion_sentinel"))
+    p_sentinel.add_argument("--artifact-index-path", dest="artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     p_sentinel.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
     p_sentinel.set_defaults(func=cmd_sentinel)
 
@@ -925,7 +1184,15 @@ def execute_argv(
 ) -> int:
     ap = build_parser()
     if len(raw_argv) <= 0:
-        cmd_status(argparse.Namespace(runs_root="runs", json=False))
+        cmd_status(
+            argparse.Namespace(
+                runs_root="runs",
+                central_memory_dir="central_memory",
+                sentinel_out_dir=os.path.join("models", "tuning", "promotion_sentinel"),
+                verbose=False,
+                json=False,
+            )
+        )
         print("")
         ap.print_help()
         return 0

@@ -56,6 +56,11 @@ class MemoryRecallAgent(QLearningAgent):
     - recall_min_score (float, default -0.2)
     - recall_same_verse_only (bool, default true)
     - recall_memory_types (list/set/csv string)
+    - recall_policy_ids (list/set/csv string)
+    - recall_exclude_policy_ids (list/set/csv string)
+    - recall_source_verse_names (list/set/csv string)
+    - recall_min_transfer_score (float, optional)
+    - recall_min_transfer_confidence (float, optional)
     - recall_vote_weight (float, default 0.75)
     - recall_risk_key (str, default "risk")
     - recall_risk_threshold (float, default 6.0)
@@ -72,6 +77,52 @@ class MemoryRecallAgent(QLearningAgent):
         self._recall_min_score = _safe_float(cfg.get("recall_min_score", -0.2), -0.2)
         self._recall_same_verse_only = bool(cfg.get("recall_same_verse_only", True))
         self._recall_memory_types = _as_set(cfg.get("recall_memory_types"))
+        self._recall_policy_ids = _as_set(cfg.get("recall_policy_ids"))
+        self._recall_exclude_policy_ids = _as_set(cfg.get("recall_exclude_policy_ids"))
+        self._recall_source_verse_names = _as_set(cfg.get("recall_source_verse_names"))
+        self._recall_min_transfer_score = (
+            None
+            if cfg.get("recall_min_transfer_score") is None
+            else _safe_float(cfg.get("recall_min_transfer_score"), 0.0)
+        )
+        self._recall_min_transfer_confidence = (
+            None
+            if cfg.get("recall_min_transfer_confidence") is None
+            else _safe_float(cfg.get("recall_min_transfer_confidence"), 0.0)
+        )
+        self._bootstrap_recall_enabled = bool(cfg.get("bootstrap_recall_enabled", False))
+        self._bootstrap_top_k = max(1, _safe_int(cfg.get("bootstrap_top_k", self._recall_top_k), self._recall_top_k))
+        self._bootstrap_min_score = _safe_float(
+            cfg.get("bootstrap_min_score", self._recall_min_score),
+            self._recall_min_score,
+        )
+        self._bootstrap_same_verse_only = bool(cfg.get("bootstrap_same_verse_only", self._recall_same_verse_only))
+        self._bootstrap_memory_types = _as_set(cfg.get("bootstrap_memory_types"))
+        if self._bootstrap_memory_types is None:
+            self._bootstrap_memory_types = set(self._recall_memory_types) if self._recall_memory_types else None
+        self._bootstrap_policy_ids = _as_set(cfg.get("bootstrap_policy_ids"))
+        if self._bootstrap_policy_ids is None:
+            self._bootstrap_policy_ids = set(self._recall_policy_ids) if self._recall_policy_ids else None
+        self._bootstrap_exclude_policy_ids = _as_set(cfg.get("bootstrap_exclude_policy_ids"))
+        if self._bootstrap_exclude_policy_ids is None:
+            self._bootstrap_exclude_policy_ids = (
+                set(self._recall_exclude_policy_ids) if self._recall_exclude_policy_ids else None
+            )
+        self._bootstrap_source_verse_names = _as_set(cfg.get("bootstrap_source_verse_names"))
+        if self._bootstrap_source_verse_names is None:
+            self._bootstrap_source_verse_names = (
+                set(self._recall_source_verse_names) if self._recall_source_verse_names else None
+            )
+        self._bootstrap_min_transfer_score = (
+            self._recall_min_transfer_score
+            if cfg.get("bootstrap_min_transfer_score") is None
+            else _safe_float(cfg.get("bootstrap_min_transfer_score"), 0.0)
+        )
+        self._bootstrap_min_transfer_confidence = (
+            self._recall_min_transfer_confidence
+            if cfg.get("bootstrap_min_transfer_confidence") is None
+            else _safe_float(cfg.get("bootstrap_min_transfer_confidence"), 0.0)
+        )
         self._recall_vote_weight = max(0.0, min(3.0, _safe_float(cfg.get("recall_vote_weight", 0.75), 0.75)))
         self._recall_use_source_greedy_action = bool(cfg.get("recall_use_source_greedy_action", False))
         self._recall_apply_only_if_greedy_changes = bool(cfg.get("recall_apply_only_if_greedy_changes", False))
@@ -170,6 +221,15 @@ class MemoryRecallAgent(QLearningAgent):
             "min_score": float(self._recall_min_score),
             "verse_name": (self._verse_name if bool(self._recall_same_verse_only and self._verse_name) else None),
             "memory_types": (sorted(list(self._recall_memory_types)) if self._recall_memory_types else None),
+            "policy_ids": (sorted(list(self._recall_policy_ids)) if self._recall_policy_ids else None),
+            "exclude_policy_ids": (
+                sorted(list(self._recall_exclude_policy_ids)) if self._recall_exclude_policy_ids else None
+            ),
+            "source_verse_names": (
+                sorted(list(self._recall_source_verse_names)) if self._recall_source_verse_names else None
+            ),
+            "min_transfer_score": self._recall_min_transfer_score,
+            "min_transfer_confidence": self._recall_min_transfer_confidence,
             "reason": str(reason),
         }
         self._last_query_step = int(step)
@@ -185,6 +245,27 @@ class MemoryRecallAgent(QLearningAgent):
             "block_reason": "emitted",
         }
         return req
+
+    def memory_bootstrap_request(self, *, obs: JSONValue, step_idx: int = 0) -> Optional[Dict[str, Any]]:
+        if not (bool(self._recall_enabled) and bool(self._bootstrap_recall_enabled)):
+            return None
+        return {
+            "query_obs": obs,
+            "top_k": int(self._bootstrap_top_k),
+            "min_score": float(self._bootstrap_min_score),
+            "verse_name": (self._verse_name if bool(self._bootstrap_same_verse_only and self._verse_name) else None),
+            "memory_types": (sorted(list(self._bootstrap_memory_types)) if self._bootstrap_memory_types else None),
+            "policy_ids": (sorted(list(self._bootstrap_policy_ids)) if self._bootstrap_policy_ids else None),
+            "exclude_policy_ids": (
+                sorted(list(self._bootstrap_exclude_policy_ids)) if self._bootstrap_exclude_policy_ids else None
+            ),
+            "source_verse_names": (
+                sorted(list(self._bootstrap_source_verse_names)) if self._bootstrap_source_verse_names else None
+            ),
+            "min_transfer_score": self._bootstrap_min_transfer_score,
+            "min_transfer_confidence": self._bootstrap_min_transfer_confidence,
+            "reason": "episode_bootstrap",
+        }
 
     def on_memory_response(self, payload: Dict[str, Any]) -> None:
         self._last_bundle = payload if isinstance(payload, dict) else None

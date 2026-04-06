@@ -24,6 +24,8 @@ if __package__ in (None, ""):
     if _PROJECT_ROOT not in sys.path:
         sys.path.insert(0, _PROJECT_ROOT)
 
+from core.artifact_index import DEFAULT_ARTIFACT_INDEX_PATH, register_artifact
+
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
     try:
@@ -620,6 +622,7 @@ def main() -> None:
     ap.add_argument("--fail_on_promotion_gate", action="store_true")
     ap.add_argument("--resume_existing", action=argparse.BooleanOptionalAction, default=False)
     ap.add_argument("--out_json", type=str, default="")
+    ap.add_argument("--artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     args = ap.parse_args()
 
     seeds = parse_seed_list(str(args.seeds))
@@ -739,6 +742,41 @@ def main() -> None:
     latest = os.path.join(root, "latest.json")
     with open(latest, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
+    gate_ok = None if not isinstance(promotion_gate, dict) else bool(promotion_gate.get("ok", False))
+    register_artifact(
+        artifact_type="fixed_seed_benchmark",
+        artifact_path=out_json,
+        status=(
+            "passed"
+            if (gate_ok is True)
+            else ("failed" if gate_ok is False else "generated")
+        ),
+        created_at_iso=str(summary.get("created_at_iso", "")),
+        metadata={
+            "target_verse": str(args.target_verse),
+            "num_seeds": int(len(seeds)),
+            "promotion_gate_ok": gate_ok,
+            "mean_hazard_improvement_pct": float(_safe_float(agg.get("mean_hazard_improvement_pct", 0.0), 0.0)),
+            "win_rate": float(_safe_float(agg.get("win_rate", 0.0), 0.0)),
+        },
+        index_path=str(args.artifact_index_path),
+    )
+    register_artifact(
+        artifact_type="fixed_seed_benchmark_latest",
+        artifact_path=latest,
+        status=(
+            "passed"
+            if (gate_ok is True)
+            else ("failed" if gate_ok is False else "generated")
+        ),
+        created_at_iso=str(summary.get("created_at_iso", "")),
+        metadata={
+            "target_verse": str(args.target_verse),
+            "num_seeds": int(len(seeds)),
+            "promotion_gate_ok": gate_ok,
+        },
+        index_path=str(args.artifact_index_path),
+    )
 
     print(f"summary_json={out_json}")
     print(

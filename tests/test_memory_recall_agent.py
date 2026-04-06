@@ -42,6 +42,50 @@ class TestMemoryRecallAgent(unittest.TestCase):
         self.assertIsNotNone(r1)
         self.assertIsNone(r2)
 
+    def test_memory_query_request_includes_bias_filters(self):
+        ag = self._agent(
+            {
+                "verse_name": "warehouse_world",
+                "recall_risk_threshold": 1.0,
+                "recall_policy_ids": ["transfer_q_warehouse_world"],
+                "recall_exclude_policy_ids": ["baseline_q_warehouse_world"],
+                "recall_source_verse_names": ["grid_world", "cliff_world"],
+                "recall_min_transfer_score": 0.7,
+                "recall_min_transfer_confidence": 0.6,
+            }
+        )
+        req = ag.memory_query_request(obs={"risk": 9}, step_idx=0)
+        self.assertIsNotNone(req)
+        assert isinstance(req, dict)
+        self.assertEqual(list(req.get("policy_ids", [])), ["transfer_q_warehouse_world"])
+        self.assertEqual(list(req.get("exclude_policy_ids", [])), ["baseline_q_warehouse_world"])
+        self.assertEqual(list(req.get("source_verse_names", [])), ["cliff_world", "grid_world"])
+        self.assertEqual(float(req.get("min_transfer_score", -1.0)), 0.7)
+        self.assertEqual(float(req.get("min_transfer_confidence", -1.0)), 0.6)
+
+    def test_memory_bootstrap_request_reuses_recall_filters(self):
+        ag = self._agent(
+            {
+                "verse_name": "warehouse_world",
+                "bootstrap_recall_enabled": True,
+                "recall_policy_ids": ["transfer_q_warehouse_world"],
+                "recall_exclude_policy_ids": ["baseline_q_warehouse_world"],
+                "recall_source_verse_names": ["grid_world"],
+                "recall_min_transfer_score": 0.7,
+                "recall_min_transfer_confidence": 0.6,
+            }
+        )
+        req = ag.memory_bootstrap_request(obs={"pos": 0}, step_idx=0)
+        self.assertIsNotNone(req)
+        assert isinstance(req, dict)
+        self.assertEqual(str(req.get("reason", "")), "episode_bootstrap")
+        self.assertEqual(str(req.get("verse_name", "")), "warehouse_world")
+        self.assertEqual(list(req.get("policy_ids", [])), ["transfer_q_warehouse_world"])
+        self.assertEqual(list(req.get("exclude_policy_ids", [])), ["baseline_q_warehouse_world"])
+        self.assertEqual(list(req.get("source_verse_names", [])), ["grid_world"])
+        self.assertEqual(float(req.get("min_transfer_score", -1.0)), 0.7)
+        self.assertEqual(float(req.get("min_transfer_confidence", -1.0)), 0.6)
+
     def test_act_with_hint_uses_memory_prior(self):
         ag = self._agent(
             {

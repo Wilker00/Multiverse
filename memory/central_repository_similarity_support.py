@@ -162,6 +162,11 @@ def _row_matches_filters(
     row: _PreparedMemoryRow,
     target_verse: str,
     exclude_run_ids: Optional[Set[str]],
+    policy_filter: Optional[Set[str]],
+    exclude_policy_filter: Optional[Set[str]],
+    source_verse_filter: Optional[Set[str]],
+    min_transfer_score: Optional[float],
+    min_transfer_confidence: Optional[float],
     tier_filter: Optional[Set[str]],
     family_filter: Optional[Set[str]],
     type_filter: Optional[Set[str]],
@@ -170,6 +175,18 @@ def _row_matches_filters(
         return False
     if exclude_run_ids and str(row.run_id) in exclude_run_ids:
         return False
+    if policy_filter is not None and str(row.policy_id).strip().lower() not in policy_filter:
+        return False
+    if exclude_policy_filter is not None and str(row.policy_id).strip().lower() in exclude_policy_filter:
+        return False
+    if source_verse_filter is not None and str(row.source_verse_name).strip().lower() not in source_verse_filter:
+        return False
+    if min_transfer_score is not None:
+        if row.transfer_score is None or float(row.transfer_score) < float(min_transfer_score):
+            return False
+    if min_transfer_confidence is not None:
+        if row.transfer_confidence is None or float(row.transfer_confidence) < float(min_transfer_confidence):
+            return False
     if tier_filter is not None and row.row_tier not in tier_filter:
         return False
     if family_filter is not None and row.row_family not in family_filter:
@@ -263,6 +280,10 @@ def _build_match(
         action=row.action,
         reward=float(row.reward),
         obs=row.obs,
+        policy_id=str(row.policy_id),
+        source_verse_name=str(row.source_verse_name),
+        transfer_score=(None if row.transfer_score is None else float(row.transfer_score)),
+        transfer_confidence=(None if row.transfer_confidence is None else float(row.transfer_confidence)),
         source_greedy_action=row.source_greedy_action,
         source_action_matches_greedy=row.source_action_matches_greedy,
         recency_weight=float(recency_weight),
@@ -311,6 +332,11 @@ def find_similar_support(
     memory_tiers: Optional[Set[str]] = None,
     memory_families: Optional[Set[str]] = None,
     memory_types: Optional[Set[str]] = None,
+    policy_ids: Optional[Set[str]] = None,
+    exclude_policy_ids: Optional[Set[str]] = None,
+    source_verse_names: Optional[Set[str]] = None,
+    min_transfer_score: Optional[float] = None,
+    min_transfer_confidence: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
 ) -> List[ScenarioMatch]:
@@ -323,6 +349,9 @@ def find_similar_support(
     tier_filter = as_set_fn(memory_tiers)
     family_filter = as_set_fn(memory_families)
     type_filter = as_set_fn(memory_types)
+    policy_filter = as_set_fn(policy_ids)
+    exclude_policy_filter = as_set_fn(exclude_policy_ids)
+    source_verse_filter = as_set_fn(source_verse_names)
 
     if tier_filter == {"ltm"}:
         mem_paths = [ltm_memories_path_fn(cfg)]
@@ -404,6 +433,11 @@ def find_similar_support(
                     row=row,
                     target_verse=target_verse,
                     exclude_run_ids=exclude_run_ids,
+                    policy_filter=policy_filter,
+                    exclude_policy_filter=exclude_policy_filter,
+                    source_verse_filter=source_verse_filter,
+                    min_transfer_score=min_transfer_score,
+                    min_transfer_confidence=min_transfer_confidence,
                     tier_filter=tier_filter,
                     family_filter=family_filter,
                     type_filter=type_filter,
@@ -488,6 +522,11 @@ def find_similar_support(
                     row=row,
                     target_verse=target_verse,
                     exclude_run_ids=exclude_run_ids,
+                    policy_filter=policy_filter,
+                    exclude_policy_filter=exclude_policy_filter,
+                    source_verse_filter=source_verse_filter,
+                    min_transfer_score=min_transfer_score,
+                    min_transfer_confidence=min_transfer_confidence,
                     tier_filter=tier_filter,
                     family_filter=family_filter,
                     type_filter=type_filter,
@@ -524,6 +563,11 @@ def find_similar_support(
                 row=row,
                 target_verse=target_verse,
                 exclude_run_ids=exclude_run_ids,
+                policy_filter=policy_filter,
+                exclude_policy_filter=exclude_policy_filter,
+                source_verse_filter=source_verse_filter,
+                min_transfer_score=min_transfer_score,
+                min_transfer_confidence=min_transfer_confidence,
                 tier_filter=tier_filter,
                 family_filter=family_filter,
                 type_filter=type_filter,

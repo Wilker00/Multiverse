@@ -8,11 +8,24 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add project root to path
 _THIS_DIR = Path(__file__).parent
 _ROOT = _THIS_DIR.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+
+@pytest.fixture(autouse=True)
+def _restore_multiverse_env():
+    """Keep MULTIVERSE_* env overrides isolated to each test."""
+    original = {k: v for k, v in os.environ.items() if k.startswith("MULTIVERSE_")}
+    yield
+    for key in [k for k in os.environ if k.startswith("MULTIVERSE_")]:
+        if key not in original:
+            del os.environ[key]
+    os.environ.update(original)
 
 
 def test_parallel_rollout_config():

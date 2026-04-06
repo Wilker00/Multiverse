@@ -304,6 +304,71 @@ class TestCentralRepositoryPerfHardening(unittest.TestCase):
             self.assertEqual(int(out.get("exact_hits", 0)), 1)
             self.assertGreaterEqual(float(out.get("agreement_rate", 0.0)), 1.0)
 
+    def test_find_similar_filters_by_policy_and_transfer_metadata(self):
+        with tempfile.TemporaryDirectory() as td:
+            mem_path = os.path.join(td, "memories.jsonl")
+            rows = [
+                {
+                    "run_id": "run_transfer",
+                    "episode_id": "ep1",
+                    "step_idx": 0,
+                    "t_ms": 1,
+                    "verse_name": "warehouse_world",
+                    "policy_id": "transfer_q_warehouse_world",
+                    "source_verse_name": "grid_world",
+                    "obs": {"x": 1, "y": 0},
+                    "obs_vector": [1.0, 0.0],
+                    "action": 1,
+                    "reward": 1.0,
+                    "transfer_score": 1.2,
+                    "transfer_confidence": 0.8,
+                    "memory_tier": "ltm",
+                    "memory_family": "procedural",
+                    "memory_type": "spatial_procedural",
+                },
+                {
+                    "run_id": "run_baseline",
+                    "episode_id": "ep2",
+                    "step_idx": 1,
+                    "t_ms": 2,
+                    "verse_name": "warehouse_world",
+                    "policy_id": "baseline_q_warehouse_world",
+                    "source_verse_name": "cliff_world",
+                    "obs": {"x": 1, "y": 0},
+                    "obs_vector": [1.0, 0.0],
+                    "action": 2,
+                    "reward": 0.5,
+                    "transfer_score": 0.4,
+                    "transfer_confidence": 0.3,
+                    "memory_tier": "ltm",
+                    "memory_family": "procedural",
+                    "memory_type": "spatial_procedural",
+                },
+            ]
+            with open(mem_path, "w", encoding="utf-8") as f:
+                for row in rows:
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+            cfg = CentralMemoryConfig(root_dir=td)
+            out = find_similar(
+                obs={"x": 1, "y": 0},
+                cfg=cfg,
+                top_k=2,
+                min_score=-1.0,
+                verse_name="warehouse_world",
+                policy_ids={"transfer_q_warehouse_world"},
+                exclude_policy_ids={"baseline_q_warehouse_world"},
+                source_verse_names={"grid_world"},
+                min_transfer_score=0.7,
+                min_transfer_confidence=0.6,
+            )
+            self.assertEqual(len(out), 1)
+            self.assertEqual(str(out[0].run_id), "run_transfer")
+            self.assertEqual(str(out[0].policy_id), "transfer_q_warehouse_world")
+            self.assertEqual(str(out[0].source_verse_name), "grid_world")
+            self.assertAlmostEqual(float(out[0].transfer_score or 0.0), 1.2, places=6)
+            self.assertAlmostEqual(float(out[0].transfer_confidence or 0.0), 0.8, places=6)
+
     def test_ann_drift_metrics_autotune_factor(self):
         old_max = os.environ.get("MULTIVERSE_SIM_ANN_MAX_DRIFT")
         try:

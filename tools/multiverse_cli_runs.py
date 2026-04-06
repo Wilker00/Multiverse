@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
+from core.run_artifacts import get_run_artifact_summary
+
 
 @dataclass(frozen=True)
 class RunRecord:
@@ -234,6 +236,7 @@ def cmd_runs_inspect(args: argparse.Namespace) -> int:
         "has_episodes_jsonl": bool(episode_path.is_file()),
         "events_line_count": events_count,
     }
+    payload["manifest"] = get_run_artifact_summary(run_dir)
     if bool(args.json):
         print(json.dumps(payload, indent=2))
         return 0
@@ -244,6 +247,13 @@ def cmd_runs_inspect(args: argparse.Namespace) -> int:
     print(f"File count      : {payload['file_count']}")
     print(f"events.jsonl    : {'yes' if payload['has_events_jsonl'] else 'no'}")
     print(f"episodes.jsonl  : {'yes' if payload['has_episodes_jsonl'] else 'no'}")
+    manifest = payload["manifest"]
+    print(f"manifest        : {'yes' if manifest['manifest_present'] else 'no'}")
+    print(f"manifest status : {manifest['manifest_status']}")
+    if manifest["missing_required_artifacts"]:
+        print(f"missing         : {', '.join(str(x) for x in manifest['missing_required_artifacts'])}")
+    if manifest["manifest_stale"]:
+        print("manifest stale  : yes")
     if events_count is not None:
         print(f"events lines    : {events_count}")
     return 0

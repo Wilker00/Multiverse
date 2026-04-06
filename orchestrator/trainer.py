@@ -33,6 +33,7 @@ from core.types import (
     validate_verse_spec,
 )
 from core.rollout import RolloutConfig, run_episodes
+from core.run_artifacts import write_run_artifact_manifest
 from core.safe_executor import SafeExecutor, SafeExecutorConfig
 from memory.event_log import EventLogConfig, EventLogger, make_on_step_writer
 from memory.retrieval import RetrievalConfig, RetrievalClient
@@ -302,6 +303,7 @@ class Trainer:
             on_demand_memory_enabled=bool(
                 runtime_cfg.get("on_demand_memory_enabled", algo in ("memory_recall", "planner_recall"))
             ),
+            bootstrap_memory_enabled=bool(runtime_cfg.get("bootstrap_memory_enabled", False)),
             on_demand_memory_root=str(runtime_cfg.get("on_demand_memory_root", "central_memory")),
             on_demand_query_budget=int(runtime_cfg.get("on_demand_query_budget", 8)),
             on_demand_min_interval=int(runtime_cfg.get("on_demand_min_interval", 2)),
@@ -367,6 +369,22 @@ class Trainer:
             print(f"total_steps  : {total_steps}")
             print(f"total_return : {total_return:.3f}")
             print(f"log_dir      : {self.run_root}/{run.run_id}")
+
+        try:
+            write_run_artifact_manifest(
+                os.path.join(self.run_root, run.run_id),
+                verse_name=str(verse_spec.verse_name),
+                policy_id=str(agent_spec.policy_id),
+                algo=str(agent_spec.algo),
+                seed=(None if seed is None else int(seed)),
+                episodes_requested=int(episodes),
+                max_steps=int(max_steps),
+                total_steps=int(total_steps),
+                total_return=float(total_return),
+            )
+        except Exception as e:
+            if bool(verbose):
+                print(f"trainer: run manifest write failed: {e}")
 
         return {
             "run_id": run.run_id,

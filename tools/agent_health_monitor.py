@@ -28,6 +28,7 @@ if __package__ in (None, ""):
         sys.path.insert(0, _PROJECT_ROOT)
 
 from orchestrator.evaluator import evaluate_run
+from core.artifact_index import DEFAULT_ARTIFACT_INDEX_PATH, register_artifact
 from memory.central_repository import CentralMemoryConfig, find_similar
 from memory.embeddings import obs_to_vector
 
@@ -844,6 +845,7 @@ def main() -> None:
         type=str,
         default=os.path.join("models", "tuning", "agent_health_report.json"),
     )
+    ap.add_argument("--artifact_index_path", type=str, default=DEFAULT_ARTIFACT_INDEX_PATH)
     args = ap.parse_args()
 
     manifest = _read_json(args.manifest_path) if os.path.isfile(args.manifest_path) else {}
@@ -932,6 +934,24 @@ def main() -> None:
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
+    status_counts: Dict[str, int] = {}
+    for row in report["rows"]:
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("status", "")).strip().lower() or "unknown"
+        status_counts[status] = int(status_counts.get(status, 0)) + 1
+    register_artifact(
+        artifact_type="agent_health_report",
+        artifact_path=out_path,
+        status=("critical" if int(status_counts.get("critical", 0)) > 0 else "ok"),
+        created_at_iso=str(report.get("created_at_iso", "")),
+        metadata={
+            "count": int(report.get("count", 0)),
+            "status_counts": status_counts,
+            "runs_root": str(args.runs_root),
+        },
+        index_path=str(args.artifact_index_path),
+    )
 
     if str(args.format).strip().lower() == "json":
         print(json.dumps(report, ensure_ascii=False, indent=2))
