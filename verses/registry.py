@@ -228,6 +228,7 @@ def register_builtin() -> None:
     from verses.uno_world_v2 import UnoWorldV2Factory
     from verses.maze_world import MazeWorldFactory
     from verses.world_3d import World3DFactory
+    from verses.blackjack_world import BlackjackWorldFactory
 
     builtins = {
         "line_world": LineWorldFactory(),
@@ -255,6 +256,7 @@ def register_builtin() -> None:
         "uno_world_v2": UnoWorldV2Factory(),
         "maze_world": MazeWorldFactory(),
         "world_3d":   World3DFactory(),
+        "blackjack_world": BlackjackWorldFactory(),
     }
     for name, factory in builtins.items():
         if name not in _FACTORIES:

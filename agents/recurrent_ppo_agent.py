@@ -213,8 +213,11 @@ class RecurrentPPOAgent:
             obs_list.append(_obs_to_tensor(tr.obs, self.obs_keys))
             act_list.append(tr.action)
             rew_list.append(tr.reward)
-            val_list.append(tr.info["action_info"]["value"])
-            logp_list.append(tr.info["action_info"]["logp"])
+            action_info = tr.info.get("action_info", {}) if isinstance(tr.info, dict) else {}
+            if isinstance(action_info, dict) and isinstance(action_info.get("action_info"), dict):
+                action_info = action_info.get("action_info", {})
+            val_list.append(float(action_info.get("value", 0.0)))
+            logp_list.append(float(action_info.get("logp", 0.0)))
             done_list.append(float(tr.done or tr.truncated))
 
         # (Seq_len, Dim)
@@ -263,7 +266,14 @@ class RecurrentPPOAgent:
         returns = adv + val_t
         
         # Normalize Advantage
-        adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+        adv_mean = adv.mean()
+        adv_std = adv.std(unbiased=False)
+        if not torch.isfinite(adv_std) or float(adv_std.item()) < 1e-8:
+            adv = adv - adv_mean
+        else:
+            adv = (adv - adv_mean) / (adv_std + 1e-8)
+        adv = torch.nan_to_num(adv, nan=0.0, posinf=0.0, neginf=0.0)
+        returns = torch.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0)
 
         # PPO Update
         # For LSTM, we usually process the whole sequence.
@@ -292,12 +302,16 @@ class RecurrentPPOAgent:
             logits = logits.squeeze(0) # (T, A)
             v_pred = v_pred.squeeze(0).squeeze(-1) # (T)
             
+            logits = torch.clamp(logits, -20.0, 20.0)
             probs = torch.softmax(logits, dim=-1)
+            probs = torch.nan_to_num(probs, nan=1.0 / max(1, self.n_actions), posinf=1.0, neginf=0.0)
+            probs = torch.clamp(probs, min=1e-8)
+            probs = probs / probs.sum(dim=-1, keepdim=True)
             dist = Categorical(probs)
             new_logp = dist.log_prob(act_t)
             entropy = dist.entropy().mean()
             
-            ratio = torch.exp(new_logp - logp_t)
+            ratio = torch.exp(torch.clamp(new_logp - logp_t, -10.0, 10.0))
             
             surr1 = ratio * adv
             surr2 = torch.clamp(ratio, 1.0 - self.clip_eps, 1.0 + self.clip_eps) * adv
@@ -305,7 +319,7 @@ class RecurrentPPOAgent:
             pi_loss = -torch.min(surr1, surr2).mean() - 0.01 * entropy
             v_loss = 0.5 * ((v_pred - returns) ** 2).mean()
             
-            loss = pi_loss + 0.5 * v_loss
+            loss = torch.nan_to_num(pi_loss + 0.5 * v_loss, nan=0.0, posinf=0.0, neginf=0.0)
             
             self.optimizer.zero_grad()
             loss.backward()

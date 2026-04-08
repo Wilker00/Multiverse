@@ -296,8 +296,53 @@ def main() -> None:
         verse_params.setdefault("gust_probability", 0.12)
         verse_params.setdefault("target_margin", 2)
         verse_params.setdefault("margin_reward_scale", 0.05)
+    elif args.verse == "blackjack_world":
+        verse_params.setdefault("num_decks", 6)
+        verse_params.setdefault("reshuffle_penetration", 0.75)
+        verse_params.setdefault("blackjack_payout", 1.5)
+        verse_params.setdefault("max_steps", args.max_steps)
 
     agent_config = _parse_kv_list(args.aconfig)
+    if args.algo == "dqn":
+        agent_config.setdefault("verse_name", args.verse)
+    if args.verse == "blackjack_world" and args.algo == "dqn":
+        agent_config.setdefault("lr", 5e-4)
+        agent_config.setdefault("gamma", 0.99)
+        agent_config.setdefault("epsilon", 0.25)
+        agent_config.setdefault("epsilon_decay", 0.9995)
+        agent_config.setdefault("epsilon_min", 0.02)
+        agent_config.setdefault("batch_size", 128)
+        agent_config.setdefault("buffer_size", 50000)
+        agent_config.setdefault("target_update_freq", 100)
+        agent_config.setdefault("double_dqn", True)
+        agent_config.setdefault("prioritized_replay", True)
+        agent_config.setdefault("prioritized_alpha", 0.6)
+        agent_config.setdefault("prioritized_beta0", 0.4)
+        agent_config.setdefault("prioritized_beta_steps", 20000)
+        agent_config.setdefault("train", True)
+        agent_config.setdefault("blackjack_warmstart", True)
+        agent_config.setdefault("blackjack_warmstart_epochs", 6)
+        agent_config.setdefault("blackjack_warmstart_samples", 4096)
+        agent_config.setdefault("blackjack_warmstart_batch_size", 256)
+        agent_config.setdefault("behavior_clone_epochs", 6)
+        agent_config.setdefault("behavior_clone_batch_size", 256)
+    if args.verse == "blackjack_world" and args.algo == "ppo":
+        agent_config.setdefault("lr", 3e-4)
+        agent_config.setdefault("gamma", 0.99)
+        agent_config.setdefault("gae_lambda", 0.95)
+        agent_config.setdefault("clip_eps", 0.2)
+        agent_config.setdefault("epochs", 8)
+        agent_config.setdefault("hidden_dim", 128)
+        agent_config.setdefault("train", True)
+    if args.verse == "blackjack_world" and args.algo == "recurrent_ppo":
+        agent_config.setdefault("lr", 3e-4)
+        agent_config.setdefault("gamma", 0.99)
+        agent_config.setdefault("gae_lambda", 0.95)
+        agent_config.setdefault("clip_eps", 0.2)
+        agent_config.setdefault("epochs", 6)
+        agent_config.setdefault("hidden_dim", 128)
+        agent_config.setdefault("batch_size", 64)
+        agent_config.setdefault("train", True)
 
     if args.dataset:
         if len(args.dataset) == 1:
@@ -346,7 +391,7 @@ def main() -> None:
     if args.centroid_dataset_path:
         agent_config["centroid_dataset_path"] = args.centroid_dataset_path
 
-    strategy_verses = {"chess_world", "go_world", "uno_world"}
+    strategy_verses = {"chess_world", "go_world", "uno_world", "blackjack_world"}
     if args.algo in ("special_moe", "adaptive_moe", "library") and args.verse in strategy_verses:
         default_expert_dir = os.path.join("models", "expert_datasets")
         if os.path.isdir(default_expert_dir):

@@ -147,6 +147,8 @@ def run_episode(
 
     reset_result: ResetResult = verse.reset()
     validate_reset_result(reset_result)
+    reset_info = dict(reset_result.info or {}) if isinstance(reset_result.info, dict) else {}
+    pending_terminal_autoresolve = bool(reset_info.get("blackjack_pending", False))
 
     episode_id = StepEvent.new_episode_id()
     obs = reset_result.obs
@@ -387,7 +389,16 @@ def run_episode(
         elif bool(config.on_demand_memory_enabled) and not hasattr(agent, "memory_query_request"):
             memory_query_state["block_reason"] = "agent_no_query_api"
 
-        if config.safe_executor is not None:
+        synthetic_action = False
+        env_action = None
+        if pending_terminal_autoresolve and step_idx == 0:
+            synthetic_action = True
+            env_action = 1
+            action_result = ActionResult(
+                action=None,
+                info={"synthetic_action": True, "reason": "pending_terminal_autoresolve"},
+            )
+        elif config.safe_executor is not None:
             action_result = config.safe_executor.select_action(agent, obs)
         else:
             if (
@@ -434,8 +445,10 @@ def run_episode(
 
 
         action = action_result.action
+        if env_action is None:
+            env_action = action
 
-        step_result: StepResult = verse.step(action)
+        step_result: StepResult = verse.step(env_action)
         if config.safe_executor is not None:
             step_result = config.safe_executor.post_step(
                 obs=obs,
@@ -520,7 +533,7 @@ def run_episode(
         else:
             events.append(event)
 
-        if config.collect_transitions:
+        if config.collect_transitions and not synthetic_action:
             transitions.append(
                 Transition(
                     obs=obs,
