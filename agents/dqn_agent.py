@@ -111,6 +111,28 @@ def encode_obs_uno_v2(obs: Dict[str, Any]) -> np.ndarray:
     return scalars
 
 
+def encode_obs_blackjack(obs: Dict[str, Any]) -> np.ndarray:
+    """Encode blackjack observation with hand-structure and count features."""
+    scalars = np.array([
+        obs.get("player_sum", 0) / 21.0,
+        obs.get("dealer_showing", 0) / 11.0,
+        obs.get("usable_ace", 0),
+        obs.get("can_double", 0),
+        obs.get("can_split", 0),
+        obs.get("num_hands", 1) / 4.0,
+        obs.get("active_hand", 0) / 3.0,
+        obs.get("t", 0) / 20.0,
+        obs.get("hand_len", 0) / 10.0,
+        obs.get("pair_rank", 0) / 11.0,
+        obs.get("split_aces_hand", 0),
+        obs.get("first_action", 0),
+        obs.get("running_count", 0) / 20.0,
+        obs.get("true_count", 0) / 10.0,
+        obs.get("cards_remaining", 0) / 312.0,
+    ], dtype=np.float32)
+    return scalars
+
+
 def encode_obs_generic(obs, dim: int = 32) -> np.ndarray:
     """
     Generic flat encoder for any verse observation.
@@ -164,6 +186,7 @@ OBS_ENCODERS = {
     "go_world_v2": (encode_obs_go_v2, 90),
     "chess_world_v2": (encode_obs_chess_v2, 240),
     "uno_world_v2": (encode_obs_uno_v2, 14),
+    "blackjack_world": (encode_obs_blackjack, 15),
 }
 
 # Action counts — verse-specific overrides
@@ -185,10 +208,11 @@ ACTION_COUNTS = {
     "Wind_master_world": 4,
     "wind_master_world": 4,
     "pursuit_world": 4,
-    # Strategy
+    # Strategy / card games
     "chess_world": 7,
     "go_world": 10,
     "uno_world": 15,
+    "blackjack_world": 4,  # hit, stand, double_down, split
     # Planning / Economics
     "harvest_world": 4,
     "factory_world": 5,
@@ -229,15 +253,53 @@ class QNetwork(nn.Module):
 # ---------------------------------------------------------------------------
 
 class ReplayBuffer:
-    def __init__(self, capacity: int = 20000):
+    def __init__(
+        self,
+        capacity: int = 20000,
+        *,
+        prioritized: bool = False,
+        alpha: float = 0.6,
+        priority_eps: float = 1e-5,
+    ):
         self.buffer: deque = deque(maxlen=capacity)
+        self.priorities: deque = deque(maxlen=capacity)
+        self.prioritized = bool(prioritized)
+        self.alpha = float(alpha)
+        self.priority_eps = float(priority_eps)
 
     def push(self, state: np.ndarray, action: int, reward: float,
-             next_state: np.ndarray, done: bool, legal_actions: List[int]):
+             next_state: np.ndarray, done: bool, legal_actions: List[int], priority: Optional[float] = None):
         self.buffer.append((state, action, reward, next_state, done, legal_actions))
+        if priority is None:
+            priority = max(list(self.priorities), default=1.0)
+        self.priorities.append(float(max(self.priority_eps, float(priority))))
 
-    def sample(self, batch_size: int) -> List:
-        return random.sample(list(self.buffer), min(batch_size, len(self.buffer)))
+    def sample(self, batch_size: int, *, beta: float = 0.4) -> Tuple[List[int], List, np.ndarray]:
+        size = len(self.buffer)
+        if size <= 0:
+            return [], [], np.zeros((0,), dtype=np.float32)
+        k = min(int(batch_size), size)
+        if not self.prioritized:
+            indices = random.sample(range(size), k)
+            batch = [self.buffer[i] for i in indices]
+            weights = np.ones((len(indices),), dtype=np.float32)
+            return indices, batch, weights
+
+        priorities = np.asarray(list(self.priorities), dtype=np.float64)
+        scaled = np.power(np.maximum(priorities, self.priority_eps), self.alpha)
+        probs = scaled / np.maximum(np.sum(scaled), 1e-12)
+        indices = np.random.choice(size, size=k, replace=False, p=probs)
+        batch = [self.buffer[int(i)] for i in indices]
+        weights = np.power(size * probs[indices], -float(beta))
+        weights = weights / np.maximum(np.max(weights), 1e-12)
+        return [int(i) for i in indices.tolist()], batch, weights.astype(np.float32)
+
+    def update_priorities(self, indices: List[int], priorities: List[float]) -> None:
+        if not self.prioritized:
+            return
+        for idx, priority in zip(indices, priorities):
+            if 0 <= int(idx) < len(self.priorities):
+                self.priorities[int(idx)] = float(max(self.priority_eps, float(priority)))
 
     def __len__(self) -> int:
         return len(self.buffer)
@@ -261,7 +323,9 @@ class DQNAgent:
     def __init__(self, verse_name: str, hidden: int = 128, lr: float = 1e-3,
                  gamma: float = 0.95, buffer_size: int = 20000, batch_size: int = 64,
                  target_update_freq: int = 50, obs_dim: int = _GENERIC_DIM,
-                 n_actions: int = 0):
+                 n_actions: int = 0, double_dqn: bool = False,
+                 prioritized_replay: bool = False, prioritized_alpha: float = 0.6,
+                 prioritized_beta0: float = 0.4, prioritized_beta_steps: int = 10000):
         # Use verse-specific encoder if available, else fall back to generic
         if verse_name in OBS_ENCODERS:
             encoder_fn, input_dim = OBS_ENCODERS[verse_name]
@@ -286,6 +350,10 @@ class DQNAgent:
         self.gamma = gamma
         self.batch_size = batch_size
         self.target_update_freq = target_update_freq
+        self.double_dqn = bool(double_dqn)
+        self.prioritized_replay = bool(prioritized_replay)
+        self.prioritized_beta0 = float(prioritized_beta0)
+        self.prioritized_beta_steps = max(1, int(prioritized_beta_steps))
 
         self.device = torch.device("cpu")
         self.q_net = QNetwork(input_dim, n_actions, hidden).to(self.device)
@@ -294,7 +362,11 @@ class DQNAgent:
         self.target_net.eval()
 
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
-        self.buffer = ReplayBuffer(buffer_size)
+        self.buffer = ReplayBuffer(
+            buffer_size,
+            prioritized=bool(prioritized_replay),
+            alpha=float(prioritized_alpha),
+        )
         self.train_steps = 0
         self.episodes = 0
 
@@ -328,7 +400,10 @@ class DQNAgent:
         if len(self.buffer) < self.batch_size:
             return None
 
-        batch = self.buffer.sample(self.batch_size)
+        beta = self.prioritized_beta0 + (1.0 - self.prioritized_beta0) * min(
+            1.0, float(self.train_steps) / float(self.prioritized_beta_steps)
+        )
+        indices, batch, weights = self.buffer.sample(self.batch_size, beta=beta)
         states, actions, rewards, next_states, dones, next_legals = zip(*batch)
 
         states_t = torch.FloatTensor(np.array(states)).to(self.device)
@@ -336,14 +411,15 @@ class DQNAgent:
         rewards_t = torch.FloatTensor(rewards).to(self.device)
         next_states_t = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones_t = torch.FloatTensor(dones).to(self.device)
+        weights_t = torch.FloatTensor(np.array(weights)).to(self.device)
 
         # Current Q-values
         q_values = self.q_net(states_t).gather(1, actions_t.unsqueeze(1)).squeeze(1)
 
         # Target Q-values with legal action masking
         with torch.no_grad():
-            next_q = self.target_net(next_states_t)
-            # Mask illegal actions for each sample
+            target_next_q = self.target_net(next_states_t)
+            online_next_q = self.q_net(next_states_t) if self.double_dqn else target_next_q
             for i, nl in enumerate(next_legals):
                 mask = torch.full((self.n_actions,), float("-inf"))
                 if nl:
@@ -351,15 +427,22 @@ class DQNAgent:
                         mask[a] = 0.0
                 else:
                     mask[:] = 0.0  # if no legal info, allow all
-                next_q[i] += mask
-            max_next_q = next_q.max(dim=1)[0]
+                target_next_q[i] += mask
+                online_next_q[i] += mask
+            if self.double_dqn:
+                next_actions = online_next_q.argmax(dim=1)
+                max_next_q = target_next_q.gather(1, next_actions.unsqueeze(1)).squeeze(1)
+            else:
+                max_next_q = target_next_q.max(dim=1)[0]
             targets = rewards_t + self.gamma * max_next_q * (1.0 - dones_t)
 
-        loss = nn.MSELoss()(q_values, targets)
+        td_errors = q_values - targets
+        loss = torch.mean(weights_t * torch.square(td_errors))
         self.optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(self.q_net.parameters(), 10.0)
         self.optimizer.step()
+        self.buffer.update_priorities(indices, (torch.abs(td_errors).detach().cpu().numpy() + self.buffer.priority_eps).tolist())
 
         self.train_steps += 1
         if self.train_steps % self.target_update_freq == 0:
@@ -383,12 +466,41 @@ class DQNAgent:
             "optimizer": self.optimizer.state_dict(),
             "episodes": self.episodes,
             "train_steps": self.train_steps,
+            "replay_buffer": list(self.buffer.buffer),
+            "replay_priorities": list(self.buffer.priorities),
+            "replay_buffer_capacity": int(self.buffer.buffer.maxlen or len(self.buffer.buffer)),
+            "prioritized_replay": bool(self.prioritized_replay),
+            "prioritized_alpha": float(self.buffer.alpha),
+            "prioritized_beta0": float(self.prioritized_beta0),
+            "prioritized_beta_steps": int(self.prioritized_beta_steps),
+            "double_dqn": bool(self.double_dqn),
         }, path)
 
     def load(self, path: str):
-        ckpt = torch.load(path, map_location=self.device)
+        ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.q_net.load_state_dict(ckpt["q_net"])
         self.target_net.load_state_dict(ckpt["target_net"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
         self.episodes = ckpt.get("episodes", 0)
         self.train_steps = ckpt.get("train_steps", 0)
+        replay_capacity = int(ckpt.get("replay_buffer_capacity", self.buffer.buffer.maxlen or len(self.buffer.buffer) or 1))
+        self.double_dqn = bool(ckpt.get("double_dqn", self.double_dqn))
+        self.prioritized_replay = bool(ckpt.get("prioritized_replay", self.prioritized_replay))
+        self.prioritized_beta0 = float(ckpt.get("prioritized_beta0", self.prioritized_beta0))
+        self.prioritized_beta_steps = int(ckpt.get("prioritized_beta_steps", self.prioritized_beta_steps))
+        self.buffer = ReplayBuffer(
+            replay_capacity,
+            prioritized=bool(self.prioritized_replay),
+            alpha=float(ckpt.get("prioritized_alpha", self.buffer.alpha)),
+        )
+        replay_priorities = list(ckpt.get("replay_priorities", []))
+        replay_items = list(ckpt.get("replay_buffer", []))
+        for idx, item in enumerate(replay_items):
+            try:
+                self.buffer.buffer.append(item)
+                if idx < len(replay_priorities):
+                    self.buffer.priorities.append(float(replay_priorities[idx]))
+                else:
+                    self.buffer.priorities.append(1.0)
+            except Exception:
+                continue

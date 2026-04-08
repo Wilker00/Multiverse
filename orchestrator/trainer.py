@@ -80,6 +80,7 @@ class Trainer:
         algo = (spec.algo or "").strip().lower()
         if algo not in (
             "q",
+            "dqn",
             "memory_recall",
             "planner_recall",
             "aware",
@@ -120,6 +121,21 @@ class Trainer:
         if bad_dataset_path and hasattr(agent, "learn_from_bad_dataset"):
             agent.learn_from_bad_dataset(str(bad_dataset_path))
 
+    @staticmethod
+    def _save_agent_checkpoint(agent: Any, run_dir: str) -> Optional[str]:
+        if not hasattr(agent, "save"):
+            return None
+        checkpoint_dir = os.path.join(str(run_dir), "agent_checkpoint")
+        try:
+            agent.save(checkpoint_dir)
+        except NotImplementedError:
+            return None
+        except Exception:
+            raise
+        if os.path.isdir(checkpoint_dir) and os.listdir(checkpoint_dir):
+            return checkpoint_dir
+        return None
+
     def run(
         self,
         *,
@@ -141,7 +157,7 @@ class Trainer:
         if run_id:
             run = RunRef(run_id=run_id)
         else:
-            run = RunRef.create()
+            run = RunRef.create(verse_name=verse_spec.verse_name, algo=agent_spec.algo)
 
         # ---------------------------
         # Verse setup (via registry)
@@ -321,6 +337,9 @@ class Trainer:
             run_id=run.run_id,
         )
 
+        run_dir = os.path.join(self.run_root, run.run_id)
+        checkpoint_path = None
+
         with EventLogger(log_cfg) as logger:
             on_step = make_on_step_writer(logger)
 
@@ -349,6 +368,11 @@ class Trainer:
                     if bool(verbose):
                         print(f"trainer: auto-indexing failed: {e}")
 
+        try:
+            checkpoint_path = self._save_agent_checkpoint(agent, run_dir)
+        except Exception as e:
+            if bool(verbose):
+                print(f"trainer: checkpoint save failed: {e}")
 
         verse.close()
         agent.close()
@@ -369,10 +393,12 @@ class Trainer:
             print(f"total_steps  : {total_steps}")
             print(f"total_return : {total_return:.3f}")
             print(f"log_dir      : {self.run_root}/{run.run_id}")
+            if checkpoint_path:
+                print(f"checkpoint   : {checkpoint_path}")
 
         try:
             write_run_artifact_manifest(
-                os.path.join(self.run_root, run.run_id),
+                run_dir,
                 verse_name=str(verse_spec.verse_name),
                 policy_id=str(agent_spec.policy_id),
                 algo=str(agent_spec.algo),
@@ -381,6 +407,13 @@ class Trainer:
                 max_steps=int(max_steps),
                 total_steps=int(total_steps),
                 total_return=float(total_return),
+                extra={
+                    "agent_checkpoint_path": (
+                        None
+                        if checkpoint_path is None
+                        else os.path.relpath(checkpoint_path, run_dir).replace("\\", "/")
+                    ),
+                },
             )
         except Exception as e:
             if bool(verbose):
@@ -390,6 +423,7 @@ class Trainer:
             "run_id": run.run_id,
             "total_return": total_return,
             "total_steps": total_steps,
+            "checkpoint_path": checkpoint_path,
         }
 
 

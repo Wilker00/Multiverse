@@ -153,7 +153,10 @@ class MultiAgentTrainer:
         if len(verse_specs) != len(agent_specs):
             raise ValueError("verse_specs and agent_specs must have the same length")
 
-        run = RunRef.create()
+        run = RunRef.create(
+            verse_name=verse_specs[0].verse_name if verse_specs else None,
+            algo=agent_specs[0].algo if agent_specs else None,
+        )
         bus = MessageBus()
         shared_pool = SharedMemoryPool() if bool(config.shared_memory_enabled) else None
         central_mem_cfg = (

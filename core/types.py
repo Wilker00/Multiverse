@@ -30,8 +30,21 @@ def now_ms() -> int:
 
 
 def new_id(prefix: str) -> str:
-    """Generates a unique ID with a given prefix (e.g., 'run_39a8...')."""
+    """Generates a unique ID with a given prefix (e.g., 'agent_39a8...')."""
     return f"{prefix}_{uuid.uuid4().hex}"
+
+
+def _make_run_name(verse_name: Optional[str], algo: Optional[str]) -> str:
+    """Builds a readable run name from training context, e.g. 'grid_world_dqn_3a2b'."""
+    parts = []
+    if verse_name:
+        parts.append(str(verse_name).strip().lower().replace(" ", "_"))
+    if algo:
+        parts.append(str(algo).strip().lower().replace(" ", "_"))
+    suffix = uuid.uuid4().hex[:6]
+    if parts:
+        return "_".join(parts) + "_" + suffix
+    return "run_" + suffix
 
 
 @dataclass(frozen=True)
@@ -44,9 +57,9 @@ class RunRef:
     created_at_ms: int = field(default_factory=now_ms)
 
     @staticmethod
-    def create() -> "RunRef":
-        """Creates a new RunRef with a unique ID."""
-        return RunRef(run_id=new_id("run"))
+    def create(*, verse_name: Optional[str] = None, algo: Optional[str] = None) -> "RunRef":
+        """Creates a new RunRef with a descriptive ID from training context."""
+        return RunRef(run_id=_make_run_name(verse_name, algo))
 
 
 @dataclass(frozen=True)
