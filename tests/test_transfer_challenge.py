@@ -5,6 +5,10 @@ import unittest
 
 from core.taxonomy import bridge_reason, can_bridge
 from memory.semantic_bridge import translate_action, translate_dna, translate_observation
+from tools.run_transfer_challenge_cli_support import (
+    build_transfer_bridge_label_cfg,
+    build_transfer_challenge_arg_parser,
+)
 from tools.run_transfer_challenge import (
     _SourceDNA,
     _adt_prior_rollback_decision,
@@ -28,6 +32,24 @@ from tools.run_transfer_challenge import (
 
 
 class TestTransferChallenge(unittest.TestCase):
+    def test_cli_parser_defaults_and_bool_flags(self):
+        parser = build_transfer_challenge_arg_parser()
+        args = parser.parse_args(["--no-near_lane_enabled", "--target_verse", "labyrinth_world"])
+        self.assertFalse(bool(args.near_lane_enabled))
+        self.assertEqual(str(args.target_verse), "labyrinth_world")
+        self.assertEqual(str(args.empty_transfer_dataset_policy), "error")
+
+    def test_bridge_label_cfg_only_applies_to_warehouse(self):
+        parser = build_transfer_challenge_arg_parser()
+        warehouse_args = parser.parse_args(["--target_verse", "warehouse_world"])
+        lab_args = parser.parse_args(["--target_verse", "labyrinth_world"])
+
+        warehouse_cfg = build_transfer_bridge_label_cfg(warehouse_args)
+        lab_cfg = build_transfer_bridge_label_cfg(lab_args)
+
+        self.assertIn("goal_reward", warehouse_cfg)
+        self.assertEqual(lab_cfg, {})
+
     def test_strategy_to_warehouse_bridge(self):
         obs = {
             "material_delta": 3,

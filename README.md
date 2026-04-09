@@ -20,21 +20,23 @@ cd multiverse
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements_test.txt  # Optional: local pytest verification
 python tools/train_agent.py --algo q --verse line_world --episodes 20
 ```
 
 ## Verified Status
 
-As of 2026-03-11, this repository has focused verification for the runtime paths touched by the latest cleanup and repo-shape normalization:
+As of 2026-04-08, this repository has focused verification for the runtime paths touched by the latest cleanup and dependency/doc refresh:
 
 - `python -m pytest -q tests/test_multiverse_cli.py`
 - `python -m pytest -q tests/test_rollout_observability.py tests/test_trainer_on_demand_memory_recall.py tests/test_memory_recall_agent.py tests/test_dt_memory.py`
 - `python -m pytest -q tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_safe_executor_confidence_model.py`
 - `python -m pytest -q tests/test_central_repository_tier_policy.py tests/test_central_repository_backfill.py tests/test_central_repository_universal_fallback.py tests/test_central_repository_perf_hardening.py`
+- `python -m pytest -q tests/test_validate_sf_transfer.py`
 - `python -m pytest -q tests/test_memory_thread_safety.py`
 - `python -m pytest -q tests/test_validation_stats.py tests/test_update_centroid.py tests/test_multiverse_cli.py`
 - `python -m pytest -q tests/test_decision_transformer.py tests/test_adt_pipeline.py tests/test_memory_recall_agent.py tests/test_trainer_on_demand_memory_recall.py`
-- Current repo-local pytest collection (2026-03-11): `329 tests collected` via `python -m pytest tests --collect-only -q`
+- Current repo-local pytest collection (2026-04-08): `414 tests collected` via `python -m pytest tests --collect-only -q`
 - CLI smoke checks:
   - `python tools/multiverse_cli.py status --json`
   - `python tools/multiverse_cli.py runs inspect --count-events --json`
@@ -132,6 +134,7 @@ This README is intentionally strict. It only describes what is present in code a
 - Run distributed local training:
   - `python tools/train_distributed.py --mode sharded --algo q --verse line_world --episodes 100`
 - Run tests:
+  - `pip install -r requirements_test.txt`
   - `python -m pytest -q`
 
 ## Repository Rules

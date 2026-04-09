@@ -328,11 +328,13 @@ def exception_debt_gate(
     baseline_json: str,
     max_broad: int,
     fail_on_regression: bool,
-) -> Dict[str, int]:
+) -> Dict[str, int | None]:
     files = _python_files()
     broad = _count_broad_exception_blocks(files)
     baseline = _load_json_object((ROOT / str(baseline_json)).resolve())
     baseline_max = baseline.get("broad_exception_max")
+    baseline_target = baseline.get("broad_exception_target")
+    ratchet_step = baseline.get("broad_exception_ratchet_step")
     if max_broad >= 0:
         allowed = int(max_broad)
     elif isinstance(baseline_max, int):
@@ -340,11 +342,24 @@ def exception_debt_gate(
     else:
         allowed = int(broad)
 
+    target: int | None = int(baseline_target) if isinstance(baseline_target, int) else None
+    ratchet: int = max(0, int(ratchet_step)) if isinstance(ratchet_step, int) else 0
+    next_allowed: int = int(allowed)
+    if ratchet > 0:
+        floor = int(target) if target is not None else 0
+        next_allowed = max(int(floor), int(allowed) - int(ratchet))
+
     if bool(fail_on_regression) and int(broad) > int(allowed):
         raise RuntimeError(
             f"exception debt regression: broad_exception_blocks={broad} exceeds allowed={allowed}"
         )
-    return {"broad_exception_blocks": int(broad), "allowed": int(allowed)}
+    return {
+        "broad_exception_blocks": int(broad),
+        "allowed": int(allowed),
+        "target": target,
+        "next_allowed": int(next_allowed),
+        "ratchet_step": int(ratchet),
+    }
 
 
 def artifact_hygiene_gate(
@@ -375,7 +390,7 @@ def artifact_hygiene_gate(
     _run(cmd)
 
 
-def _cli_flag_present(cli_args: List[str], name: str) -> bool:
+def _cli_option_present(cli_args: List[str], name: str) -> bool:
     raw_name = str(name).strip()
     flag_dash = "--" + raw_name.replace("_", "-")
     flag_underscore = "--" + raw_name
@@ -409,7 +424,19 @@ def _set_profile_value(
     name: str,
     value: bool,
 ) -> None:
-    if _cli_flag_present(cli_args, name):
+    if _cli_option_present(cli_args, name):
+        return
+    setattr(args, name, value)
+
+
+def _set_profile_scalar(
+    args: argparse.Namespace,
+    *,
+    cli_args: List[str],
+    name: str,
+    value: object,
+) -> None:
+    if _cli_option_present(cli_args, name):
         return
     setattr(args, name, value)
 
@@ -438,6 +465,28 @@ def _apply_profile_defaults(args: argparse.Namespace, cli_args: List[str] | None
         _set_profile_value(args, cli_args=provided, name="run_exception_debt_gate", value=True)
         _set_profile_value(args, cli_args=provided, name="run_artifact_hygiene", value=True)
         return
+    if profile == "release":
+        _set_profile_value(args, cli_args=provided, name="skip_compile", value=False)
+        _set_profile_value(args, cli_args=provided, name="skip_help", value=False)
+        _set_profile_value(args, cli_args=provided, name="skip_model", value=False)
+        _set_profile_value(args, cli_args=provided, name="bootstrap_run", value=True)
+        _set_profile_value(args, cli_args=provided, name="run_comm_gate", value=True)
+        _set_profile_value(args, cli_args=provided, name="run_exception_debt_gate", value=True)
+        _set_profile_value(args, cli_args=provided, name="run_artifact_hygiene", value=True)
+        _set_profile_value(args, cli_args=provided, name="run_production_readiness", value=True)
+        _set_profile_value(args, cli_args=provided, name="run_memory_soak", value=True)
+        _set_profile_value(args, cli_args=provided, name="enforce_workspace_hygiene", value=True)
+        _set_profile_value(args, cli_args=provided, name="run_promotion_gate", value=True)
+        _set_profile_scalar(args, cli_args=provided, name="min_coverage", value=0.10)
+        _set_profile_scalar(args, cli_args=provided, name="min_action_accuracy", value=0.10)
+        _set_profile_scalar(args, cli_args=provided, name="prod_min_episodes", value=100)
+        _set_profile_scalar(args, cli_args=provided, name="prod_min_success_rate", value=0.70)
+        _set_profile_scalar(args, cli_args=provided, name="prod_max_bench_age_hours", value=24.0)
+        _set_profile_scalar(args, cli_args=provided, name="prod_max_safety_violation_rate", value=0.10)
+        _set_profile_value(args, cli_args=provided, name="prod_require_run_dirs", value=True)
+        _set_profile_value(args, cli_args=provided, name="prod_require_benchmark", value=True)
+        _set_profile_scalar(args, cli_args=provided, name="promotion_suite", value="full")
+        return
 
 
 def communication_gate(*, tests: List[str] | None = None) -> None:
@@ -459,7 +508,7 @@ def main() -> None:
         "--profile",
         type=str,
         default="custom",
-        choices=["custom", "fast", "full"],
+        choices=["custom", "fast", "full", "release"],
         help="Preset gate profile. custom keeps explicit flag behavior.",
     )
     ap.add_argument("--release_gate", action="store_true", help="Run release-profile quality gate.")
@@ -537,17 +586,8 @@ def main() -> None:
     _apply_profile_defaults(args, cli_args=raw_argv)
 
     if args.release_gate:
-        args.skip_compile = False
-        args.skip_help = False
-        args.skip_model = False
-        args.bootstrap_run = True
-        args.run_production_readiness = True
-        args.prod_require_benchmark = True
-        args.enforce_workspace_hygiene = True
-        args.run_memory_soak = True
-        args.run_comm_gate = True
-        args.run_exception_debt_gate = True
-        args.run_artifact_hygiene = True
+        args.profile = "release"
+        _apply_profile_defaults(args, cli_args=raw_argv)
 
     ci_output_root = (ROOT / str(args.ci_output_root)).resolve()
     runs_root = ci_output_root / "runs"
@@ -620,10 +660,17 @@ def main() -> None:
             max_broad=int(args.exception_max_broad),
             fail_on_regression=bool(args.exception_fail_on_regression),
         )
-        print(
+        msg = (
             "exception debt gate: ok "
-            f"(broad_exception_blocks={int(debt['broad_exception_blocks'])}, allowed={int(debt['allowed'])})"
+            f"(broad_exception_blocks={int(debt['broad_exception_blocks'])}, allowed={int(debt['allowed'])}"
         )
+        if isinstance(debt.get("target"), int):
+            msg += (
+                f", target={int(debt['target'])}, next_allowed={int(debt['next_allowed'])}, "
+                f"ratchet_step={int(debt['ratchet_step'])}"
+            )
+        msg += ")"
+        print(msg)
     if args.run_artifact_hygiene:
         artifact_hygiene_gate(
             root=str(args.artifact_root),

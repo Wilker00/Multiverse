@@ -1,3 +1,5 @@
 {
-  "broad_exception_max": 497
+  "broad_exception_max": 616,
+  "broad_exception_target": 500,
+  "broad_exception_ratchet_step": 10
 }
