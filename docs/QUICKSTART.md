@@ -217,7 +217,7 @@ multiverse runs tail --run-id <id> --file events.jsonl --lines 50
 
 ```bash
 # Run benchmark suite
-python tools/run_benchmark.py --suite quick
+python tools/run_benchmarks.py --suite quick
 
 # Paper-readiness check
 python tools/run_paper_readiness_pack.py
@@ -252,7 +252,7 @@ Multiverse includes 24 built-in environments. Here are the main categories:
 
 **List all:**
 ```bash
-python -c "from verses.registry import list_builtin; print('\n'.join(list_builtin()))"
+python -c "from verses.registry import register_builtin, list_verses; register_builtin(); print('\n'.join(sorted(list_verses().keys())))"
 ```
 
 ---
@@ -276,7 +276,7 @@ python -c "from verses.registry import list_builtin; print('\n'.join(list_builti
 
 **List all:**
 ```bash
-python -c "from agents.registry import list_agents; print('\n'.join(list_agents()))"
+python -c "from agents.registry import register_builtin_agents, _AGENT_REGISTRY; register_builtin_agents(); print('\n'.join(sorted(_AGENT_REGISTRY.keys())))"
 ```
 
 ---
@@ -351,7 +351,7 @@ python tools/train_agent.py --algo memory_recall --verse cliff_world --episodes 
 
 ```bash
 # Compare algorithms across environments
-python tools/run_benchmark.py \
+python tools/run_benchmarks.py \
   --algos q dqn memory_recall \
   --verses line_world grid_world cliff_world \
   --episodes 50

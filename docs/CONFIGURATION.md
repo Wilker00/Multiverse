@@ -1241,6 +1241,6 @@ Add new variables to this document's [Environment Variables](#environment-variab
 
 - **Setup Issues**: See [SETUP.md](SETUP.md)
 - **Quick Start**: See [QUICKSTART.md](QUICKSTART.md)
-- **GitHub Issues**: https://github.com/anthropics/multiverse/issues (if applicable)
+- **GitHub Issues**: Use the repository issue tracker if applicable.
 
 **Last Updated**: 2026-03-02 (Phase 2.2 - Configuration Documentation)

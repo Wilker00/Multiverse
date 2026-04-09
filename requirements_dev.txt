@@ -1,119 +1,26 @@
-# Development Dependencies
+# Development dependencies.
+# Install after the runtime requirements:
+#   pip install -r requirements.txt
+#   pip install -r requirements_dev.txt
+#
+# This file pulls in test dependencies as well.
 
-Install these in addition to `requirements.txt` for local development, testing, and documentation.
+-r requirements_test.txt
+-r requirements_ui.txt
 
-```bash
-pip install -r requirements.txt        # Core dependencies
-pip install -r requirements_dev.txt    # Development tools
-pip install -r requirements_scale.txt  # (Optional) Distributed training
-```
-
----
-
-## Testing & Code Quality
-
-pytest>=7.4.0                   # Testing framework
-pytest-cov>=4.1.0             # Coverage reporting
-pytest-xdist>=3.5.0           # Parallel test execution
-pytest-timeout>=2.2.0         # Timeout handling for long-running tests
-
-coverage>=7.3.0               # Code coverage analysis
-black>=23.9.0                 # Code formatter
-isort>=5.12.0                 # Import sorting
-ruff>=0.1.0                   # Fast linter (replaces flake8/isort)
-
----
-
-## Type Checking & Documentation
-
-mypy>=1.5.0                   # Static type checker
-types-pyyaml>=6.0.0           # Type stubs for PyYAML
-sphinx>=7.2.0                 # Documentation builder
-sphinx-rtd-theme>=1.3.0       # ReadTheDocs theme
-
----
-
-## Development Utilities
-
-ipython>=8.17.0               # Enhanced REPL
-jupyter>=1.0.0                # Jupyter notebooks
-nbconvert>=7.14.0             # Notebook conversion
-matplotlib>=3.8.0             # Plotting
-seaborn>=0.13.0               # Statistical visualization
-
-memory-profiler>=0.61.0       # Memory profiling
-line-profiler>=4.1.0          # Line-by-line profiling
-tqdm>=4.66.0                  # Progress bars (for scripts)
-
----
-
-## Optional: Pre-commit Hooks
-
-pre-commit>=3.5.0             # Git pre-commit framework
-
-### Setup
-```bash
-pip install pre-commit
-pre-commit install  # Install git hooks
-```
-
-### Auto-format on commit
-Create `.pre-commit-config.yaml` to auto-format code before commits.
-
----
-
-## Installation
-
-### Minimum (just testing)
-```bash
-pip install pytest pytest-cov black ruff mypy
-```
-
-### Full Development Setup (recommended)
-```bash
-pip install -r requirements.txt requirements_dev.txt
-pre-commit install
-```
-
-### All Features (including distributed)
-```bash
-pip install -r requirements.txt requirements_scale.txt requirements_dev.txt
-pre-commit install
-```
-
----
-
-## Usage
-
-### Run Tests
-```bash
-pytest                              # All tests
-pytest tests/test_utils.py         # Specific file
-pytest -v --cov=agents            # With coverage reporting
-pytest -x -vv                      # Stop on first failure, verbose
-```
-
-### Format & Lint Code
-```bash
-black src/ tests/          # Format Python files
-isort src/ tests/          # Sort imports
-ruff check src/            # Fast linting
-mypy src/                  # Type checking
-```
-
-### Generate Documentation
-```bash
-sphinx-build -b html docs/ docs/_build/
-# Open docs/_build/index.html in browser
-```
-
-### Profile Performance
-```bash
-python -m cProfile -s cumtime script.py  # CPU profiling
-python -m memory_profiler script.py      # Memory profiling
-kernprof -l -v script.py                 # Line profiling
-```
-
----
-
-**Updated**: 2026-03-22
+coverage>=7.3.0
+black>=23.9.0
+isort>=5.12.0
+ruff>=0.1.0
+mypy>=1.5.0
+types-pyyaml>=6.0.0
+sphinx>=7.2.0
+sphinx-rtd-theme>=1.3.0
+ipython>=8.17.0
+jupyter>=1.0.0
+nbconvert>=7.14.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+memory-profiler>=0.61.0
+line-profiler>=4.1.0
+pre-commit>=3.5.0

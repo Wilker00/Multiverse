@@ -412,7 +412,6 @@ print(f'P50: {sorted(times)[50]*1000:.2f}ms')
 - **Phase 2 Implementation Guide:** `docs/PHASE2_IMPLEMENTATION_GUIDE.md`
 - **Project Introduction:** `docs/PROJECT_INTRO.md`
 - **Technical Paper:** `docs/PAPER.md`
-- **Plan File:** `~/.claude/plans/abundant-chasing-melody.md`
 
 ### Git Branches
 

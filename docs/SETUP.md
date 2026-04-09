@@ -2,7 +2,7 @@
 
 Complete installation and setup instructions for Multiverse - a production-grade reinforcement learning framework.
 
-**Last Updated:** March 2, 2026
+**Last Updated:** April 8, 2026
 **Tested On:** Windows 11, Python 3.12
 
 ---
@@ -62,8 +62,11 @@ python -m venv .venv
 # Activate (Linux/Mac)
 source .venv/bin/activate
 
-# Install dependencies
+# Install runtime dependencies
 pip install -r requirements.txt
+
+# Optional: install pytest helpers for local verification
+pip install -r requirements_test.txt
 
 # Verify installation
 python -m pytest tests/ -q
@@ -115,8 +118,17 @@ This installs:
 - **NumPy** - Numerical computing
 - **Scikit-learn** - ML utilities
 - **Pydantic** - Type validation
-- **Typer** - CLI framework
-- And more (see `requirements.txt` for full list)
+- **FAISS CPU** - Approximate nearest-neighbor memory support
+- And the runtime stack needed for training, evaluation, and memory retrieval
+
+Optional layers:
+
+```bash
+pip install -r requirements_test.txt   # Local pytest verification
+pip install -r requirements_ui.txt     # Local viewer/frontend helpers
+pip install -r requirements_scale.txt  # Distributed/scaling features
+pip install -r requirements_dev.txt    # Full development toolchain
+```
 
 **Installation time:** 2-5 minutes depending on internet speed
 
@@ -135,17 +147,18 @@ nano .env        # Linux/Mac
 
 ### Step 5: Verify Installation
 
-Run the test suite to ensure everything works:
+Install the test layer and run the suite to ensure everything works:
 
 ```bash
+pip install -r requirements_test.txt
 python -m pytest tests/ -q
 ```
 
 **Expected output shape:** A pytest pass summary for your local environment.
 
-**Current repo-local collection:** `314 tests` via:
+**Current repo-local collection:** `414 tests` via:
 ```bash
-python -m pytest tests tests/test_dt_memory.py --collect-only -q
+python -m pytest tests --collect-only -q
 ```
 
 **If tests fail:** See [Troubleshooting](#troubleshooting)
@@ -158,10 +171,10 @@ python -m pytest tests tests/test_dt_memory.py --collect-only -q
 
 ```bash
 # Test environment registry
-python -c "from verses.registry import list_builtin; print(list_builtin())"
+python -c "from verses.registry import register_builtin, list_verses; register_builtin(); print(sorted(list_verses().keys()))"
 
 # Test agent registry
-python -c "from agents.registry import list_agents; print(list_agents())"
+python -c "from agents.registry import register_builtin_agents, _AGENT_REGISTRY; register_builtin_agents(); print(sorted(_AGENT_REGISTRY.keys()))"
 
 # Run a quick training (should complete in <10 seconds)
 python tools/train_agent.py --algo random --verse line_world --episodes 5 --max_steps 20
@@ -169,8 +182,8 @@ python tools/train_agent.py --algo random --verse line_world --episodes 5 --max_
 
 ### Expected Results
 
-✅ **Environment registry:** Should list 24 builtin verses
-✅ **Agent registry:** Should list 25 agent types
+✅ **Environment registry:** Should list 26 builtin verses
+✅ **Agent registry:** Should list 26 agent types
 ✅ **Quick training:** Should complete without errors and save to `runs/` directory
 
 ---
@@ -272,6 +285,7 @@ docker compose -f docker-compose.scale.yml down -v
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
+pip install -r requirements_test.txt
 ```
 
 #### 2. "Manager() failed - bootstrapping phase error"

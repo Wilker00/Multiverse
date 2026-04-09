@@ -1,0 +1,5 @@
+# Optional local UI and visualization dependencies.
+# Install with: pip install -r requirements_ui.txt
+
+pygame>=2.6.0
+plotext>=5.2.8

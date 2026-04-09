@@ -1,6 +1,6 @@
 # Multiverse: Project Introduction
 
-Last updated: 2026-03-11
+Last updated: 2026-04-08
 
 ## What this project is
 Multiverse is a local reinforcement-learning operations framework for training, evaluating, and promoting agents across many custom environments (called "verses"). It combines:
@@ -68,9 +68,9 @@ From repo root:
 - Distributed local run: `python tools/train_distributed.py --mode sharded --algo q --verse line_world --episodes 100`
 - Promotion sentinel status: `python tools/promotion_sentinel.py --status`
 
-## Maturity snapshot (as of 2026-03-11)
-- Current repo-local pytest collection: `329 tests collected` via `python -m pytest tests --collect-only -q`
-- Recent focused verification covers safety, memory, CLI, promotion sentinel, and DT memory paths
+## Maturity snapshot (as of 2026-04-08)
+- Current repo-local pytest collection: `414 tests collected` via `python -m pytest tests --collect-only -q`
+- Recent focused verification covers safety, memory, CLI, promotion sentinel, DT memory, and successor-feature transfer validation paths
 - Current repo shape is normalized: runtime code in `core/` and `memory/`, operational scripts in `tools/`, tests in `tests/`
 
 ## What this project is best for
