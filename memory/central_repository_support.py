@@ -49,11 +49,18 @@ class ScenarioMatch:
     policy_id: str = ""
     source_verse_name: str = ""
     transfer_score: Optional[float] = None
+    verified_transfer_score: Optional[float] = None
+    transfer_score_provenance: str = "unknown"
     transfer_confidence: Optional[float] = None
     source_greedy_action: Optional[int] = None
     source_action_matches_greedy: Optional[bool] = None
     recency_weight: float = 1.0
     trajectory: Optional[List[Dict[str, Any]]] = None
+    similarity_score: Optional[float] = None
+    quality_weight: float = 0.0
+    confidence_weight: float = 0.0
+    provider_reputation: Optional[float] = None
+    reputation_weight: float = 0.0
 
 
 @dataclass

@@ -5,6 +5,7 @@ Similarity execution and ANN runtime helpers for the central memory repository.
 from __future__ import annotations
 
 import heapq
+import json
 import os
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -167,6 +168,7 @@ def _row_matches_filters(
     source_verse_filter: Optional[Set[str]],
     min_transfer_score: Optional[float],
     min_transfer_confidence: Optional[float],
+    min_verified_transfer_score: Optional[float],
     tier_filter: Optional[Set[str]],
     family_filter: Optional[Set[str]],
     type_filter: Optional[Set[str]],
@@ -186,6 +188,12 @@ def _row_matches_filters(
             return False
     if min_transfer_confidence is not None:
         if row.transfer_confidence is None or float(row.transfer_confidence) < float(min_transfer_confidence):
+            return False
+    if min_verified_transfer_score is not None:
+        if (
+            row.verified_transfer_score is None
+            or float(row.verified_transfer_score) < float(min_verified_transfer_score)
+        ):
             return False
     if tier_filter is not None and row.row_tier not in tier_filter:
         return False
@@ -222,6 +230,53 @@ def _decayed_score(
     if score < float(min_score):
         return None
     return float(score), float(recency_weight)
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _load_provider_reputations(cfg: CentralMemoryConfig) -> Dict[str, float]:
+    path = os.path.join(cfg.root_dir, "knowledge_market_ledger.json")
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as src:
+            payload = json.load(src)
+        providers = payload.get("providers", {}) if isinstance(payload, dict) else {}
+        if not isinstance(providers, dict):
+            return {}
+        out: Dict[str, float] = {}
+        for provider_id, record in providers.items():
+            if isinstance(record, dict) and record.get("reputation") is not None:
+                out[str(provider_id)] = _clamp01(float(record["reputation"]))
+        return out
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _rank_score(
+    *,
+    similarity: float,
+    row: _PreparedMemoryRow,
+    quality_weight: float,
+    confidence_weight: float,
+    reputation_weight: float,
+    provider_reputations: Dict[str, float],
+) -> Tuple[float, Optional[float]]:
+    weighted_sum = float(similarity)
+    total_weight = 1.0
+    if quality_weight > 0.0 and row.verified_transfer_score is not None:
+        weighted_sum += quality_weight * _clamp01(float(row.verified_transfer_score))
+        total_weight += quality_weight
+    if confidence_weight > 0.0 and row.transfer_confidence is not None:
+        weighted_sum += confidence_weight * _clamp01(float(row.transfer_confidence))
+        total_weight += confidence_weight
+    reputation = provider_reputations.get(str(row.run_id))
+    if reputation_weight > 0.0 and reputation is not None:
+        weighted_sum += reputation_weight * reputation
+        total_weight += reputation_weight
+    return float(weighted_sum / total_weight), reputation
 
 
 def _extract_trajectory(
@@ -269,6 +324,11 @@ def _build_match(
     score: float,
     recency_weight: float,
     trajectory: Optional[List[Dict[str, Any]]] = None,
+    similarity_score: Optional[float] = None,
+    quality_weight: float = 0.0,
+    confidence_weight: float = 0.0,
+    provider_reputation: Optional[float] = None,
+    reputation_weight: float = 0.0,
 ) -> ScenarioMatch:
     return ScenarioMatch(
         score=float(score),
@@ -283,11 +343,20 @@ def _build_match(
         policy_id=str(row.policy_id),
         source_verse_name=str(row.source_verse_name),
         transfer_score=(None if row.transfer_score is None else float(row.transfer_score)),
+        verified_transfer_score=(
+            None if row.verified_transfer_score is None else float(row.verified_transfer_score)
+        ),
+        transfer_score_provenance=str(row.transfer_score_provenance),
         transfer_confidence=(None if row.transfer_confidence is None else float(row.transfer_confidence)),
         source_greedy_action=row.source_greedy_action,
         source_action_matches_greedy=row.source_action_matches_greedy,
         recency_weight=float(recency_weight),
         trajectory=trajectory,
+        similarity_score=similarity_score,
+        quality_weight=float(quality_weight),
+        confidence_weight=float(confidence_weight),
+        provider_reputation=provider_reputation,
+        reputation_weight=float(reputation_weight),
     )
 
 
@@ -337,8 +406,12 @@ def find_similar_support(
     source_verse_names: Optional[Set[str]] = None,
     min_transfer_score: Optional[float] = None,
     min_transfer_confidence: Optional[float] = None,
+    min_verified_transfer_score: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
+    quality_weight: float = 0.0,
+    confidence_weight: float = 0.0,
+    reputation_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     ensure_repo_fn(cfg)
     query_vec = obs_to_vector(obs)
@@ -352,6 +425,10 @@ def find_similar_support(
     policy_filter = as_set_fn(policy_ids)
     exclude_policy_filter = as_set_fn(exclude_policy_ids)
     source_verse_filter = as_set_fn(source_verse_names)
+    quality_weight = max(0.0, float(quality_weight))
+    confidence_weight = max(0.0, float(confidence_weight))
+    reputation_weight = max(0.0, float(reputation_weight))
+    provider_reputations = _load_provider_reputations(cfg) if reputation_weight > 0.0 else {}
 
     if tier_filter == {"ltm"}:
         mem_paths = [ltm_memories_path_fn(cfg)]
@@ -398,9 +475,17 @@ def find_similar_support(
                     use_vec = False
                     sims = None
 
-        def score_row(row: _PreparedMemoryRow, raw_score: float) -> Optional[Tuple[float, float]]:
-            return _decayed_score(
-                raw_score=raw_score,
+        def score_row(row: _PreparedMemoryRow, raw_score: float) -> Optional[Tuple[float, float, Optional[float]]]:
+            rank_score, reputation = _rank_score(
+                similarity=raw_score,
+                row=row,
+                quality_weight=quality_weight,
+                confidence_weight=confidence_weight,
+                reputation_weight=reputation_weight,
+                provider_reputations=provider_reputations,
+            )
+            decayed = _decayed_score(
+                raw_score=rank_score,
                 row=row,
                 cfg=cfg,
                 decay_lambda=decay_lambda,
@@ -408,8 +493,11 @@ def find_similar_support(
                 min_score=min_score,
                 stm_decay_lambda=stm_decay_lambda,
             )
+            if decayed is None:
+                return None
+            return decayed[0], decayed[1], reputation
 
-        def push_row(row: _PreparedMemoryRow, score: float, recency_weight: float, with_trajectory: bool) -> None:
+        def push_row(row: _PreparedMemoryRow, score: float, recency_weight: float, with_trajectory: bool, raw_score: float, reputation: Optional[float]) -> None:
             nonlocal ordinal
             match = _build_match(
                 row=row,
@@ -420,6 +508,11 @@ def find_similar_support(
                     if with_trajectory
                     else None
                 ),
+                similarity_score=float(raw_score),
+                quality_weight=quality_weight,
+                confidence_weight=confidence_weight,
+                provider_reputation=reputation,
+                reputation_weight=reputation_weight,
             )
             ordinal = _push_match(heap=heap, top_n=top_n, ordinal=ordinal, match=match)
 
@@ -438,6 +531,7 @@ def find_similar_support(
                     source_verse_filter=source_verse_filter,
                     min_transfer_score=min_transfer_score,
                     min_transfer_confidence=min_transfer_confidence,
+                    min_verified_transfer_score=min_verified_transfer_score,
                     tier_filter=tier_filter,
                     family_filter=family_filter,
                     type_filter=type_filter,
@@ -446,11 +540,11 @@ def find_similar_support(
                 scored = score_row(row, float(sims[pos]))
                 if scored is None:
                     return None
-                score, recency_weight = scored
-                return float(score), row, float(recency_weight)
+                score, recency_weight, reputation = scored
+                return float(score), row, float(recency_weight), float(sims[pos]), reputation
 
             candidate_positions: Optional[List[int]] = None
-            if ann_enabled_fn() and q_norm is not None and len(dim_row_idxs) > top_n:
+            if ann_enabled_fn() and q_norm is not None and len(dim_row_idxs) > top_n and not any((quality_weight, confidence_weight, reputation_weight)):
                 ann_index = get_ann_index_fn(cache, q_dim)
                 if ann_index is not None:
                     try:
@@ -481,9 +575,9 @@ def find_similar_support(
                     scored = score_position(int(pos))
                     if scored is None:
                         continue
-                    score, row, recency_weight = scored
+                    score, row, recency_weight, raw_score, reputation = scored
                     local_best_score = max(float(local_best_score), float(score))
-                    push_row(row, score, recency_weight, True)
+                    push_row(row, score, recency_weight, True, raw_score, reputation)
 
             if candidate_positions is None:
                 scan_positions(scan_positions_all)
@@ -527,6 +621,7 @@ def find_similar_support(
                     source_verse_filter=source_verse_filter,
                     min_transfer_score=min_transfer_score,
                     min_transfer_confidence=min_transfer_confidence,
+                    min_verified_transfer_score=min_verified_transfer_score,
                     tier_filter=tier_filter,
                     family_filter=family_filter,
                     type_filter=type_filter,
@@ -535,8 +630,8 @@ def find_similar_support(
                 scored = score_row(row, cosine_similarity(query_vec, row.obs_vector))
                 if scored is None:
                     continue
-                score, recency_weight = scored
-                push_row(row, score, recency_weight, True)
+                score, recency_weight, reputation = scored
+                push_row(row, score, recency_weight, True, cosine_similarity(query_vec, row.obs_vector), reputation)
 
         need_universal = bool((len(heap) < top_n) or (not raw_dim_available))
         if not need_universal or q_u_dim <= 0:
@@ -568,6 +663,7 @@ def find_similar_support(
                 source_verse_filter=source_verse_filter,
                 min_transfer_score=min_transfer_score,
                 min_transfer_confidence=min_transfer_confidence,
+                min_verified_transfer_score=min_verified_transfer_score,
                 tier_filter=tier_filter,
                 family_filter=family_filter,
                 type_filter=type_filter,
@@ -584,8 +680,8 @@ def find_similar_support(
             scored = score_row(row, raw_score)
             if scored is None:
                 continue
-            score, recency_weight = scored
-            push_row(row, score, recency_weight, False)
+            score, recency_weight, reputation = scored
+            push_row(row, score, recency_weight, False, raw_score, reputation)
 
     heap.sort(key=lambda item: item[0], reverse=True)
     return [match for _, _, match in heap]

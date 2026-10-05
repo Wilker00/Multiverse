@@ -114,6 +114,110 @@ def dedupe_try_reserve_support(conn: sqlite3.Connection, key: str) -> bool:
         return False
 
 
+def _quality_score(row: Dict[str, Any]) -> Optional[float]:
+    raw = row.get("verified_transfer_score")
+    if raw is None:
+        raw = row.get("transfer_score")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except Exception:
+        return None
+
+
+def _replace_duplicate_if_higher_quality(
+    *,
+    mem_path: str,
+    ltm_path: str,
+    stm_path: str,
+    dedupe_key: str,
+    incoming_row: Dict[str, Any],
+) -> bool:
+    """Replace one canonical memory only when the incoming quality is higher."""
+    incoming_score = _quality_score(incoming_row)
+    if incoming_score is None:
+        return False
+
+    rows: List[Dict[str, Any]] = []
+    replace_idx = -1
+    with open(mem_path, "r", encoding="utf-8") as src:
+        for line in src:
+            s = line.strip()
+            if not s:
+                continue
+            row = json.loads(s)
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("dedupe_key", "")) == str(dedupe_key):
+                existing_score = _quality_score(row)
+                if existing_score is not None and incoming_score <= existing_score:
+                    return False
+                if existing_score is None and incoming_score is None:
+                    return False
+                replace_idx = len(rows)
+            rows.append(row)
+
+    if replace_idx < 0:
+        return False
+    rows[replace_idx] = dict(incoming_row)
+
+    tmp_mem = mem_path + ".quality.tmp"
+    tmp_ltm = ltm_path + ".quality.tmp"
+    tmp_stm = stm_path + ".quality.tmp"
+    with (
+        open(tmp_mem, "w", encoding="utf-8") as mem_out,
+        open(tmp_ltm, "w", encoding="utf-8") as ltm_out,
+        open(tmp_stm, "w", encoding="utf-8") as stm_out,
+    ):
+        for row in rows:
+            row_json = json.dumps(row, ensure_ascii=False) + "\n"
+            mem_out.write(row_json)
+            if _normalize_memory_tier(row.get("memory_tier")) == "ltm":
+                ltm_out.write(row_json)
+            else:
+                stm_out.write(row_json)
+    os.replace(tmp_mem, mem_path)
+    os.replace(tmp_ltm, ltm_path)
+    os.replace(tmp_stm, stm_path)
+    return True
+
+
+def _append_row_durably_then_commit(
+    *,
+    dedupe_conn: sqlite3.Connection,
+    out: Any,
+    out_ltm: Any,
+    out_stm: Any,
+    row_json: str,
+    row_tier: str,
+) -> None:
+    """Durably append one row before committing its reserved dedupe key."""
+    handles = (out, out_ltm, out_stm)
+    offsets = tuple(handle.tell() for handle in handles)
+    try:
+        out.write(row_json)
+        if row_tier == "ltm":
+            out_ltm.write(row_json)
+        else:
+            out_stm.write(row_json)
+        for handle in handles:
+            handle.flush()
+            os.fsync(handle.fileno())
+        dedupe_conn.commit()
+    except BaseException:
+        dedupe_conn.rollback()
+        for handle, offset in zip(handles, offsets):
+            try:
+                handle.seek(offset)
+                handle.truncate()
+                handle.flush()
+                os.fsync(handle.fileno())
+            except Exception:
+                pass
+        raise
+
+
 def load_dedupe_index_support(
     *,
     cfg: CentralMemoryConfig,
@@ -411,6 +515,7 @@ def ingest_run_support(
     cfg: CentralMemoryConfig,
     selection: Optional[SelectionConfig],
     max_events: Optional[int],
+    source_run_quality: Optional[Dict[str, Optional[float]]],
     ensure_repo_fn: Callable[[CentralMemoryConfig], None],
     repo_lock_fn: Callable[[CentralMemoryConfig], Any],
     open_dedupe_db_fn: Callable[[CentralMemoryConfig], sqlite3.Connection],
@@ -443,6 +548,7 @@ def ingest_run_support(
 
     added = 0
     skipped = 0
+    replacement_candidates: List[tuple[str, Dict[str, Any]]] = []
     mem_path = _memories_path(cfg)
     ltm_path = _ltm_memories_path(cfg)
     stm_path = _stm_memories_path(cfg)
@@ -473,14 +579,16 @@ def ingest_run_support(
                         continue
 
                     key = _dedupe_key(ev)
-                    if not dedupe_try_reserve_fn(dedupe_conn, key):
-                        skipped += 1
-                        continue
-
                     verse_name = str(ev.get("verse_name", ""))
                     memory_type = memory_type_for_verse(verse_name)
                     memory_family = memory_family_for_verse(verse_name)
                     memory_tier = _memory_tier_for_event(ev, tier_policy=tier_policy)
+                    explicit_transfer_score = ev.get("transfer_score")
+                    derived_transfer_score = (
+                        None
+                        if not isinstance(source_run_quality, dict)
+                        else source_run_quality.get("transfer_score")
+                    )
                     row = {
                         "dedupe_key": key,
                         "run_id": run_id,
@@ -503,7 +611,40 @@ def ingest_run_support(
                         "action": ev.get("action"),
                         "reward": _safe_float(ev.get("reward", 0.0)),
                         "transfer_score": (
-                            None if ev.get("transfer_score") is None else _safe_float(ev.get("transfer_score", 0.0))
+                            _safe_float(explicit_transfer_score, 0.0)
+                            if explicit_transfer_score is not None
+                            else (
+                                None
+                                if derived_transfer_score is None
+                                else _safe_float(derived_transfer_score, 0.0)
+                            )
+                        ),
+                        "event_transfer_score": (
+                            None
+                            if explicit_transfer_score is None
+                            else _safe_float(explicit_transfer_score, 0.0)
+                        ),
+                        "verified_transfer_score": (
+                            None
+                            if derived_transfer_score is None
+                            else _safe_float(derived_transfer_score, 0.0)
+                        ),
+                        "transfer_score_provenance": (
+                            "evaluator_v1"
+                            if derived_transfer_score is not None
+                            else ("event_unverified" if explicit_transfer_score is not None else "unknown")
+                        ),
+                        "source_run_mean_return": (
+                            None
+                            if not isinstance(source_run_quality, dict)
+                            or source_run_quality.get("mean_return") is None
+                            else _safe_float(source_run_quality.get("mean_return"), 0.0)
+                        ),
+                        "source_run_success_rate": (
+                            None
+                            if not isinstance(source_run_quality, dict)
+                            or source_run_quality.get("success_rate") is None
+                            else _safe_float(source_run_quality.get("success_rate"), 0.0)
                         ),
                         "transfer_confidence": (
                             None
@@ -514,15 +655,31 @@ def ingest_run_support(
                         "info": ev.get("info", {}),
                     }
                     row = _enrich_memory_row(row, tier_policy=tier_policy)
+                    if not dedupe_try_reserve_fn(dedupe_conn, key):
+                        replacement_candidates.append((key, row))
+                        continue
                     row_tier = _normalize_memory_tier(row.get("memory_tier"))
                     row_json = json.dumps(row, ensure_ascii=False) + "\n"
-                    out.write(row_json)
-                    if row_tier == "ltm":
-                        out_ltm.write(row_json)
-                    else:
-                        out_stm.write(row_json)
+                    _append_row_durably_then_commit(
+                        dedupe_conn=dedupe_conn,
+                        out=out,
+                        out_ltm=out_ltm,
+                        out_stm=out_stm,
+                        row_json=row_json,
+                        row_tier=row_tier,
+                    )
                     added += 1
-            dedupe_conn.commit()
+            for key, row in replacement_candidates:
+                if _replace_duplicate_if_higher_quality(
+                    mem_path=mem_path,
+                    ltm_path=ltm_path,
+                    stm_path=stm_path,
+                    dedupe_key=key,
+                    incoming_row=row,
+                ):
+                    added += 1
+                else:
+                    skipped += 1
             invalidate_similarity_cache_fn((mem_path, ltm_path, stm_path))
         finally:
             dedupe_conn.close()

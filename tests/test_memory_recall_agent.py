@@ -8,6 +8,34 @@ from core.types import AgentSpec, SpaceSpec
 
 
 class TestMemoryRecallAgent(unittest.TestCase):
+    def test_quality_weight_enables_verified_quality_safety_gate(self):
+        ag = self._agent(
+            {
+                "epsilon_start": 0.0,
+                "epsilon_min": 0.0,
+                "recall_quality_weight": 1.0,
+                "recall_vote_weight": 2.0,
+            }
+        )
+        req = ag.memory_query_request(obs={"risk": 9}, step_idx=0)
+        self.assertEqual(float(req.get("min_verified_transfer_score")), 0.5)
+        hint = {
+            "memory_recall": {
+                "matches": [
+                    {
+                        "run_id": "forged",
+                        "action": 2,
+                        "score": 1.0,
+                        "transfer_score": 10.0,
+                        "verified_transfer_score": 0.0,
+                    }
+                ]
+            }
+        }
+        result = ag.act_with_hint({"pos": 0}, hint)
+        self.assertFalse(bool(result.info.get("memory_recall_used")))
+        self.assertEqual(int(result.info.get("memory_recall_trusted_provider_count", -1)), 0)
+
     def _agent(self, cfg=None):
         spec = AgentSpec(
             spec_version="v1",
@@ -62,6 +90,9 @@ class TestMemoryRecallAgent(unittest.TestCase):
         self.assertEqual(list(req.get("source_verse_names", [])), ["cliff_world", "grid_world"])
         self.assertEqual(float(req.get("min_transfer_score", -1.0)), 0.7)
         self.assertEqual(float(req.get("min_transfer_confidence", -1.0)), 0.6)
+        self.assertEqual(float(req.get("quality_weight", -1.0)), 0.0)
+        self.assertEqual(float(req.get("confidence_weight", -1.0)), 0.0)
+        self.assertEqual(float(req.get("reputation_weight", -1.0)), 0.0)
 
     def test_memory_bootstrap_request_reuses_recall_filters(self):
         ag = self._agent(

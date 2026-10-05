@@ -114,7 +114,10 @@ class TestADTRuntimeIntegration(unittest.TestCase):
             # 5. Verify a run output directory was created
             output_dirs = os.listdir(train_runs_root)
             self.assertEqual(len(output_dirs), 1, "Expected exactly one run directory to be created.")
-            self.assertTrue(output_dirs[0].startswith("run_"), "Run directory should have standard naming")
+            self.assertTrue(
+                output_dirs[0].startswith("line_world_adt_"),
+                "Run directory should use the readable <verse>_<algo>_<suffix> naming convention",
+            )
 
             run_events_path = os.path.join(train_runs_root, output_dirs[0], "events.jsonl")
             self.assertTrue(os.path.exists(run_events_path), "events.jsonl should be emitted from the run")

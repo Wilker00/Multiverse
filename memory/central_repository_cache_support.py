@@ -47,6 +47,8 @@ class _PreparedMemoryRow:
     reward: float
     obs: JSONValue
     transfer_score: Optional[float]
+    verified_transfer_score: Optional[float]
+    transfer_score_provenance: str
     transfer_confidence: Optional[float]
     source_greedy_action: Optional[int]
     source_action_matches_greedy: Optional[bool]
@@ -224,6 +226,12 @@ def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
         transfer_score=(
             None if raw.get("transfer_score") is None else _safe_float(raw.get("transfer_score"), 0.0)
         ),
+        verified_transfer_score=(
+            None
+            if raw.get("verified_transfer_score") is None
+            else _safe_float(raw.get("verified_transfer_score"), 0.0)
+        ),
+        transfer_score_provenance=str(raw.get("transfer_score_provenance", "unknown")),
         transfer_confidence=(
             None
             if raw.get("transfer_confidence") is None
@@ -258,6 +266,8 @@ def _prepared_row_to_dict(row: _PreparedMemoryRow) -> Dict[str, Any]:
         "reward": float(row.reward),
         "obs": row.obs,
         "transfer_score": row.transfer_score,
+        "verified_transfer_score": row.verified_transfer_score,
+        "transfer_score_provenance": str(row.transfer_score_provenance),
         "transfer_confidence": row.transfer_confidence,
         "source_greedy_action": (None if row.source_greedy_action is None else int(row.source_greedy_action)),
         "source_action_matches_greedy": (
@@ -396,6 +406,12 @@ def _build_similarity_cache_for_path(
                 transfer_score=(
                     None if row.get("transfer_score") is None else _safe_float(row.get("transfer_score"), 0.0)
                 ),
+                verified_transfer_score=(
+                    None
+                    if row.get("verified_transfer_score") is None
+                    else _safe_float(row.get("verified_transfer_score"), 0.0)
+                ),
+                transfer_score_provenance=str(row.get("transfer_score_provenance", "unknown")),
                 transfer_confidence=(
                     None
                     if row.get("transfer_confidence") is None

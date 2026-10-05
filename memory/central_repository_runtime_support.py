@@ -77,9 +77,19 @@ def repo_lock_support(
                     if fh.tell() <= 0:
                         fh.write(b"0")
                         fh.flush()
-                    fh.seek(0)
-                    msvcrt_module.locking(fh.fileno(), msvcrt_module.LK_LOCK, 1)
-                    file_locked = True
+                    deadline = time.monotonic() + float(lock_timeout)
+                    while True:
+                        try:
+                            fh.seek(0)
+                            msvcrt_module.locking(fh.fileno(), msvcrt_module.LK_NBLCK, 1)
+                            file_locked = True
+                            break
+                        except (OSError, PermissionError):
+                            if time.monotonic() >= deadline:
+                                raise TimeoutError(
+                                    f"Failed to acquire repository file lock within {lock_timeout}s"
+                                )
+                            time.sleep(0.01)
                 elif fcntl_module is not None:
                     fcntl_module.flock(fh.fileno(), fcntl_module.LOCK_EX)
                     file_locked = True
@@ -140,6 +150,40 @@ def ensure_repo_support(
     conn = open_dedupe_db_fn(cfg)
     try:
         migrate_legacy_dedupe_json_to_db_fn(cfg, conn)
+        # Canonical JSONL is the recovery source of truth. A process may have
+        # stopped after durable file writes but before the SQLite commit.
+        canonical_keys = []
+        canonical_rows = []
+        ltm_rows = []
+        stm_rows = []
+        mem_path = memories_path_fn(cfg)
+        with open(mem_path, "r", encoding="utf-8") as src:
+            for line in src:
+                s = line.strip()
+                if not s:
+                    continue
+                try:
+                    row = json.loads(s)
+                except Exception:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                row_json = json.dumps(row, ensure_ascii=False) + "\n"
+                canonical_rows.append(row_json)
+                if str(row.get("memory_tier", "stm")).strip().lower() == "ltm":
+                    ltm_rows.append(row_json)
+                else:
+                    stm_rows.append(row_json)
+                if str(row.get("dedupe_key", "")):
+                    canonical_keys.append(str(row["dedupe_key"]))
+        conn.executemany(
+            "INSERT OR IGNORE INTO dedupe_keys(dedupe_key) VALUES (?)",
+            [(key,) for key in canonical_keys],
+        )
+        conn.commit()
+        atomic_write_fn(mem_path, "".join(canonical_rows), 3)
+        atomic_write_fn(ltm_memories_path_fn(cfg), "".join(ltm_rows), 3)
+        atomic_write_fn(stm_memories_path_fn(cfg), "".join(stm_rows), 3)
     finally:
         conn.close()
 

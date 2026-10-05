@@ -122,19 +122,23 @@ def _repo_lock(cfg: CentralMemoryConfig):
 
 
 def _ensure_repo(cfg: CentralMemoryConfig) -> None:
-    ensure_repo_support(
-        cfg=cfg,
-        get_mp_locks_fn=_get_mp_locks,
-        memories_path_fn=_memories_path,
-        ltm_memories_path_fn=_ltm_memories_path,
-        stm_memories_path_fn=_stm_memories_path,
-        dedupe_path_fn=_dedupe_path,
-        dedupe_db_path_fn=_dedupe_db_path,
-        dedupe_ready=_DEDUPE_READY,
-        atomic_write_fn=_atomic_write,
-        open_dedupe_db_fn=_open_dedupe_db,
-        migrate_legacy_dedupe_json_to_db_fn=_migrate_legacy_dedupe_json_to_db,
-    )
+    # The Manager-backed lock is process-local when Windows workers import this
+    # module independently. The repository file lock is the actual cross-process
+    # synchronization boundary, so bootstrap all files while holding it.
+    with _repo_lock(cfg):
+        ensure_repo_support(
+            cfg=cfg,
+            get_mp_locks_fn=_get_mp_locks,
+            memories_path_fn=_memories_path,
+            ltm_memories_path_fn=_ltm_memories_path,
+            stm_memories_path_fn=_stm_memories_path,
+            dedupe_path_fn=_dedupe_path,
+            dedupe_db_path_fn=_dedupe_db_path,
+            dedupe_ready=_DEDUPE_READY,
+            atomic_write_fn=_atomic_write,
+            open_dedupe_db_fn=_open_dedupe_db,
+            migrate_legacy_dedupe_json_to_db_fn=_migrate_legacy_dedupe_json_to_db,
+        )
 
 
 def _open_dedupe_db(cfg: CentralMemoryConfig) -> sqlite3.Connection:
@@ -329,11 +333,33 @@ def ingest_run(
     selection: Optional[SelectionConfig] = None,
     max_events: Optional[int] = None,
 ) -> IngestStats:
+    source_run_quality: Dict[str, Optional[float]] = {
+        "mean_return": None,
+        "success_rate": None,
+        "transfer_score": None,
+    }
+    try:
+        # Lazy import keeps the repository module independent at import time.
+        from orchestrator.evaluator import evaluate_run
+
+        stats = evaluate_run(run_dir)
+        success_rate = None if stats.success_rate is None else float(stats.success_rate)
+        source_run_quality = {
+            "mean_return": float(stats.mean_return),
+            "success_rate": success_rate,
+            # Success rate is bounded, comparable across reward scales, and already
+            # represents the source run's task-level outcome quality.
+            "transfer_score": success_rate,
+        }
+    except Exception:
+        # Preserve legacy ingestion behavior for incomplete/nonstandard run dirs.
+        pass
     return ingest_run_support(
         run_dir=run_dir,
         cfg=cfg,
         selection=selection,
         max_events=max_events,
+        source_run_quality=source_run_quality,
         ensure_repo_fn=_ensure_repo,
         repo_lock_fn=_repo_lock,
         open_dedupe_db_fn=_open_dedupe_db,
@@ -361,8 +387,12 @@ def find_similar(
     source_verse_names: Optional[Set[str]] = None,
     min_transfer_score: Optional[float] = None,
     min_transfer_confidence: Optional[float] = None,
+    min_verified_transfer_score: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
+    quality_weight: float = 0.0,
+    confidence_weight: float = 0.0,
+    reputation_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     """
     Query central memory for similar observations.
@@ -397,8 +427,12 @@ def find_similar(
         source_verse_names=source_verse_names,
         min_transfer_score=min_transfer_score,
         min_transfer_confidence=min_transfer_confidence,
+        min_verified_transfer_score=min_verified_transfer_score,
         stm_decay_lambda=stm_decay_lambda,
         trajectory_window=trajectory_window,
+        quality_weight=quality_weight,
+        confidence_weight=confidence_weight,
+        reputation_weight=reputation_weight,
     )
 
 
@@ -420,8 +454,12 @@ def find_similar_cached(
     source_verse_names: Optional[Set[str]] = None,
     min_transfer_score: Optional[float] = None,
     min_transfer_confidence: Optional[float] = None,
+    min_verified_transfer_score: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
+    quality_weight: float = 0.0,
+    confidence_weight: float = 0.0,
+    reputation_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     """
     Cached version of find_similar() with LRU eviction and TTL.
@@ -457,8 +495,12 @@ def find_similar_cached(
         source_verse_names=source_verse_names,
         min_transfer_score=min_transfer_score,
         min_transfer_confidence=min_transfer_confidence,
+        min_verified_transfer_score=min_verified_transfer_score,
         stm_decay_lambda=stm_decay_lambda,
         trajectory_window=trajectory_window,
+        quality_weight=quality_weight,
+        confidence_weight=confidence_weight,
+        reputation_weight=reputation_weight,
     )
 
 

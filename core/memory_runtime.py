@@ -78,6 +78,14 @@ def resolve_memory_request(
             min_transfer_confidence=(
                 None if req.get("min_transfer_confidence") is None else float(req.get("min_transfer_confidence"))
             ),
+            min_verified_transfer_score=(
+                None
+                if req.get("min_verified_transfer_score") is None
+                else float(req.get("min_verified_transfer_score"))
+            ),
+            quality_weight=float(req.get("quality_weight", 0.0)),
+            confidence_weight=float(req.get("confidence_weight", 0.0)),
+            reputation_weight=float(req.get("reputation_weight", 0.0)),
             trajectory_window=trajectory_window,
         )
         bundle = _build_memory_bundle(req=req, matches=matches, step_idx=request_step_idx)

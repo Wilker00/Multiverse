@@ -26,7 +26,11 @@ def _query_cache_key(
     source_verse_names: Optional[Set[str]],
     min_transfer_score: Optional[float],
     min_transfer_confidence: Optional[float],
+    min_verified_transfer_score: Optional[float],
     exclude_run_ids: Optional[Set[str]],
+    quality_weight: float,
+    confidence_weight: float,
+    reputation_weight: float,
 ) -> str:
     import hashlib
 
@@ -43,7 +47,11 @@ def _query_cache_key(
         str(sorted(source_verse_names) if source_verse_names else ""),
         str(min_transfer_score if min_transfer_score is not None else ""),
         str(min_transfer_confidence if min_transfer_confidence is not None else ""),
+        str(min_verified_transfer_score if min_verified_transfer_score is not None else ""),
         str(sorted(exclude_run_ids) if exclude_run_ids else ""),
+        str(float(quality_weight)),
+        str(float(confidence_weight)),
+        str(float(reputation_weight)),
     ]
     key_str = "||".join(key_parts)
     return hashlib.sha256(key_str.encode()).hexdigest()[:16]
@@ -75,8 +83,12 @@ def find_similar_cached_support(
     source_verse_names: Optional[Set[str]] = None,
     min_transfer_score: Optional[float] = None,
     min_transfer_confidence: Optional[float] = None,
+    min_verified_transfer_score: Optional[float] = None,
     stm_decay_lambda: Optional[float] = None,
     trajectory_window: int = 0,
+    quality_weight: float = 0.0,
+    confidence_weight: float = 0.0,
+    reputation_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     if decay_lambda != 0.0 or stm_decay_lambda is not None or current_time_ms is not None:
         return find_similar_fn(
@@ -96,8 +108,12 @@ def find_similar_cached_support(
             source_verse_names=source_verse_names,
             min_transfer_score=min_transfer_score,
             min_transfer_confidence=min_transfer_confidence,
+            min_verified_transfer_score=min_verified_transfer_score,
             stm_decay_lambda=stm_decay_lambda,
             trajectory_window=trajectory_window,
+            quality_weight=quality_weight,
+            confidence_weight=confidence_weight,
+            reputation_weight=reputation_weight,
         )
 
     cache_key = _query_cache_key(
@@ -113,7 +129,11 @@ def find_similar_cached_support(
         source_verse_names=source_verse_names,
         min_transfer_score=min_transfer_score,
         min_transfer_confidence=min_transfer_confidence,
+        min_verified_transfer_score=min_verified_transfer_score,
         exclude_run_ids=exclude_run_ids,
+        quality_weight=quality_weight,
+        confidence_weight=confidence_weight,
+        reputation_weight=reputation_weight,
     )
 
     if cache_key in query_cache:
@@ -140,8 +160,12 @@ def find_similar_cached_support(
         source_verse_names=source_verse_names,
         min_transfer_score=min_transfer_score,
         min_transfer_confidence=min_transfer_confidence,
+        min_verified_transfer_score=min_verified_transfer_score,
         stm_decay_lambda=stm_decay_lambda,
         trajectory_window=trajectory_window,
+        quality_weight=quality_weight,
+        confidence_weight=confidence_weight,
+        reputation_weight=reputation_weight,
     )
     query_cache[cache_key] = (results, _now_ms())
     if len(query_cache) > cache_size:

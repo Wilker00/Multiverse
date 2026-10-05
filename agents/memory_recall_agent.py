@@ -61,6 +61,11 @@ class MemoryRecallAgent(QLearningAgent):
     - recall_source_verse_names (list/set/csv string)
     - recall_min_transfer_score (float, optional)
     - recall_min_transfer_confidence (float, optional)
+    - recall_quality_weight (float, default 0.0; opt in for trusted metadata)
+    - recall_confidence_weight (float, default 0.0; opt in for trusted metadata)
+    - recall_reputation_weight (float, default 0.0; opt in when a market ledger exists)
+    - recall_min_verified_transfer_score (float; defaults to 0.5 when quality weighting is enabled)
+    - recall_min_trusted_providers (int, default 1)
     - recall_vote_weight (float, default 0.75)
     - recall_risk_key (str, default "risk")
     - recall_risk_threshold (float, default 6.0)
@@ -89,6 +94,22 @@ class MemoryRecallAgent(QLearningAgent):
             None
             if cfg.get("recall_min_transfer_confidence") is None
             else _safe_float(cfg.get("recall_min_transfer_confidence"), 0.0)
+        )
+        self._recall_quality_weight = max(0.0, _safe_float(cfg.get("recall_quality_weight", 0.0), 0.0))
+        self._recall_confidence_weight = max(
+            0.0, _safe_float(cfg.get("recall_confidence_weight", 0.0), 0.0)
+        )
+        self._recall_reputation_weight = max(
+            0.0, _safe_float(cfg.get("recall_reputation_weight", 0.0), 0.0)
+        )
+        default_verified_min = 0.5 if self._recall_quality_weight > 0.0 else None
+        self._recall_min_verified_transfer_score = (
+            default_verified_min
+            if cfg.get("recall_min_verified_transfer_score") is None
+            else _safe_float(cfg.get("recall_min_verified_transfer_score"), 0.0)
+        )
+        self._recall_min_trusted_providers = max(
+            1, _safe_int(cfg.get("recall_min_trusted_providers", 1), 1)
         )
         self._bootstrap_recall_enabled = bool(cfg.get("bootstrap_recall_enabled", False))
         self._bootstrap_top_k = max(1, _safe_int(cfg.get("bootstrap_top_k", self._recall_top_k), self._recall_top_k))
@@ -230,6 +251,10 @@ class MemoryRecallAgent(QLearningAgent):
             ),
             "min_transfer_score": self._recall_min_transfer_score,
             "min_transfer_confidence": self._recall_min_transfer_confidence,
+            "min_verified_transfer_score": self._recall_min_verified_transfer_score,
+            "quality_weight": float(self._recall_quality_weight),
+            "confidence_weight": float(self._recall_confidence_weight),
+            "reputation_weight": float(self._recall_reputation_weight),
             "reason": str(reason),
         }
         self._last_query_step = int(step)
@@ -264,6 +289,10 @@ class MemoryRecallAgent(QLearningAgent):
             ),
             "min_transfer_score": self._bootstrap_min_transfer_score,
             "min_transfer_confidence": self._bootstrap_min_transfer_confidence,
+            "min_verified_transfer_score": self._recall_min_verified_transfer_score,
+            "quality_weight": float(self._recall_quality_weight),
+            "confidence_weight": float(self._recall_confidence_weight),
+            "reputation_weight": float(self._recall_reputation_weight),
             "reason": "episode_bootstrap",
         }
 
@@ -281,6 +310,7 @@ class MemoryRecallAgent(QLearningAgent):
         control = self._extract_recall_control(hint=hint)
         recall_disable_apply = bool(control.get("disable_apply", False))
         recall_eligible = bool(recall_prior is not None and float(np.max(recall_prior)) > 0.0)
+        trusted_provider_count = self._trusted_provider_count(recall)
         qvals_recall = qvals_base.copy()
         if recall_prior is not None and recall_eligible:
             qvals_recall = qvals_base + (float(self._recall_vote_weight) * recall_prior)
@@ -317,7 +347,18 @@ class MemoryRecallAgent(QLearningAgent):
             if bool(self._recall_apply_reject_visible_wall):
                 gate_visible_wall = not bool(self._action_hits_visible_wall(obs=obs, action=recall_greedy))
             gate_phase = bool(float(self.stats.epsilon) >= float(self._recall_apply_min_epsilon))
-            recall_gate_passed = bool(gate_consensus and gate_uncert and gate_change and gate_visible_wall and gate_phase)
+            gate_trusted_providers = bool(
+                self._recall_min_verified_transfer_score is None
+                or trusted_provider_count >= int(self._recall_min_trusted_providers)
+            )
+            recall_gate_passed = bool(
+                gate_consensus
+                and gate_uncert
+                and gate_change
+                and gate_visible_wall
+                and gate_phase
+                and gate_trusted_providers
+            )
 
             if (not recall_disable_apply) and recall_gate_passed:
                 qvals = qvals_recall.copy()
@@ -352,6 +393,8 @@ class MemoryRecallAgent(QLearningAgent):
                 "memory_recall_gate_change_required": bool(self._recall_apply_only_if_greedy_changes),
                 "memory_recall_gate_visible_wall_reject": bool(self._recall_apply_reject_visible_wall),
                 "memory_recall_gate_min_epsilon": float(self._recall_apply_min_epsilon),
+                "memory_recall_trusted_provider_count": int(trusted_provider_count),
+                "memory_recall_min_trusted_providers": int(self._recall_min_trusted_providers),
                 "memory_recall_base_greedy_action": int(base_greedy),
                 "memory_recall_recall_greedy_action": int(recall_greedy),
                 "memory_recall_greedy_changed": bool(base_greedy != recall_greedy),
@@ -390,6 +433,10 @@ class MemoryRecallAgent(QLearningAgent):
         for row in matches:
             if not isinstance(row, dict):
                 continue
+            if self._recall_min_verified_transfer_score is not None:
+                verified = row.get("verified_transfer_score")
+                if verified is None or _safe_float(verified, -1.0) < float(self._recall_min_verified_transfer_score):
+                    continue
             a = -1
             if bool(self._recall_use_source_greedy_action):
                 a = _safe_int(row.get("source_greedy_action"), -1)
@@ -403,6 +450,25 @@ class MemoryRecallAgent(QLearningAgent):
         if mx <= 0.0:
             return None
         return prior / mx
+
+    def _trusted_provider_count(self, recall: Optional[Dict[str, Any]]) -> int:
+        if not isinstance(recall, dict):
+            return 0
+        matches = recall.get("matches")
+        if not isinstance(matches, list):
+            return 0
+        providers = set()
+        for row in matches:
+            if not isinstance(row, dict):
+                continue
+            verified = row.get("verified_transfer_score")
+            if self._recall_min_verified_transfer_score is not None:
+                if verified is None or _safe_float(verified, -1.0) < float(self._recall_min_verified_transfer_score):
+                    continue
+            provider = str(row.get("run_id", "")).strip()
+            if provider:
+                providers.add(provider)
+        return len(providers)
 
     def _top_pointer(self, recall: Optional[Dict[str, Any]]) -> str:
         if not isinstance(recall, dict):
