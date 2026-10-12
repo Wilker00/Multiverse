@@ -25,12 +25,13 @@ TAXONOMY: Dict[str, List[str]] = {
         "maze_world",
         "wind_master_world",
         "world_3d",
+        "embodied_point_world",
     ],
     "strategy_games": ["chess_world", "go_world", "uno_world", "chess_world_v2", "go_world_v2", "uno_world_v2", "blackjack_world"],
     "board_control": ["chess_world", "go_world", "chess_world_v2", "go_world_v2"],
     "card_strategy": ["uno_world", "uno_world_v2", "blackjack_world"],
     "complex_navigation": ["labyrinth_world", "swamp_world", "escape_world", "world_3d"],
-    "physics": ["pursuit_world", "labyrinth_world", "world_3d"],
+    "physics": ["pursuit_world", "labyrinth_world", "world_3d", "embodied_point_world"],
     "interaction": ["park_world"],
     "resource_management": ["labyrinth_world", "warehouse_world", "harvest_world", "trade_world"],
     "obstacle_navigation": ["grid_world", "labyrinth_world", "warehouse_world", "harvest_world", "escape_world", "world_3d"],
@@ -223,6 +224,31 @@ VERSE_TAGS: Dict[str, List[str]] = {
         "obstacle_navigation",
         "sim2real",
     ],
+    "embodied_point_world": [
+        "navigation",
+        "robotics",
+        "spatial",
+        "physics",
+        "embodied",
+        "2d",
+    ],
+    "robot_reacher_world": [
+        "robotics",
+        "navigation",
+        "spatial",
+        "spatial_reasoning",
+        "continuous_control",
+        "embodied",
+    ],
+    "warehouse_3d_world": [
+        "navigation",
+        "3d",
+        "robotics",
+        "spatial",
+        "spatial_reasoning",
+        "embodied",
+        "warehouse",
+    ],
 }
 
 # Cognitive memory taxonomy used by memory routing.
@@ -254,6 +280,8 @@ VERSE_MEMORY_TYPES: Dict[str, str] = {
     "wind_master_world": "spatial_procedural",
     "risk_tutorial_world": "declarative_adaptive",
     "world_3d": "spatial_procedural",
+    "embodied_point_world": "spatial_procedural",
+    "warehouse_3d_world": "spatial_procedural",
 }
 
 
@@ -283,8 +311,10 @@ VERSE_UNIVERSES: Dict[str, str] = {
     "park_world": "navigation_dynamic",
     "pursuit_world": "navigation_dynamic",
     "escape_world": "navigation_dynamic",
+    "embodied_point_world": "navigation_dynamic",
     # Logistics / operations-like environments (routing + constraints / process structure)
     "warehouse_world": "logistics_ops",
+    "warehouse_3d_world": "logistics_ops",
     "labyrinth_world": "logistics_ops",
     "factory_world": "logistics_ops",
     # Strategy games (turn-based symbolic planning)

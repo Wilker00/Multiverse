@@ -23,6 +23,7 @@ if __package__ in (None, ""):
 
 
 from core.adversary_sampler import AdversarialMixWrapper, AdversaryBundle
+from core.live_state import write_lifecycle_event
 from core.types import (
     RunRef,
     AgentRef,
@@ -339,6 +340,15 @@ class Trainer:
 
         run_dir = os.path.join(self.run_root, run.run_id)
         checkpoint_path = None
+        # Sidecar for the live map. Step events stay on the existing JSONL schema.
+        write_lifecycle_event(
+            run_dir,
+            "run_started",
+            run_id=str(run.run_id),
+            verse_name=str(verse_spec.verse_name),
+            algo=str(agent_spec.algo),
+            episodes=int(episodes),
+        )
 
         with EventLogger(log_cfg) as logger:
             on_step = make_on_step_writer(logger)
@@ -418,6 +428,15 @@ class Trainer:
         except Exception as e:
             if bool(verbose):
                 print(f"trainer: run manifest write failed: {e}")
+
+        write_lifecycle_event(
+            run_dir,
+            "run_finished",
+            run_id=str(run.run_id),
+            verse_name=str(verse_spec.verse_name),
+            total_steps=int(total_steps),
+            total_return=float(total_return),
+        )
 
         return {
             "run_id": run.run_id,

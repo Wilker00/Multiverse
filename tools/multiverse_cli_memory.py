@@ -80,6 +80,11 @@ def cmd_memory_inspect(args: argparse.Namespace) -> int:
 
         agent_cfg = _parse_kv_list(args.aconfig)
         agent_cfg.setdefault("verse_name", str(args.verse))
+        concepts = [part.strip().lower() for part in str(getattr(args, "concepts", "") or "").split(",") if part.strip()]
+        if concepts:
+            agent_cfg.setdefault("concept_tags", concepts)
+            if str(args.mode).strip().lower() == "bootstrap":
+                agent_cfg.setdefault("bootstrap_recall_enabled", True)
         agent_spec = AgentSpec(
             spec_version="v1",
             policy_id=str(args.policy_id or f"{args.algo}_memory_inspect"),
@@ -127,6 +132,9 @@ def cmd_memory_inspect(args: argparse.Namespace) -> int:
             error_code=f"{method_name}_error",
             component=f"memory.inspect.{method_name}",
         )
+        if concepts and isinstance(req, dict):
+            req.setdefault("concept_tags", list(concepts))
+            req.setdefault("concept_weight", float(agent_cfg.get("concept_weight", 0.0) or 0.0))
 
         resolved = None
         status = "agent_declined"

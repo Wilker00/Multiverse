@@ -1,15 +1,15 @@
 """
 tools/universe_hub.py
 
-Interactive Terminal Dashboard for Multiverse.
-Visualizes:
-- Live parallel worker status
-- Skill Galaxy progress
-- Recent Promotion Board winners
+Terminal map of verses, the central memory hub, and live traffic.
+
+This is a view over ``core.live_state``. It does not train agents. The
+placeholder galaxy bars are gone: rows come from run artifacts and concept tags.
 """
 
+from __future__ import annotations
+
 import argparse
-import json
 import os
 import sys
 import time
@@ -19,6 +19,8 @@ if __package__ in (None, ""):
     _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _ROOT not in sys.path:
         sys.path.insert(0, _ROOT)
+
+from core.live_state import build_live_snapshot, map_verse_rows
 
 
 def get_terminal_size():
@@ -31,79 +33,135 @@ def color_text(text: str, color_code: str) -> str:
     return f"\033[{color_code}m{text}\033[0m"
 
 
+def _bar(value: float, width: int = 10) -> str:
+    clamped = max(0.0, min(1.0, float(value)))
+    filled = int(round(clamped * width))
+    return ("#" * filled) + ("-" * (width - filled))
+
+
+def format_map_lines(snapshot: Dict[str, Any], *, width: int = 80) -> List[str]:
+    """Plain map text. Color is applied by ``render``."""
+    counts = snapshot.get("counts") if isinstance(snapshot.get("counts"), dict) else {}
+    memory = snapshot.get("memory") if isinstance(snapshot.get("memory"), dict) else {}
+    flows = snapshot.get("flows") if isinstance(snapshot.get("flows"), dict) else {}
+    health = snapshot.get("health") if isinstance(snapshot.get("health"), dict) else {}
+    lines: List[str] = []
+    lines.append("MULTIVERSE MAP")
+    lines.append(
+        "verses={registered} active_runs={active} memory_rows={rows} transfers={transfers}".format(
+            registered=int(counts.get("registered_verses", 0) or 0),
+            active=int(counts.get("active_runs", 0) or 0),
+            rows=int(memory.get("row_count", 0) or 0),
+            transfers=int(counts.get("recent_transfers", 0) or 0),
+        )
+    )
+    lines.append("-" * max(20, int(width)))
+    lines.append("[CENTRAL MEMORY]")
+    exists = "present" if bool(memory.get("exists")) else "missing"
+    lines.append(
+        f"  hub {exists}  bytes={int(memory.get('bytes', 0) or 0)}  "
+        f"rows={int(memory.get('row_count', 0) or 0)}"
+        + (" (capped)" if bool(memory.get("row_count_capped")) else "")
+    )
+    lines.append("[VERSES]")
+    rows = map_verse_rows(snapshot)
+    if not rows:
+        lines.append("  no verses registered")
+    for row in rows:
+        concepts = ",".join(list(row.get("concept_tags") or [])[:4]) or "task"
+        status = str(row.get("status") or "idle")
+        reward = float(row.get("reward_sum", 0.0) or 0.0)
+        activity = max(
+            int(row.get("recall_count", 0) or 0),
+            int(row.get("transfer_count", 0) or 0),
+            int(row.get("run_count", 0) or 0),
+        )
+        scale = 0.0 if activity <= 0 else min(1.0, activity / 5.0)
+        name = str(row.get("verse_name") or "unknown")[:22]
+        lines.append(
+            f"  {status:<6} {name:<22} [{_bar(scale)}] "
+            f"runs={int(row.get('run_count', 0) or 0)} "
+            f"reward={reward:.2f} "
+            f"ok={int(row.get('success_count', 0) or 0)} "
+            f"{concepts}"
+        )
+    lines.append("[FLOWS]")
+    retrievals = list(flows.get("retrievals") or [])
+    transfers = list(flows.get("transfers") or [])
+    safety = list(flows.get("safety") or [])
+    if not retrievals and not transfers and not safety:
+        lines.append("  no recent recall, transfer, or safety traffic")
+    for item in retrievals[-6:]:
+        lines.append(
+            f"  recall   {item.get('verse_name', '')} "
+            f"matches={item.get('match_count', 0)} used={item.get('used', False)}"
+        )
+    for item in transfers[-6:]:
+        lines.append(
+            f"  transfer {item.get('source_verse', '')} -> {item.get('target_verse', '')} "
+            f"{item.get('decision', '')} conf={item.get('confidence')}"
+        )
+    for item in safety[-6:]:
+        lines.append(f"  safety   {item.get('verse_name', '')} mode={item.get('mode', '')}")
+    lines.append("[HEALTH]")
+    providers = list(health.get("providers") or [])
+    if not providers:
+        lines.append("  no sim providers reported")
+    for provider in providers:
+        flag = "up" if bool(provider.get("available")) else "down"
+        lines.append(
+            f"  {flag:<4} {str(provider.get('provider_id', '')):<16} "
+            f"implemented={bool(provider.get('implemented'))}"
+        )
+    return lines
+
+
 class UniverseHub:
-    def __init__(self, runs_root: str = "runs"):
+    def __init__(self, runs_root: str = "runs", memory_root: str = "central_memory"):
         self.runs_root = runs_root
+        self.memory_root = memory_root
         self.start_time = time.time()
 
-    def _get_recent_runs(self, limit: int = 5) -> List[Dict[str, Any]]:
-        runs: List[Dict[str, Any]] = []
-        if not os.path.isdir(self.runs_root):
-            return []
+    def snapshot(self) -> Dict[str, Any]:
+        return build_live_snapshot(runs_root=self.runs_root, memory_root=self.memory_root)
 
-        for d in os.listdir(self.runs_root):
-            p = os.path.join(self.runs_root, d)
-            if not os.path.isdir(p):
-                continue
-
-            meta_p = os.path.join(p, "parallel_meta.json")
-            if os.path.isfile(meta_p):
-                with open(meta_p, "r", encoding="utf-8") as f:
-                    m = json.load(f)
-                if isinstance(m, dict):
-                    m["type"] = "Parallel"
-                    runs.append(m)
-            else:
-                runs.append({"run_id": d, "type": "Single", "created_at": os.path.getctime(p)})
-
-        runs.sort(key=lambda x: x.get("created_at", 0), reverse=True)
-        return runs[:limit]
+    def render_text(self, *, width: int | None = None) -> str:
+        tw = int(width or get_terminal_size()[0])
+        snapshot = self.snapshot()
+        body = format_map_lines(snapshot, width=tw)
+        uptime = int(time.time() - self.start_time)
+        header = [
+            "=" * tw,
+            "MULTIVERSE LIVE MAP".center(tw),
+            "=" * tw,
+            f"Uptime: {uptime}s | runs: {self.runs_root} | memory: {self.memory_root}",
+        ]
+        footer = ["=" * tw, "[Q] Quit | refresh follows --refresh_sec"]
+        return "\n".join(header + body + footer)
 
     def render(self) -> None:
         tw, _th = get_terminal_size()
         os.system("cls" if os.name == "nt" else "clear")
-
-        print(color_text("=" * tw, "1;34"))
-        print(color_text("  UNIVERSE.AI - CORE ENGINE DASHBOARD  ", "1;37;44").center(tw))
-        print(color_text("=" * tw, "1;34"))
-
-        uptime = int(time.time() - self.start_time)
-        nodes = len(os.listdir(self.runs_root)) if os.path.isdir(self.runs_root) else 0
-        print(f" Uptime: {uptime}s | Root: {self.runs_root} | Nodes: {nodes}")
-        print("-" * tw)
-
-        print(color_text("\n [PARALLEL FLEET STATUS]", "1;32"))
-        recent = self._get_recent_runs(3)
-        if not recent:
-            print("  No active clusters detected.")
-        for r in recent:
-            rid = str(r.get("run_id", "unknown"))
-            rtype = str(r.get("type", "Single"))
-            print(f"  > {rid[:20]:<20} | {rtype:<8} | Status: {color_text('ACTIVE', '32')}")
-
-        print(color_text("\n [SKILL GALAXY PROGRESS]", "1;35"))
-        verses_seen = set()
-        if os.path.isdir(self.runs_root):
-            # Placeholder heuristic; can be replaced by run summaries.
-            verses_seen = {"grid_world", "cliff_world"}
-
-        for v in ["grid_world", "cliff_world", "labyrinth_world", "swamp_world", "factory_world"]:
-            status = color_text("*", "32") if v in verses_seen else color_text("o", "30")
-            print(f"  {status} {v:<20} [#######---] 70%")
-
-        print(color_text("\n [PROMOTION BOARD TICKER]", "1;33"))
-        if os.path.isfile("promotion_report.md"):
-            print("  [OK] Candidate 'RecurrentPPO' promoted to STAGE 2 (Success > 85%)")
-        else:
-            print("  ... Waiting for candidate evaluation ...")
-
-        print("\n" + color_text("=" * tw, "1;34"))
-        print(" [Q] Quit | [R] Refresh | [A] Analyze Run")
+        text = self.render_text(width=tw)
+        for line in text.splitlines():
+            if line.startswith("  active"):
+                print(color_text(line, "1;32"))
+            elif line.startswith("  transfer"):
+                print(color_text(line, "1;35"))
+            elif line.startswith("  safety"):
+                print(color_text(line, "1;33"))
+            elif line.startswith("  recall"):
+                print(color_text(line, "1;36"))
+            elif line.startswith("[") or line.startswith("MULTIVERSE"):
+                print(color_text(line, "1;34"))
+            else:
+                print(line)
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Interactive terminal dashboard for Multiverse runs.")
+    ap = argparse.ArgumentParser(description="Live terminal map of Multiverse verses and memory traffic.")
     ap.add_argument("--runs_root", type=str, default="runs")
+    ap.add_argument("--memory_root", type=str, default="central_memory")
     ap.add_argument("--refresh_sec", type=float, default=2.0)
     ap.add_argument(
         "--once",
@@ -113,7 +171,7 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    hub = UniverseHub(runs_root=str(args.runs_root))
+    hub = UniverseHub(runs_root=str(args.runs_root), memory_root=str(args.memory_root))
     try:
         if bool(args.once):
             hub.render()

@@ -16,7 +16,8 @@ Architecture:
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+import math
 import numpy as np
 from abc import ABC, abstractmethod
 
@@ -334,10 +335,25 @@ class VisionActionMapper:
     
     def __init__(
         self,
-        embodiment_spec: EmbodimentSpec,
+        embodiment_spec: Optional[EmbodimentSpec] = None,
         spatial_extractor: Optional[SpatialConceptExtractor] = None,
         action_morphism: Optional[ActionMorphism] = None,
+        *,
+        l1: float = 0.5,
+        l2: float = 0.5,
     ):
+        # Keep the discrete RobotReacherWorld API usable alongside the general
+        # embodiment mapper. Its original constructor accepted l1/l2 directly.
+        if isinstance(embodiment_spec, (int, float)):
+            l1 = float(embodiment_spec)
+            if isinstance(spatial_extractor, (int, float)):
+                l2 = float(spatial_extractor)
+                spatial_extractor = None
+            embodiment_spec = None
+
+        self.ik = Planar2LinkIK(l1=l1, l2=l2)
+        if embodiment_spec is None:
+            embodiment_spec = embodiment_2link_planar_arm()
         self.embodiment_spec = embodiment_spec
         self.spatial_extractor = spatial_extractor or DefaultSpatialExtractor()
         self.action_morphism = action_morphism or ActionMorphism(game_action_space_size=4)
@@ -429,6 +445,139 @@ class VisionActionMapper:
         modulated *= proximity_scale
         
         return modulated
+
+    def map_spatial_intent_to_robot_action(
+        self,
+        th1: float,
+        th2: float,
+        target_displacement: Tuple[float, float],
+    ) -> int:
+        """Choose one discrete RobotReacherWorld action for a Cartesian delta."""
+        dx, dy = target_displacement
+        if abs(dx) < 1e-4 and abs(dy) < 1e-4:
+            return 0
+
+        dth1, dth2 = self.ik.differential_ik(th1, th2, dx, dy)
+        if abs(dth1) >= abs(dth2):
+            if abs(dth1) < 0.05:
+                return 0
+            return 1 if dth1 > 0 else 2
+        if abs(dth2) < 0.05:
+            return 0
+        return 3 if dth2 > 0 else 4
+
+    def ground_memory_trajectory(
+        self,
+        game_transitions: List[Dict[str, Any]],
+        initial_th1: float = 0.0,
+        initial_th2: float = 0.0,
+    ) -> List[int]:
+        """Translate discrete game transitions into RobotReacherWorld actions."""
+        robot_actions: List[int] = []
+        cur_th1 = initial_th1
+        cur_th2 = initial_th2
+
+        for transition in game_transitions:
+            action = transition.get("action", 0)
+            displacement = SpatialIntentExtractor.action_to_displacement(action, magnitude=0.08)
+            robot_action = self.map_spatial_intent_to_robot_action(
+                cur_th1, cur_th2, displacement
+            )
+            robot_actions.append(robot_action)
+
+            if robot_action == 1:
+                cur_th1 += 0.1
+            elif robot_action == 2:
+                cur_th1 -= 0.1
+            elif robot_action == 3:
+                cur_th2 += 0.1
+            elif robot_action == 4:
+                cur_th2 -= 0.1
+
+        return robot_actions
+
+
+class SpatialIntentExtractor:
+    """Convert discrete grid actions or explicit deltas into Cartesian motion."""
+
+    DISCRETE_GRID_MAP: Dict[int, Tuple[float, float]] = {
+        0: (0.0, 1.0),
+        1: (0.0, -1.0),
+        2: (-1.0, 0.0),
+        3: (1.0, 0.0),
+        4: (0.0, 0.0),
+    }
+
+    @classmethod
+    def action_to_displacement(
+        cls,
+        action: Union[int, float, Sequence[float]],
+        magnitude: float = 0.1,
+    ) -> Tuple[float, float]:
+        if isinstance(action, (int, float)):
+            dx, dy = cls.DISCRETE_GRID_MAP.get(int(action), (0.0, 0.0))
+            return dx * magnitude, dy * magnitude
+        if isinstance(action, (list, tuple)) and len(action) >= 2:
+            return float(action[0]), float(action[1])
+        return 0.0, 0.0
+
+
+class Planar2LinkIK:
+    """Analytical and damped differential IK for a planar two-link arm."""
+
+    def __init__(self, l1: float = 0.5, l2: float = 0.5, damping: float = 0.05) -> None:
+        self.l1 = float(l1)
+        self.l2 = float(l2)
+        self.damping = float(damping)
+
+    def forward_kinematics(
+        self, th1: float, th2: float
+    ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        x1 = self.l1 * math.cos(th1)
+        y1 = self.l1 * math.sin(th1)
+        x2 = x1 + self.l2 * math.cos(th1 + th2)
+        y2 = y1 + self.l2 * math.sin(th1 + th2)
+        return (x1, y1), (x2, y2)
+
+    def analytical_ik(
+        self, target_x: float, target_y: float, elbow_up: bool = False
+    ) -> Optional[Tuple[float, float]]:
+        r2 = target_x * target_x + target_y * target_y
+        radius = math.sqrt(r2)
+        if radius > self.l1 + self.l2 or radius < abs(self.l1 - self.l2) or radius == 0:
+            return None
+
+        cos_th2 = (r2 - self.l1**2 - self.l2**2) / (2.0 * self.l1 * self.l2)
+        cos_th2 = max(-1.0, min(1.0, cos_th2))
+        sin_th2 = math.sqrt(max(0.0, 1.0 - cos_th2 * cos_th2))
+        if elbow_up:
+            sin_th2 = -sin_th2
+        th2 = math.atan2(sin_th2, cos_th2)
+        alpha = math.atan2(target_y, target_x)
+        beta = math.atan2(self.l2 * sin_th2, self.l1 + self.l2 * cos_th2)
+        return alpha - beta, th2
+
+    def jacobian(self, th1: float, th2: float) -> List[List[float]]:
+        s1, c1 = math.sin(th1), math.cos(th1)
+        s12, c12 = math.sin(th1 + th2), math.cos(th1 + th2)
+        return [
+            [-self.l1 * s1 - self.l2 * s12, -self.l2 * s12],
+            [self.l1 * c1 + self.l2 * c12, self.l2 * c12],
+        ]
+
+    def differential_ik(
+        self, th1: float, th2: float, dx: float, dy: float
+    ) -> Tuple[float, float]:
+        [[j11, j12], [j21, j22]] = self.jacobian(th1, th2)
+        a11 = j11 * j11 + j12 * j12 + self.damping**2
+        a12 = j11 * j21 + j12 * j22
+        a22 = j21 * j21 + j22 * j22 + self.damping**2
+        det = a11 * a22 - a12 * a12
+        if abs(det) < 1e-7:
+            det = 1e-7
+        v1 = (a22 * dx - a12 * dy) / det
+        v2 = (-a12 * dx + a11 * dy) / det
+        return j11 * v1 + j21 * v2, j12 * v1 + j22 * v2
 
 
 # ============================================================================

@@ -255,12 +255,27 @@ class InteractiveShell:
         lines.append("Ctrl+Esc: exit shell")
         return (lines + [""] * height)[:height]
 
+    def _live_header_line(self) -> str:
+        now = time.time()
+        cached = getattr(self, "_live_line_cache", None)
+        if isinstance(cached, tuple) and (now - float(cached[0])) < 2.0:
+            return str(cached[1])
+        try:
+            from core.live_state import build_live_snapshot, live_summary_line
+
+            line = live_summary_line(build_live_snapshot(runs_root=self.runs_root))
+        except Exception:
+            line = "live=unavailable"
+        self._live_line_cache = (now, line)
+        return line
+
     def _left_panel_lines(self, width: int, height: int) -> List[str]:
         snap = self.run_snapshot_fn(self.runs_root)
         latest = snap.get("latest") or {}
         head = [
             "MULTIVERSE LIVE SHELL",
             f"runs_root={self.runs_root} | runs={snap.get('run_count', 0)} | last_rc={self.last_rc}",
+            self._live_header_line(),
             f"latest={latest.get('run_id', 'none')}",
             f"layout={self.layout} theme={self.theme} intensity={self.intensity} scroll={self.log_scroll}",
         ]

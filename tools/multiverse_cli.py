@@ -44,6 +44,7 @@ from tools.multiverse_cli_runs import (
     resolve_run_dir as _resolve_run_dir,
     run_snapshot as _run_snapshot,
 )
+from core.live_state import build_live_snapshot, live_summary_line
 from tools.multiverse_cli_memory import cmd_memory_inspect
 from tools.multiverse_cli_shell import run_shell
 
@@ -321,6 +322,16 @@ def cmd_status(args: argparse.Namespace) -> int:
             artifact_index_path=str(args.artifact_index_path),
         )
         payload["operator"] = operator
+    live = build_live_snapshot(
+        runs_root=str(args.runs_root),
+        memory_root=str(args.central_memory_dir),
+    )
+    payload["live"] = {
+        "summary": live_summary_line(live),
+        "counts": live.get("counts", {}),
+        "memory": live.get("memory", {}),
+        "recent_transfers": list((live.get("flows") or {}).get("transfers") or [])[:5],
+    }
     if bool(args.json):
         print(json.dumps(payload, indent=2))
         return 0
@@ -338,6 +349,13 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"Latest size    : {latest['size_human']}")
     else:
         print("Latest run     : none")
+    print("")
+    print("Live map")
+    print("--------")
+    print(str(payload["live"]["summary"]))
+    print(f"Active runs    : {int(payload['live']['counts'].get('active_runs', 0))}")
+    print(f"Memory rows    : {int(payload['live']['counts'].get('memory_rows', 0))}")
+    print(f"Recent transfer: {int(payload['live']['counts'].get('recent_transfers', 0))}")
     if operator is not None:
         readiness = operator["readiness"]
         sentinel = operator["sentinel"]
@@ -713,18 +731,25 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_hub(args: argparse.Namespace) -> int:
+def _hub_command(args: argparse.Namespace) -> List[str]:
     cmd = [
         sys.executable,
         str(PROJECT_ROOT / "tools" / "universe_hub.py"),
         "--runs_root",
         str(args.runs_root),
+        "--memory_root",
+        str(getattr(args, "memory_root", "central_memory")),
         "--refresh_sec",
         str(float(args.refresh_sec)),
     ]
     if bool(args.once):
         cmd.append("--once")
-    cmd.extend(_normalize_remainder(args.extra))
+    cmd.extend(_normalize_remainder(getattr(args, "extra", []) or []))
+    return cmd
+
+
+def cmd_hub(args: argparse.Namespace) -> int:
+    cmd = _hub_command(args)
     if bool(args.dry_run):
         print(_render_cmd(cmd))
         return 0
@@ -732,6 +757,46 @@ def cmd_hub(args: argparse.Namespace) -> int:
     out = run_process(cmd, capture_output=capture)
     if capture and out:
         print(out.rstrip("\n"))
+    return 0
+
+
+def cmd_map(args: argparse.Namespace) -> int:
+    if bool(getattr(args, "web", False)):
+        web_cmd = [
+            sys.executable,
+            str(PROJECT_ROOT / "tools" / "multiverse_live_web.py"),
+            "--runs-root",
+            str(args.runs_root),
+            "--memory-root",
+            str(getattr(args, "memory_root", "central_memory")),
+            "--host",
+            str(getattr(args, "host", "127.0.0.1")),
+            "--port",
+            str(int(getattr(args, "port", 8765))),
+        ]
+        if bool(args.dry_run):
+            print(_render_cmd(web_cmd))
+            return 0
+        from tools.multiverse_live_web import serve
+
+        serve(
+            runs_root=str(args.runs_root),
+            memory_root=str(getattr(args, "memory_root", "central_memory")),
+            host=str(getattr(args, "host", "127.0.0.1")),
+            port=int(getattr(args, "port", 8765)),
+        )
+        return 0
+    return cmd_hub(args)
+
+
+def cmd_transfer_overview(args: argparse.Namespace) -> int:
+    from memory.transfer_metrics import format_transfer_overview, summarize_transfer_root
+
+    summary = summarize_transfer_root(str(args.central_memory_dir))
+    if bool(args.json):
+        print(json.dumps(summary, indent=2))
+        return 0
+    print(format_transfer_overview(summary))
     return 0
 
 
@@ -1115,6 +1180,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_memory_inspect.add_argument("--vparam", action="append", default=None)
     p_memory_inspect.add_argument("--aconfig", action="append", default=None)
     p_memory_inspect.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_memory_inspect.add_argument(
+        "--concepts",
+        type=str,
+        default="",
+        help="Comma-separated concept tags to attach to the memory request.",
+    )
     p_memory_inspect.set_defaults(func=cmd_memory_inspect)
 
     p_shell = sub.add_parser(
@@ -1127,11 +1198,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_hub = sub.add_parser("hub", aliases=["h"], help="Launch terminal dashboard (wraps tools/universe_hub.py).")
     p_hub.add_argument("--runs-root", type=str, default="runs")
+    p_hub.add_argument("--memory-root", dest="memory_root", type=str, default="central_memory")
     p_hub.add_argument("--refresh-sec", type=float, default=2.0)
     p_hub.add_argument("--once", action=argparse.BooleanOptionalAction, default=False)
     p_hub.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
     p_hub.add_argument("extra", nargs=argparse.REMAINDER, help="Extra flags for universe_hub.py (use -- before extras).")
     p_hub.set_defaults(func=cmd_hub)
+
+    p_map = sub.add_parser("map", help="Live verse map. Same terminal view as hub, or --web for a local page.")
+    p_map.add_argument("--runs-root", type=str, default="runs")
+    p_map.add_argument("--memory-root", dest="memory_root", type=str, default="central_memory")
+    p_map.add_argument("--refresh-sec", type=float, default=2.0)
+    p_map.add_argument("--once", action=argparse.BooleanOptionalAction, default=False)
+    p_map.add_argument("--web", action=argparse.BooleanOptionalAction, default=False, help="Serve the snapshot in a browser.")
+    p_map.add_argument("--host", type=str, default="127.0.0.1")
+    p_map.add_argument("--port", type=int, default=8765)
+    p_map.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False, help="Print underlying command and exit.")
+    p_map.add_argument("extra", nargs=argparse.REMAINDER, help="Extra flags for universe_hub.py (use -- before extras).")
+    p_map.set_defaults(func=cmd_map)
+
+    p_transfer = sub.add_parser("transfer", help="Cross-verse transfer overview.")
+    sub_transfer = p_transfer.add_subparsers(dest="transfer_command", required=True)
+    p_transfer_overview = sub_transfer.add_parser("overview", help="Summarize transfer events in central memory.")
+    p_transfer_overview.add_argument("--central-memory-dir", dest="central_memory_dir", type=str, default="central_memory")
+    p_transfer_overview.add_argument("--json", action=argparse.BooleanOptionalAction, default=False)
+    p_transfer_overview.set_defaults(func=cmd_transfer_overview)
 
     p_sentinel = sub.add_parser(
         "sentinel",

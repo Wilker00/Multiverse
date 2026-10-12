@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -209,14 +210,23 @@ def grid_dims(grid: List[List[Any]]) -> Tuple[int, int]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def rgb_to_surface(
-    rgb: List[List[List[int]]],
+    rgb: Any,
     target_w: int,
     target_h: int,
 ) -> pygame.Surface:
     """
-    Convert a H×W×3 nested-list pixel frame to a pygame Surface scaled to target_w×target_h.
-    Uses nearest-neighbour scaling for crisp pixel-art look.
+    Convert a H×W×3 nested-list or numpy array pixel frame to a pygame Surface scaled to target_w×target_h.
+    Uses surfarray if numpy array is provided for high performance.
     """
+    if hasattr(rgb, "shape") and len(rgb.shape) == 3:
+        try:
+            import numpy as np
+            transposed = np.transpose(rgb, (1, 0, 2))
+            raw = pygame.surfarray.make_surface(transposed)
+            return pygame.transform.scale(raw, (target_w, target_h))
+        except Exception:
+            pass
+
     h = len(rgb)
     w = len(rgb[0]) if h > 0 else 1
     raw = pygame.Surface((w, h))
@@ -330,6 +340,204 @@ def render_stats_panel(
         vx = x + box_w // 2 - v_surf.get_width() // 2
         vy = y + box_h // 2 - v_surf.get_height() // 2 + 6
         surface.blit(v_surf, (vx, vy))
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Embodied physics & robotics vector renderers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def render_robot_reacher(
+    surface: pygame.Surface,
+    verse: Any,
+    area: pygame.Rect,
+    mono_font: pygame.font.Font,
+    label_font: pygame.font.Font,
+) -> None:
+    surface.fill((12, 14, 26), area)
+
+    cx = area.centerx
+    cy = area.centery
+    scale = min(area.width, area.height) * 0.40
+
+    # Concentric range indicators
+    grid_col = (22, 28, 48)
+    for r in [0.25, 0.5, 0.75, 1.0]:
+        r_px = int(r * scale)
+        pygame.draw.circle(surface, grid_col, (cx, cy), r_px, 1)
+    pygame.draw.line(surface, grid_col, (cx - int(scale), cy), (cx + int(scale), cy), 1)
+    pygame.draw.line(surface, grid_col, (cx, cy - int(scale)), (cx, cy + int(scale)), 1)
+
+    def to_screen(x: float, y: float) -> Tuple[int, int]:
+        return (int(cx + x * scale), int(cy - y * scale))
+
+    # Workspace reach boundary (l1 + l2)
+    max_reach = getattr(verse, "l1", 0.5) + getattr(verse, "l2", 0.5)
+    pygame.draw.circle(surface, (45, 60, 95), (cx, cy), int(max_reach * scale), 2)
+
+    # Target point
+    tx = getattr(verse, "target_x", 0.5)
+    ty = getattr(verse, "target_y", 0.5)
+    t_rad = max(4, int(getattr(verse, "target_radius", 0.08) * scale))
+    t_px, t_py = to_screen(tx, ty)
+
+    # Glowing target aura
+    aura_size = max(16, t_rad * 4)
+    aura_surf = pygame.Surface((aura_size, aura_size), pygame.SRCALPHA)
+    pygame.draw.circle(aura_surf, (0, 230, 100, 45), (aura_size // 2, aura_size // 2), aura_size // 2)
+    pygame.draw.circle(aura_surf, (0, 230, 100, 120), (aura_size // 2, aura_size // 2), t_rad)
+    surface.blit(aura_surf, (t_px - aura_size // 2, t_py - aura_size // 2))
+    pygame.draw.circle(surface, (0, 255, 120), (t_px, t_py), max(3, t_rad // 3))
+
+    # Motion ribbon trail
+    trail = getattr(verse, "_trail", [])
+    if len(trail) > 1:
+        points = [to_screen(px, py) for px, py in trail]
+        pygame.draw.lines(surface, (0, 160, 240), False, points, 2)
+
+    # Arm Kinematics
+    elbow = getattr(verse, "elbow", (0.35, 0.35))
+    ee = getattr(verse, "end_effector", (0.5, 0.5))
+    b_pt = (cx, cy)
+    e_pt = to_screen(*elbow)
+    ee_pt = to_screen(*ee)
+
+    # Link 1 (metallic cyan)
+    pygame.draw.line(surface, (60, 160, 240), b_pt, e_pt, 8)
+    pygame.draw.line(surface, (150, 215, 255), b_pt, e_pt, 2)
+
+    # Link 2 (metallic orange)
+    pygame.draw.line(surface, (255, 140, 40), e_pt, ee_pt, 6)
+    pygame.draw.line(surface, (255, 200, 120), e_pt, ee_pt, 2)
+
+    # Base pedestal
+    pygame.draw.circle(surface, (140, 150, 180), b_pt, 12)
+    pygame.draw.circle(surface, (220, 225, 240), b_pt, 5)
+
+    # Elbow joint
+    pygame.draw.circle(surface, (40, 120, 200), e_pt, 9)
+    pygame.draw.circle(surface, (180, 230, 255), e_pt, 4)
+
+    # End-effector gripper
+    pygame.draw.circle(surface, (255, 220, 60), ee_pt, 8)
+    pygame.draw.circle(surface, (255, 255, 200), ee_pt, 3)
+
+    # HUD Panel Overlay
+    th1 = getattr(verse, "theta1", 0.0)
+    th2 = getattr(verse, "theta2", 0.0)
+    dist = math.hypot(ee[0] - tx, ee[1] - ty)
+    hud_bg = pygame.Surface((220, 96), pygame.SRCALPHA)
+    hud_bg.fill((8, 12, 24, 180))
+    surface.blit(hud_bg, (area.x + 14, area.y + 14))
+    pygame.draw.rect(surface, (0, 180, 255), pygame.Rect(area.x + 14, area.y + 14, 220, 96), 1, border_radius=4)
+
+    c_dist = (0, 230, 100) if dist <= 0.08 else (240, 190, 50) if dist <= 0.25 else (240, 80, 80)
+    l1 = mono_font.render(f"Joint 1 : {math.degrees(th1):+6.1f}\u00b0", True, (180, 220, 255))
+    l2 = mono_font.render(f"Joint 2 : {math.degrees(th2):+6.1f}\u00b0", True, (255, 180, 100))
+    l3 = mono_font.render(f"Distance: {dist:6.3f} m", True, c_dist)
+    l4 = label_font.render(f"EE: ({ee[0]:+.2f}, {ee[1]:+.2f})", True, (140, 150, 180))
+    surface.blit(l1, (area.x + 22, area.y + 20))
+    surface.blit(l2, (area.x + 22, area.y + 40))
+    surface.blit(l3, (area.x + 22, area.y + 60))
+    surface.blit(l4, (area.x + 22, area.y + 82))
+
+
+def render_embodied_point(
+    surface: pygame.Surface,
+    verse: Any,
+    area: pygame.Rect,
+    mono_font: pygame.font.Font,
+    label_font: pygame.font.Font,
+) -> None:
+    surface.fill((10, 12, 22), area)
+
+    cx = area.centerx
+    cy = area.centery
+    scale = min(area.width, area.height) * 0.38
+
+    def to_screen(x: float, y: float) -> Tuple[int, int]:
+        return (int(cx + x * scale), int(cy - y * scale))
+
+    # Arena bounding box [-1, 1]
+    p_tl = to_screen(-1.0, 1.0)
+    p_br = to_screen(1.0, -1.0)
+    box_rect = pygame.Rect(p_tl[0], p_tl[1], p_br[0] - p_tl[0], p_br[1] - p_tl[1])
+    pygame.draw.rect(surface, (18, 22, 38), box_rect)
+    pygame.draw.rect(surface, (0, 140, 220), box_rect, 2, border_radius=6)
+
+    # Grid lines inside arena
+    grid_col = (24, 30, 52)
+    for g in [-0.5, 0.0, 0.5]:
+        p0 = to_screen(g, -1.0)
+        p1 = to_screen(g, 1.0)
+        pygame.draw.line(surface, grid_col, p0, p1, 1)
+        p2 = to_screen(-1.0, g)
+        p3 = to_screen(1.0, g)
+        pygame.draw.line(surface, grid_col, p2, p3, 1)
+
+    # Goal beacon
+    gx, gy = getattr(verse, "goal", (0.8, 0.8))
+    g_rad = max(4, int(getattr(verse, "_goal_radius", 0.15) * scale))
+    g_px, g_py = to_screen(gx, gy)
+
+    # Goal glowing aura
+    g_size = max(16, g_rad * 4)
+    g_aura = pygame.Surface((g_size, g_size), pygame.SRCALPHA)
+    pygame.draw.circle(g_aura, (20, 200, 80, 50), (g_size // 2, g_size // 2), g_size // 2)
+    pygame.draw.circle(g_aura, (20, 200, 80, 140), (g_size // 2, g_size // 2), g_rad)
+    surface.blit(g_aura, (g_px - g_size // 2, g_py - g_size // 2))
+    pygame.draw.circle(surface, (40, 240, 100), (g_px, g_py), 4)
+
+    # Trail
+    trail = getattr(verse, "trail", [])
+    if len(trail) > 1:
+        points = [to_screen(px, py) for px, py in trail]
+        pygame.draw.lines(surface, (0, 150, 240), False, points, 2)
+
+    # Rover / particle
+    rx, ry = getattr(verse, "position", (0.0, 0.0))
+    vx, vy = getattr(verse, "velocity", (0.0, 0.0))
+    r_px, r_py = to_screen(rx, ry)
+
+    # 8 LIDAR Rangefinder sensor beams
+    beam_col = (0, 200, 255, 35)
+    beam_surf = pygame.Surface((area.width, area.height), pygame.SRCALPHA)
+    for angle_deg in range(0, 360, 45):
+        rad = math.radians(angle_deg)
+        ray_len = 0.4
+        end_x = rx + ray_len * math.cos(rad)
+        end_y = ry + ray_len * math.sin(rad)
+        ep = to_screen(end_x, end_y)
+        pygame.draw.line(beam_surf, beam_col, (r_px - area.x, r_py - area.y), (ep[0] - area.x, ep[1] - area.y), 1)
+    surface.blit(beam_surf, (area.x, area.y))
+
+    # Velocity vector
+    speed = math.hypot(vx, vy)
+    if speed > 1e-3:
+        v_arrow_x = r_px + int(vx * scale * 0.4)
+        v_arrow_y = r_py - int(vy * scale * 0.4)
+        pygame.draw.line(surface, (255, 180, 40), (r_px, r_py), (v_arrow_x, v_arrow_y), 3)
+
+    # Rover chassis
+    pygame.draw.circle(surface, (255, 210, 40), (r_px, r_py), 9)
+    pygame.draw.circle(surface, (255, 255, 200), (r_px, r_py), 4)
+
+    # HUD Panel Overlay
+    dist = math.hypot(rx - gx, ry - gy)
+    hud_bg = pygame.Surface((220, 96), pygame.SRCALPHA)
+    hud_bg.fill((8, 12, 24, 180))
+    surface.blit(hud_bg, (area.x + 14, area.y + 14))
+    pygame.draw.rect(surface, (0, 180, 255), pygame.Rect(area.x + 14, area.y + 14, 220, 96), 1, border_radius=4)
+
+    c_dist = (0, 230, 100) if dist <= getattr(verse, "_goal_radius", 0.15) else (240, 190, 50) if dist <= 0.4 else (240, 80, 80)
+    l1 = mono_font.render(f"Pos : ({rx:+.2f}, {ry:+.2f})", True, (180, 220, 255))
+    l2 = mono_font.render(f"Vel : ({vx:+.2f}, {vy:+.2f})", True, (255, 180, 100))
+    l3 = mono_font.render(f"Distance: {dist:6.3f} m", True, c_dist)
+    l4 = label_font.render(f"Goal: ({gx:+.2f}, {gy:+.2f})", True, (140, 150, 180))
+    surface.blit(l1, (area.x + 22, area.y + 20))
+    surface.blit(l2, (area.x + 22, area.y + 40))
+    surface.blit(l3, (area.x + 22, area.y + 60))
+    surface.blit(l4, (area.x + 22, area.y + 82))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -460,6 +668,9 @@ _ACTION_LABELS: Dict[str, Dict[int, str]] = {
     "go_world_v2":        {0: "expand",    1: "cut",      2: "connect", 3: "probe",  4: "invade", 5: "settle"},
     "uno_world":          {0: "play_low",  1: "play_high",2: "match",   3: "draw",   4: "skip"},
     "uno_world_v2":       {0: "play_low",  1: "play_high",2: "match",   3: "draw",   4: "skip"},
+    "robot_reacher_world":{0: "hold",      1: "j1 +",     2: "j1 -",    3: "j2 +",   4: "j2 -"},
+    "embodied_point_world":{0: "hold",     1: "+x",       2: "-x",      3: "+y",     4: "-y"},
+    "warehouse_3d_world": {0: "hold",      1: "forward",  2: "backward",3: "left",   4: "right"},
 }
 
 
@@ -502,7 +713,7 @@ def _parse_kv(kvs: Optional[List[str]]) -> Dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Spatial verse detection
+# Spatial & Embodied verse detection
 # ─────────────────────────────────────────────────────────────────────────────
 
 _SPATIAL_VERSES = {
@@ -511,8 +722,15 @@ _SPATIAL_VERSES = {
     "bridge_world", "escape_world", "pursuit_world", "memory_vault_world",
 }
 
+_EMBODIED_VERSES = {
+    "robot_reacher_world", "embodied_point_world",
+}
+
 def is_spatial(verse_name: str) -> bool:
     return verse_name in _SPATIAL_VERSES
+
+def is_embodied(verse_name: str) -> bool:
+    return verse_name in _EMBODIED_VERSES
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -706,7 +924,13 @@ def run_viewer(cfg: ViewerConfig) -> None:
         screen.fill(BG)
 
         # ── Game area render ───────────────────────────────────────────────
-        if use_rgb:
+        if is_embodied(cfg.verse_name):
+            if cfg.verse_name == "robot_reacher_world":
+                render_robot_reacher(screen, verse, game_rect, MONO_FONT, LABEL_FONT)
+            else:
+                render_embodied_point(screen, verse, game_rect, MONO_FONT, LABEL_FONT)
+
+        elif use_rgb:
             rgb_frame = verse.render(mode="rgb_array")
             if rgb_frame is not None:
                 surf = rgb_to_surface(rgb_frame, game_rect.width, game_rect.height)

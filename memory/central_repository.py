@@ -393,6 +393,10 @@ def find_similar(
     quality_weight: float = 0.0,
     confidence_weight: float = 0.0,
     reputation_weight: float = 0.0,
+    concept_tags: Optional[Set[str]] = None,
+    skill_ids: Optional[Set[str]] = None,
+    min_memory_priority: Optional[float] = None,
+    concept_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     """
     Query central memory for similar observations.
@@ -433,6 +437,10 @@ def find_similar(
         quality_weight=quality_weight,
         confidence_weight=confidence_weight,
         reputation_weight=reputation_weight,
+        concept_tags=concept_tags,
+        skill_ids=skill_ids,
+        min_memory_priority=min_memory_priority,
+        concept_weight=concept_weight,
     )
 
 
@@ -460,6 +468,10 @@ def find_similar_cached(
     quality_weight: float = 0.0,
     confidence_weight: float = 0.0,
     reputation_weight: float = 0.0,
+    concept_tags: Optional[Set[str]] = None,
+    skill_ids: Optional[Set[str]] = None,
+    min_memory_priority: Optional[float] = None,
+    concept_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     """
     Cached version of find_similar() with LRU eviction and TTL.
@@ -501,6 +513,10 @@ def find_similar_cached(
         quality_weight=quality_weight,
         confidence_weight=confidence_weight,
         reputation_weight=reputation_weight,
+        concept_tags=concept_tags,
+        skill_ids=skill_ids,
+        min_memory_priority=min_memory_priority,
+        concept_weight=concept_weight,
     )
 
 

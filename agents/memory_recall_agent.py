@@ -64,6 +64,10 @@ class MemoryRecallAgent(QLearningAgent):
     - recall_quality_weight (float, default 0.0; opt in for trusted metadata)
     - recall_confidence_weight (float, default 0.0; opt in for trusted metadata)
     - recall_reputation_weight (float, default 0.0; opt in when a market ledger exists)
+    - concept_tags (list/csv; optional skill-family filter, does not change same-verse default)
+    - concept_weight (float, default 0.0; opt-in overlap bonus)
+    - skill_ids (list/csv; optional)
+    - min_memory_priority (float, optional)
     - recall_min_verified_transfer_score (float; defaults to 0.5 when quality weighting is enabled)
     - recall_min_trusted_providers (int, default 1)
     - recall_vote_weight (float, default 0.75)
@@ -102,6 +106,11 @@ class MemoryRecallAgent(QLearningAgent):
         self._recall_reputation_weight = max(
             0.0, _safe_float(cfg.get("recall_reputation_weight", 0.0), 0.0)
         )
+        self._concept_tags = _as_set(cfg.get("concept_tags", cfg.get("recall_concept_tags")))
+        self._concept_weight = max(0.0, _safe_float(cfg.get("concept_weight", cfg.get("recall_concept_weight", 0.0)), 0.0))
+        self._skill_ids = _as_set(cfg.get("skill_ids", cfg.get("recall_skill_ids")))
+        priority_raw = cfg.get("min_memory_priority", cfg.get("recall_min_memory_priority"))
+        self._min_memory_priority = None if priority_raw is None else _safe_float(priority_raw, 0.0)
         default_verified_min = 0.5 if self._recall_quality_weight > 0.0 else None
         self._recall_min_verified_transfer_score = (
             default_verified_min
@@ -255,6 +264,10 @@ class MemoryRecallAgent(QLearningAgent):
             "quality_weight": float(self._recall_quality_weight),
             "confidence_weight": float(self._recall_confidence_weight),
             "reputation_weight": float(self._recall_reputation_weight),
+            "concept_tags": (sorted(list(self._concept_tags)) if self._concept_tags else None),
+            "concept_weight": float(self._concept_weight),
+            "skill_ids": (sorted(list(self._skill_ids)) if self._skill_ids else None),
+            "min_memory_priority": self._min_memory_priority,
             "reason": str(reason),
         }
         self._last_query_step = int(step)
@@ -293,6 +306,10 @@ class MemoryRecallAgent(QLearningAgent):
             "quality_weight": float(self._recall_quality_weight),
             "confidence_weight": float(self._recall_confidence_weight),
             "reputation_weight": float(self._recall_reputation_weight),
+            "concept_tags": (sorted(list(self._concept_tags)) if self._concept_tags else None),
+            "concept_weight": float(self._concept_weight),
+            "skill_ids": (sorted(list(self._skill_ids)) if self._skill_ids else None),
+            "min_memory_priority": self._min_memory_priority,
             "reason": "episode_bootstrap",
         }
 

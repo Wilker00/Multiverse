@@ -54,6 +54,9 @@ class _PreparedMemoryRow:
     source_action_matches_greedy: Optional[bool]
     obs_vector: List[float]
     obs_vector_u: List[float]
+    concept_tags: Tuple[str, ...] = ()
+    skill_ids: Tuple[str, ...] = ()
+    memory_priority: float = 0.0
 
 
 @dataclass
@@ -192,6 +195,59 @@ def _index_universal_rows_by_verse(
     return out
 
 
+def _string_tuple(raw: Any) -> Tuple[str, ...]:
+    if isinstance(raw, str):
+        items = [part.strip() for part in raw.split(",")]
+    elif isinstance(raw, (list, tuple, set)):
+        items = list(raw)
+    else:
+        return ()
+    out: List[str] = []
+    seen = set()
+    for item in items:
+        text = str(item).strip().lower()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return tuple(out)
+
+
+def _concept_fields(raw: Dict[str, Any], *, verse_name: str, reward: float, tier: str) -> Tuple[Tuple[str, ...], Tuple[str, ...], float]:
+    concepts = _string_tuple(raw.get("concept_tags"))
+    if not concepts:
+        try:
+            from core.concept_taxonomy import concept_tags_for_verse
+
+            concepts = tuple(concept_tags_for_verse(verse_name))
+        except Exception:
+            concepts = ("task",)
+    if "skill_ids" in raw:
+        skills = _string_tuple(raw.get("skill_ids"))
+    else:
+        try:
+            from core.concept_taxonomy import skill_id_for
+
+            skills = tuple(skill_id_for(verse_name, concept, reward > 0.0) for concept in concepts)
+        except Exception:
+            skills = ()
+    if raw.get("memory_priority") is None:
+        try:
+            from core.concept_taxonomy import memory_priority
+
+            verified = raw.get("verified_transfer_score")
+            priority = memory_priority(
+                reward=reward,
+                verified_transfer_score=(None if verified is None else float(verified)),
+                memory_tier=tier,
+            )
+        except Exception:
+            priority = 0.0
+    else:
+        priority = _safe_float(raw.get("memory_priority"), 0.0)
+    return concepts, skills, float(priority)
+
+
 def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
     if isinstance(raw, _PreparedMemoryRow):
         return raw
@@ -209,6 +265,10 @@ def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
         uni_vec = []
     if not uni_vec:
         uni_vec = _extract_or_build_universal_vector(row=raw, obs_vector=base_vec)
+    verse_name = str(raw.get("verse_name", ""))
+    reward = _safe_float(raw.get("reward", 0.0))
+    tier = str(raw.get("row_tier", raw.get("memory_tier", "")))
+    concepts, skills, priority = _concept_fields(raw, verse_name=verse_name, reward=reward, tier=tier)
     return _PreparedMemoryRow(
         run_id=str(raw.get("run_id", "")),
         episode_id=str(raw.get("episode_id", "")),
@@ -247,6 +307,9 @@ def _prepared_row_from_any(raw: Any) -> Optional[_PreparedMemoryRow]:
         ),
         obs_vector=base_vec,
         obs_vector_u=uni_vec,
+        concept_tags=concepts,
+        skill_ids=skills,
+        memory_priority=priority,
     )
 
 
@@ -275,6 +338,9 @@ def _prepared_row_to_dict(row: _PreparedMemoryRow) -> Dict[str, Any]:
         ),
         "obs_vector": [float(v) for v in list(row.obs_vector or [])],
         "obs_vector_u": [float(v) for v in list(row.obs_vector_u or [])],
+        "concept_tags": list(row.concept_tags),
+        "skill_ids": list(row.skill_ids),
+        "memory_priority": float(row.memory_priority),
     }
 
 
@@ -388,6 +454,13 @@ def _build_similarity_cache_for_path(
             row_tier = _normalize_memory_tier(row.get("memory_tier"))
             if not row_tier:
                 row_tier = _memory_tier_for_event(row, tier_policy=tier_policy)
+            row_reward = _safe_float(row.get("reward", 0.0))
+            row_concepts, row_skills, row_priority = _concept_fields(
+                row,
+                verse_name=row_verse,
+                reward=row_reward,
+                tier=row_tier,
+            )
 
             rec = _PreparedMemoryRow(
                 run_id=str(row.get("run_id", "")),
@@ -441,6 +514,9 @@ def _build_similarity_cache_for_path(
                 ),
                 obs_vector=row_vec_f,
                 obs_vector_u=_extract_or_build_universal_vector(row=row, obs_vector=row_vec_f),
+                concept_tags=row_concepts,
+                skill_ids=row_skills,
+                memory_priority=row_priority,
             )
             rows.append(rec)
 

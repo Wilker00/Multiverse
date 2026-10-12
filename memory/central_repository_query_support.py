@@ -31,6 +31,10 @@ def _query_cache_key(
     quality_weight: float,
     confidence_weight: float,
     reputation_weight: float,
+    concept_tags: Optional[Set[str]] = None,
+    skill_ids: Optional[Set[str]] = None,
+    min_memory_priority: Optional[float] = None,
+    concept_weight: float = 0.0,
 ) -> str:
     import hashlib
 
@@ -52,6 +56,10 @@ def _query_cache_key(
         str(float(quality_weight)),
         str(float(confidence_weight)),
         str(float(reputation_weight)),
+        str(sorted(concept_tags) if concept_tags else ""),
+        str(sorted(skill_ids) if skill_ids else ""),
+        str(min_memory_priority if min_memory_priority is not None else ""),
+        str(float(concept_weight)),
     ]
     key_str = "||".join(key_parts)
     return hashlib.sha256(key_str.encode()).hexdigest()[:16]
@@ -89,6 +97,10 @@ def find_similar_cached_support(
     quality_weight: float = 0.0,
     confidence_weight: float = 0.0,
     reputation_weight: float = 0.0,
+    concept_tags: Optional[Set[str]] = None,
+    skill_ids: Optional[Set[str]] = None,
+    min_memory_priority: Optional[float] = None,
+    concept_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     if decay_lambda != 0.0 or stm_decay_lambda is not None or current_time_ms is not None:
         return find_similar_fn(
@@ -114,6 +126,10 @@ def find_similar_cached_support(
             quality_weight=quality_weight,
             confidence_weight=confidence_weight,
             reputation_weight=reputation_weight,
+            concept_tags=concept_tags,
+            skill_ids=skill_ids,
+            min_memory_priority=min_memory_priority,
+            concept_weight=concept_weight,
         )
 
     cache_key = _query_cache_key(
@@ -134,6 +150,10 @@ def find_similar_cached_support(
         quality_weight=quality_weight,
         confidence_weight=confidence_weight,
         reputation_weight=reputation_weight,
+        concept_tags=concept_tags,
+        skill_ids=skill_ids,
+        min_memory_priority=min_memory_priority,
+        concept_weight=concept_weight,
     )
 
     if cache_key in query_cache:
@@ -166,6 +186,10 @@ def find_similar_cached_support(
         quality_weight=quality_weight,
         confidence_weight=confidence_weight,
         reputation_weight=reputation_weight,
+        concept_tags=concept_tags,
+        skill_ids=skill_ids,
+        min_memory_priority=min_memory_priority,
+        concept_weight=concept_weight,
     )
     query_cache[cache_key] = (results, _now_ms())
     if len(query_cache) > cache_size:

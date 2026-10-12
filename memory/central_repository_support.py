@@ -399,4 +399,37 @@ def _enrich_memory_row(
         out["procedural_dna"] = bool(memory_family == "procedural")
     if "declarative_dna" not in out:
         out["declarative_dna"] = bool(memory_family == "declarative")
+
+    # Concept taxonomy and skill catalog fields
+    if "concept_tags" not in out or not out["concept_tags"]:
+        try:
+            from core.concept_taxonomy import concept_tags_for_verse
+
+            out["concept_tags"] = concept_tags_for_verse(verse_name)
+        except Exception:
+            out["concept_tags"] = ["task"]
+    if "skill_ids" not in out or not out["skill_ids"]:
+        try:
+            from core.concept_taxonomy import skill_id_for
+
+            reward_val = _safe_float(out.get("reward", 0.0), 0.0)
+            out["skill_ids"] = [
+                skill_id_for(verse_name, c, reward_val > 0.0)
+                for c in (out["concept_tags"] or ["task"])
+            ]
+        except Exception:
+            out["skill_ids"] = []
+    if "memory_priority" not in out:
+        try:
+            from core.concept_taxonomy import memory_priority
+
+            reward_val = _safe_float(out.get("reward", 0.0), 0.0)
+            verified = out.get("verified_transfer_score")
+            out["memory_priority"] = memory_priority(
+                reward=reward_val,
+                verified_transfer_score=(None if verified is None else float(verified)),
+                memory_tier=tier,
+            )
+        except Exception:
+            out["memory_priority"] = 0.0
     return out

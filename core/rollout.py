@@ -155,6 +155,7 @@ def run_episode(
 
     events: List[StepEvent] = []
     transitions: List[Transition] = []
+    episode_transfer_records: List[Dict[str, Any]] = []
 
     step_idx = 0
     done = False
@@ -487,6 +488,7 @@ def run_episode(
             )
             if isinstance(tdr, dict):
                 transfer_decision_records.append(tdr)
+                episode_transfer_records.append(tdr)
         except Exception as exc:
             _record_runtime_warning(
                 counters=runtime_error_counters,
@@ -553,6 +555,25 @@ def run_episode(
         return_sum += float(step_result.reward)
         done = bool(step_result.done or step_result.truncated)
         step_idx += 1
+
+    if episode_transfer_records:
+        try:
+            from memory.transfer_log import append_transfer_records
+
+            append_transfer_records(
+                episode_transfer_records,
+                root_dir=str(config.on_demand_memory_root),
+                episode_return=float(return_sum),
+            )
+        except Exception as exc:
+            _record_runtime_warning(
+                counters=runtime_error_counters,
+                warnings=pending_runtime_warnings,
+                code="transfer_log_error",
+                component="rollout.transfer_log",
+                step_idx=None,
+                exc=exc,
+            )
 
     train_metrics: Dict[str, float] = {}
 

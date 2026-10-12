@@ -1,5 +1,7 @@
 # Multiverse: Project Introduction
 
+The live map, concept-tagged memory, and embodied physics plug point are described in [OMNIVERSE_PLATFORM.md](OMNIVERSE_PLATFORM.md). The rest of this page is the reinforcement-learning runtime those surfaces sit on.
+
 Last updated: 2026-04-08
 
 ## What this project is

@@ -229,6 +229,9 @@ def register_builtin() -> None:
     from verses.maze_world import MazeWorldFactory
     from verses.world_3d import World3DFactory
     from verses.blackjack_world import BlackjackWorldFactory
+    from verses.embodied_point_world import EmbodiedPointWorldFactory
+    from verses.robot_reacher_world import RobotReacherWorldFactory
+    from verses.warehouse_3d_world import Warehouse3DWorldFactory
 
     builtins = {
         "line_world": LineWorldFactory(),
@@ -257,6 +260,9 @@ def register_builtin() -> None:
         "maze_world": MazeWorldFactory(),
         "world_3d":   World3DFactory(),
         "blackjack_world": BlackjackWorldFactory(),
+        "embodied_point_world": EmbodiedPointWorldFactory(),
+        "robot_reacher_world": RobotReacherWorldFactory(),
+        "warehouse_3d_world": Warehouse3DWorldFactory(),
     }
     for name, factory in builtins.items():
         if name not in _FACTORIES:

@@ -62,6 +62,7 @@ _ALL_BUILTIN_VERSES: Tuple[str, ...] = (
     "wind_master_world",
     "maze_world",
     "world_3d",
+    "embodied_point_world",
 )
 
 _PROVIDERS: Tuple[SimProviderSpec, ...] = (
@@ -118,6 +119,31 @@ _PROVIDERS: Tuple[SimProviderSpec, ...] = (
         install_hint="Install Isaac Sim first, then Isaac Lab, in a separate optional environment.",
         implemented=True,
     ),
+    SimProviderSpec(
+        provider_id="physics_toy",
+        label="Toy Point-Mass Physics",
+        kind="physics",
+        external=False,
+        description="CPU point-mass backend for embodied_point_world. Always available; not a GPU simulator.",
+        render_modes=("ansi",),
+        capabilities=("embodied", "cpu_simulation", "single_agent"),
+        supported_verses=("embodied_point_world", "robot_reacher_world"),
+        install_hint="Included with the repo.",
+        implemented=True,
+    ),
+    SimProviderSpec(
+        provider_id="nvidia_warp",
+        label="NVIDIA Warp",
+        kind="gpu_simulation",
+        external=True,
+        description="Optional GPU simulation plug point. Implemented only when the warp package imports.",
+        modules=("warp",),
+        render_modes=(),
+        capabilities=("gpu_simulation", "embodied"),
+        supported_verses=("embodied_point_world",),
+        install_hint="Install warp-lang to enable the GPU backend. The toy backend remains the default.",
+        implemented=False,
+    ),
 )
 
 
@@ -144,13 +170,17 @@ def provider_available(provider: SimProviderSpec) -> bool:
 
 def provider_status(provider_id: str) -> Dict[str, Any]:
     provider = get_sim_provider(provider_id)
+    available = bool(provider_available(provider))
+    implemented = bool(provider.implemented)
+    if provider.provider_id == "nvidia_warp":
+        implemented = bool(available)
     return {
         "provider_id": provider.provider_id,
         "label": provider.label,
         "kind": provider.kind,
         "external": bool(provider.external),
-        "available": bool(provider_available(provider)),
-        "implemented": bool(provider.implemented),
+        "available": available,
+        "implemented": implemented,
         "description": provider.description,
         "render_modes": list(provider.render_modes),
         "capabilities": list(provider.capabilities),

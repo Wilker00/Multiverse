@@ -172,6 +172,9 @@ def _row_matches_filters(
     tier_filter: Optional[Set[str]],
     family_filter: Optional[Set[str]],
     type_filter: Optional[Set[str]],
+    concept_filter: Optional[Set[str]] = None,
+    skill_filter: Optional[Set[str]] = None,
+    min_memory_priority: Optional[float] = None,
 ) -> bool:
     if target_verse and row.verse_name != target_verse:
         return False
@@ -200,6 +203,12 @@ def _row_matches_filters(
     if family_filter is not None and row.row_family not in family_filter:
         return False
     if type_filter is not None and row.row_type not in type_filter:
+        return False
+    if concept_filter is not None and not concept_filter.intersection(set(row.concept_tags)):
+        return False
+    if skill_filter is not None and not skill_filter.intersection(set(row.skill_ids)):
+        return False
+    if min_memory_priority is not None and float(row.memory_priority) < float(min_memory_priority):
         return False
     return True
 
@@ -263,6 +272,8 @@ def _rank_score(
     confidence_weight: float,
     reputation_weight: float,
     provider_reputations: Dict[str, float],
+    concept_weight: float = 0.0,
+    query_concepts: Optional[Set[str]] = None,
 ) -> Tuple[float, Optional[float]]:
     weighted_sum = float(similarity)
     total_weight = 1.0
@@ -276,6 +287,13 @@ def _rank_score(
     if reputation_weight > 0.0 and reputation is not None:
         weighted_sum += reputation_weight * reputation
         total_weight += reputation_weight
+    if concept_weight > 0.0 and query_concepts:
+        overlap_tags = set(row.concept_tags)
+        if overlap_tags:
+            overlap = len(overlap_tags.intersection(query_concepts)) / float(len(query_concepts))
+            if overlap > 0.0:
+                weighted_sum += float(concept_weight) * float(overlap)
+                total_weight += float(concept_weight)
     return float(weighted_sum / total_weight), reputation
 
 
@@ -412,6 +430,10 @@ def find_similar_support(
     quality_weight: float = 0.0,
     confidence_weight: float = 0.0,
     reputation_weight: float = 0.0,
+    concept_tags: Optional[Set[str]] = None,
+    skill_ids: Optional[Set[str]] = None,
+    min_memory_priority: Optional[float] = None,
+    concept_weight: float = 0.0,
 ) -> List[ScenarioMatch]:
     ensure_repo_fn(cfg)
     query_vec = obs_to_vector(obs)
@@ -425,6 +447,11 @@ def find_similar_support(
     policy_filter = as_set_fn(policy_ids)
     exclude_policy_filter = as_set_fn(exclude_policy_ids)
     source_verse_filter = as_set_fn(source_verse_names)
+    concept_filter = as_set_fn(concept_tags)
+    skill_filter = as_set_fn(skill_ids)
+    concept_weight = max(0.0, float(concept_weight))
+    priority_floor = None if min_memory_priority is None else float(min_memory_priority)
+    query_concepts = set(concept_filter) if concept_filter else set()
     quality_weight = max(0.0, float(quality_weight))
     confidence_weight = max(0.0, float(confidence_weight))
     reputation_weight = max(0.0, float(reputation_weight))
@@ -483,6 +510,8 @@ def find_similar_support(
                 confidence_weight=confidence_weight,
                 reputation_weight=reputation_weight,
                 provider_reputations=provider_reputations,
+                concept_weight=concept_weight,
+                query_concepts=query_concepts,
             )
             decayed = _decayed_score(
                 raw_score=rank_score,
@@ -535,6 +564,9 @@ def find_similar_support(
                     tier_filter=tier_filter,
                     family_filter=family_filter,
                     type_filter=type_filter,
+                    concept_filter=concept_filter,
+                    skill_filter=skill_filter,
+                    min_memory_priority=priority_floor,
                 ):
                     return None
                 scored = score_row(row, float(sims[pos]))
@@ -544,7 +576,9 @@ def find_similar_support(
                 return float(score), row, float(recency_weight), float(sims[pos]), reputation
 
             candidate_positions: Optional[List[int]] = None
-            if ann_enabled_fn() and q_norm is not None and len(dim_row_idxs) > top_n and not any((quality_weight, confidence_weight, reputation_weight)):
+            if ann_enabled_fn() and q_norm is not None and len(dim_row_idxs) > top_n and not any(
+                (quality_weight, confidence_weight, reputation_weight, concept_weight)
+            ) and concept_filter is None and skill_filter is None and priority_floor is None:
                 ann_index = get_ann_index_fn(cache, q_dim)
                 if ann_index is not None:
                     try:
@@ -625,6 +659,9 @@ def find_similar_support(
                     tier_filter=tier_filter,
                     family_filter=family_filter,
                     type_filter=type_filter,
+                    concept_filter=concept_filter,
+                    skill_filter=skill_filter,
+                    min_memory_priority=priority_floor,
                 ):
                     continue
                 scored = score_row(row, cosine_similarity(query_vec, row.obs_vector))
@@ -667,6 +704,9 @@ def find_similar_support(
                 tier_filter=tier_filter,
                 family_filter=family_filter,
                 type_filter=type_filter,
+                concept_filter=concept_filter,
+                skill_filter=skill_filter,
+                min_memory_priority=priority_floor,
             ):
                 continue
             if np is not None and universal_score_source is not None:

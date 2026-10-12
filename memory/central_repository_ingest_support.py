@@ -39,6 +39,7 @@ from memory.central_repository_support import (
 from memory.embeddings import obs_to_vector, project_vector
 from memory.selection import SelectionConfig, select_events
 from memory.task_taxonomy import memory_family_for_verse, memory_type_for_verse, tags_for_verse
+from core.concept_taxonomy import annotate_memory_concepts
 
 
 def open_dedupe_db_support(cfg: CentralMemoryConfig) -> sqlite3.Connection:
@@ -654,6 +655,16 @@ def ingest_run_support(
                         "done": bool(ev.get("done", False)),
                         "info": ev.get("info", {}),
                     }
+                    concept_fields = annotate_memory_concepts(
+                        verse_name=verse_name,
+                        reward=_safe_float(ev.get("reward", 0.0)),
+                        verified_transfer_score=(
+                            None if derived_transfer_score is None else _safe_float(derived_transfer_score, 0.0)
+                        ),
+                        memory_tier=memory_tier,
+                        info=ev.get("info", {}),
+                    )
+                    row.update(concept_fields)
                     row = _enrich_memory_row(row, tier_policy=tier_policy)
                     if not dedupe_try_reserve_fn(dedupe_conn, key):
                         replacement_candidates.append((key, row))
