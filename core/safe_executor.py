@@ -54,6 +54,7 @@ from core.safe_executor_risk_support import (
 from core.safe_executor_outcome_support import process_post_step_outcome_support
 from core.safe_executor_support import (
     SafeExecutorConfig,
+    _is_safety_violation,
 )
 from core.types import JSONValue
 from core.verse_base import StepResult

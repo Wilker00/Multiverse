@@ -27,6 +27,18 @@ from typing import Dict, List, Set
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _subprocess_env() -> Dict[str, str]:
+    """Make `agents`, `core`, `verses`, and `memory` importable for tool scripts."""
+    env = os.environ.copy()
+    root = str(ROOT)
+    current = env.get("PYTHONPATH", "")
+    parts = [root]
+    if current:
+        parts.extend(part for part in current.split(os.pathsep) if part and part != root)
+    env["PYTHONPATH"] = os.pathsep.join(parts)
+    return env
+
+
 def _run(
     cmd: List[str],
     *,
@@ -38,6 +50,7 @@ def _run(
         cwd=str(cwd or ROOT),
         capture_output=bool(capture_output),
         text=bool(capture_output),
+        env=_subprocess_env(),
     )
     if proc.returncode != 0:
         detail = ""
@@ -152,6 +165,11 @@ def compile_gate() -> None:
 
 def help_gate() -> None:
     for p in _tool_files():
+        # GUI and one-shot scripts have no argument parser. Running them with
+        # --help would start the program instead of printing usage.
+        text = p.read_text(encoding="utf-8", errors="ignore")
+        if "argparse" not in text and "ArgumentParser" not in text:
+            continue
         # Keep CI logs concise: capture help text and only surface it on failure.
         _run([sys.executable, str(p), "--help"], capture_output=True)
 
