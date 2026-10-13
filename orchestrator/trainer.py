@@ -34,6 +34,7 @@ from core.types import (
     validate_verse_spec,
 )
 from core.rollout import RolloutConfig, run_episodes
+from core.vectorized_verse import VectorizedVerse
 from core.run_artifacts import write_run_artifact_manifest
 from core.safe_executor import SafeExecutor, SafeExecutorConfig
 from memory.event_log import EventLogConfig, EventLogger, make_on_step_writer
@@ -136,6 +137,33 @@ class Trainer:
         if os.path.isdir(checkpoint_dir) and os.listdir(checkpoint_dir):
             return checkpoint_dir
         return None
+
+    def run_vectorized(
+        self,
+        *,
+        verse: VectorizedVerse,
+        agent: Any,
+        episodes: int,
+        max_steps: int,
+        seed: Optional[int] = None,
+        train: bool = False,
+    ) -> Dict[str, Any]:
+        """Run an already-created vectorized Verse with the normal agent API.
+
+        This opt-in path is intended for batched simulator collection. The
+        scalar ``Trainer.run`` remains the path that writes the full event log
+        and run artifact set.
+        """
+        from orchestrator.vectorized_trainer import VectorizedTrainer
+
+        return VectorizedTrainer().run(
+            verse=verse,
+            agent=agent,
+            episodes=episodes,
+            max_steps=max_steps,
+            seed=seed,
+            train=train,
+        )
 
     def run(
         self,

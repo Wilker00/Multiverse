@@ -1,0 +1,5 @@
+# Optional OpenGL viewer dependencies. These are intentionally outside the base install.
+glfw>=2.7
+PyOpenGL>=3.1.7
+imgui-bundle[glfw,opengl]>=1.6
+trimesh>=4.4

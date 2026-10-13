@@ -160,10 +160,7 @@ def get_factory(name: str) -> VerseFactory:
     return _FACTORIES[key]
 
 
-def create_verse(spec: VerseSpec) -> Verse:
-    """
-    Create a Verse from its spec using the registered factory.
-    """
+def _effective_spec(spec: VerseSpec) -> VerseSpec:
     params = dict(spec.params or {})
     try:
         adj = load_curriculum_adjustments()
@@ -183,8 +180,44 @@ def create_verse(spec: VerseSpec) -> Verse:
             if t not in merged_tags:
                 merged_tags.append(t)
         spec_eff = dataclasses.replace(spec_eff, tags=merged_tags)
+    return spec_eff
+
+
+def create_verse(spec: VerseSpec) -> Verse:
+    """Create a Verse from its spec using the registered factory."""
+    spec_eff = _effective_spec(spec)
     factory = get_factory(spec_eff.verse_name)
     return factory.create(spec_eff)
+
+
+def create_vectorized_verse(spec: VerseSpec, num_envs: int):
+    """Create an optional batched Verse path while keeping scalar factories intact.
+
+    The native continuous-control implementation shares one MuJoCo model for
+    point-mass and reacher lanes. Other registered verses use independent
+    scalar lanes behind the same batch contract.
+    """
+    if int(num_envs) < 1:
+        raise ValueError("num_envs must be positive")
+    spec_eff = _effective_spec(spec)
+    params = dict(spec_eff.params or {})
+    provider = str(params.get("sim_provider", "python")).strip().lower()
+    name = str(spec_eff.verse_name).strip().lower()
+    if provider == "multiverse_native" and name in ("embodied_point_world", "robot_reacher_world"):
+        from integrations.physics.native_vectorized import NativeVectorizedVerse
+
+        return NativeVectorizedVerse(spec_eff, int(num_envs), worker_count=int(params.get("sim_workers", 0) or 0))
+
+    register_builtin()
+    factory = get_factory(name)
+    lanes = []
+    for lane in range(int(num_envs)):
+        lane_seed = None if spec_eff.seed is None else int(spec_eff.seed) + lane
+        lane_spec = dataclasses.replace(spec_eff, seed=lane_seed)
+        lanes.append(factory.create(lane_spec))
+    from core.vectorized_verse import SerialVectorizedVerse
+
+    return SerialVectorizedVerse(lanes)
 
 
 def list_verses() -> Dict[str, VerseFactory]:

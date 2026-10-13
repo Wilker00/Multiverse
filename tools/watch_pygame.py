@@ -224,18 +224,125 @@ def rgb_to_surface(
             import numpy as np
             transposed = np.transpose(rgb, (1, 0, 2))
             raw = pygame.surfarray.make_surface(transposed)
-            return pygame.transform.scale(raw, (target_w, target_h))
         except Exception:
-            pass
+            raw = None
+    else:
+        raw = None
 
-    h = len(rgb)
-    w = len(rgb[0]) if h > 0 else 1
-    raw = pygame.Surface((w, h))
-    for y, row in enumerate(rgb):
-        for x, pixel in enumerate(row):
-            r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
-            raw.set_at((x, y), (r, g, b))
-    return pygame.transform.scale(raw, (target_w, target_h))
+    if raw is None:
+        h = len(rgb)
+        w = len(rgb[0]) if h > 0 else 1
+        raw = pygame.Surface((w, h))
+        for y, row in enumerate(rgb):
+            for x, pixel in enumerate(row):
+                r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+                raw.set_at((x, y), (r, g, b))
+
+    target_w = max(1, int(target_w))
+    target_h = max(1, int(target_h))
+    source_w, source_h = raw.get_size()
+    # Fill the viewport while preserving the source aspect ratio. A small
+    # center crop is preferable to leaving empty bands around 3D scenes.
+    scale = max(target_w / max(1, source_w), target_h / max(1, source_h))
+    out_w = max(1, int(source_w * scale))
+    out_h = max(1, int(source_h * scale))
+    scaled = pygame.transform.smoothscale(raw, (out_w, out_h))
+    crop_x = max(0, (out_w - target_w) // 2)
+    crop_y = max(0, (out_h - target_h) // 2)
+    canvas = pygame.Surface((target_w, target_h))
+    canvas.blit(scaled, (0, 0), pygame.Rect(crop_x, crop_y, target_w, target_h))
+    return canvas
+
+
+def draw_warehouse_3d_hud(
+    surface: pygame.Surface,
+    verse: Any,
+    area: pygame.Rect,
+    mono_font: pygame.font.Font,
+    label_font: pygame.font.Font,
+    step: int,
+    action: Any,
+    info: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Show compact robot telemetry and a top-down warehouse map."""
+    if area.width < 480 or area.height < 300:
+        return
+
+    from verses.warehouse_3d_world import CRATES
+
+    info = info or {}
+    x = float(getattr(verse, "x", 0.0))
+    z = float(getattr(verse, "z", 0.0))
+    yaw = float(getattr(verse, "yaw", 0.0))
+    goal_x = float(getattr(verse, "_goal_x", 0.0))
+    goal_z = float(getattr(verse, "_goal_z", 0.0))
+    distance = math.hypot(goal_x - x, goal_z - z)
+    goal_radius = float(getattr(verse, "_goal_radius", 0.45))
+    arena = max(1.0, float(getattr(verse, "_arena", 5.5)))
+
+    # Keep telemetry over the open lower-left floor so the crates and robot stay visible.
+    panel_w, panel_h = 266, 142
+    panel_x, panel_y = area.x + 14, area.bottom - panel_h - 14
+    panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+    panel = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+    panel.fill((9, 17, 31, 224))
+    surface.blit(panel, panel_rect.topleft)
+    pygame.draw.rect(surface, (70, 94, 110), panel_rect, 1, border_radius=8)
+    pygame.draw.line(surface, C_ACCENT, (panel_x + 1, panel_y + 1), (panel_x + panel_w - 2, panel_y + 1), 2)
+
+    title = label_font.render("WAREHOUSE NAVIGATION", True, C_ACCENT)
+    surface.blit(title, (panel_x + 12, panel_y + 9))
+    dist_color = C_GREEN if distance <= goal_radius else C_YELLOW if distance <= 2.0 else C_TEXT
+    rows = (
+        (f"POS   X {x:+.2f}   Z {z:+.2f}", C_TEXT),
+        (f"HEAD  {math.degrees(yaw):+.1f} deg", C_YELLOW),
+        (f"ACT   {action_label('warehouse_3d_world', action)}", C_YELLOW),
+        (f"GOAL  X {goal_x:+.2f}   Z {goal_z:+.2f}", C_TEXT),
+        (f"DIST  {distance:.2f} m", dist_color),
+    )
+    for index, (line, color) in enumerate(rows):
+        surface.blit(mono_font.render(line, True, color), (panel_x + 12, panel_y + 30 + index * 19))
+
+    status = "COLLISION" if info.get("collided") else "GOAL REACHED" if info.get("reached_goal") else "NAVIGATING"
+    status_color = C_RED if info.get("collided") else C_GREEN if info.get("reached_goal") else (178, 195, 210)
+    surface.blit(label_font.render(f"{status}   STEP {step:03d}", True, status_color), (panel_x + 12, panel_y + panel_h - 19))
+
+    map_size = min(156, area.height - 28, area.width - panel_w - 42)
+    if map_size < 118:
+        return
+    map_x, map_y = area.right - map_size - 14, area.bottom - map_size - 14
+    map_rect = pygame.Rect(map_x, map_y, map_size, map_size)
+    map_bg = pygame.Surface(map_rect.size, pygame.SRCALPHA)
+    map_bg.fill((9, 17, 31, 224))
+    surface.blit(map_bg, map_rect.topleft)
+    pygame.draw.rect(surface, (70, 94, 110), map_rect, 1, border_radius=8)
+    surface.blit(label_font.render("TOP VIEW", True, C_ACCENT), (map_x + 10, map_y + 8))
+    inner = pygame.Rect(map_x + 10, map_y + 28, map_size - 20, map_size - 39)
+    pygame.draw.rect(surface, (27, 39, 49), inner, border_radius=4)
+    for division in range(1, 4):
+        gx = inner.x + inner.width * division // 4
+        gy = inner.y + inner.height * division // 4
+        pygame.draw.line(surface, (48, 67, 78), (gx, inner.y), (gx, inner.bottom), 1)
+        pygame.draw.line(surface, (48, 67, 78), (inner.x, gy), (inner.right, gy), 1)
+
+    def map_point(world_x: float, world_z: float) -> Tuple[int, int]:
+        px = inner.x + round((world_x + arena) / (2.0 * arena) * inner.width)
+        py = inner.bottom - round((world_z + arena) / (2.0 * arena) * inner.height)
+        return px, py
+
+    for _name, cx, cz, width, _height, depth, color in getattr(verse, "_crates", CRATES):
+        px, py = map_point(float(cx), float(cz))
+        rw = max(3, round(float(width) / (2.0 * arena) * inner.width))
+        rh = max(3, round(float(depth) / (2.0 * arena) * inner.height))
+        rect = pygame.Rect(px - rw // 2, py - rh // 2, rw, rh)
+        pygame.draw.rect(surface, color, rect, border_radius=2)
+
+    goal_point = map_point(goal_x, goal_z)
+    pygame.draw.circle(surface, C_GREEN, goal_point, 5)
+    robot_point = map_point(x, z)
+    heading_point = map_point(x + math.sin(yaw) * 0.7, z + math.cos(yaw) * 0.7)
+    pygame.draw.line(surface, C_YELLOW, robot_point, heading_point, 2)
+    pygame.draw.circle(surface, (255, 180, 69), robot_point, 4)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -829,11 +936,13 @@ def run_viewer(cfg: ViewerConfig) -> None:
     transitions: List[Transition] = []
     current_action: Any = 0
     current_reward: float = 0.0
+    current_info: Dict[str, Any] = {}
     max_steps     = int(verse_params.get("max_steps", 200))
     episode      += 1
     verse.seed(cfg.seed + episode)
     reset_r       = verse.reset()
     obs           = reset_r.obs
+    current_info  = dict(reset_r.info or {})
 
     running = True
     while running:
@@ -863,6 +972,7 @@ def run_viewer(cfg: ViewerConfig) -> None:
                 current_action = act_result.action
                 step_result    = verse.step(current_action)
                 current_reward = step_result.reward
+                current_info  = dict(step_result.info or {})
                 next_obs       = step_result.obs
                 done           = step_result.done
                 truncated      = step_result.truncated
@@ -907,7 +1017,9 @@ def run_viewer(cfg: ViewerConfig) -> None:
                 # Start next episode
                 episode += 1
                 verse.seed(cfg.seed + episode)
-                obs        = verse.reset().obs
+                reset_r    = verse.reset()
+                obs        = reset_r.obs
+                current_info = dict(reset_r.info or {})
                 ep_return  = 0.0
                 step       = 0
                 done       = False
@@ -938,6 +1050,17 @@ def run_viewer(cfg: ViewerConfig) -> None:
                 screen.blit(surf, (game_rect.x, game_rect.y))
             else:
                 screen.fill(GRID_BG, game_rect)
+            if cfg.verse_name == "warehouse_3d_world":
+                draw_warehouse_3d_hud(
+                    screen,
+                    verse,
+                    game_rect,
+                    MONO_FONT,
+                    LABEL_FONT,
+                    step,
+                    current_action,
+                    current_info,
+                )
 
         elif spatial:
             ansi_frame = verse.render(mode="ansi") or ""
@@ -987,7 +1110,10 @@ def run_viewer(cfg: ViewerConfig) -> None:
         if fps > 0:
             clock.tick(fps)
 
-    pygame.quit()
+    try:
+        verse.close()
+    finally:
+        pygame.quit()
 
     # ── Summary ────────────────────────────────────────────────────────────
     total = episode

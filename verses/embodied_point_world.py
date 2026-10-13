@@ -20,6 +20,8 @@ from core.types import JSONValue, SpaceSpec, VerseSpec
 from core.verse_base import ResetResult, StepResult
 from integrations.physics.toy_backend import ToyPhysicsBackend
 from integrations.physics.warp_backend import WarpPhysicsBackend
+from integrations.physics.native_backend import NativePhysicsBackend
+from integrations.physics.domain_randomization import DomainRandomizationSample, sample_domain_randomization
 
 
 def _backend_for(name: str):
@@ -42,13 +44,25 @@ class EmbodiedPointWorldVerse:
                 tags.append(tag)
         self.spec = dataclasses.replace(spec, tags=tags)
         params = dict(self.spec.params or {})
-        self._goal_x = float(params.get("goal_x", 0.8))
-        self._goal_y = float(params.get("goal_y", 0.8))
+        self._base_goal_x = float(params.get("goal_x", 0.8))
+        self._base_goal_y = float(params.get("goal_y", 0.8))
+        self._goal_x = self._base_goal_x
+        self._goal_y = self._base_goal_y
+        self._domain_randomization = params.get("domain_randomization", False)
+        self._randomization_sample = DomainRandomizationSample()
         self._goal_radius = max(0.05, float(params.get("goal_radius", 0.15)))
         self._max_steps = max(1, int(params.get("max_steps", 40)))
         self._step_penalty = float(params.get("step_penalty", -0.01))
         self._goal_reward = float(params.get("goal_reward", 1.0))
-        self._backend = _backend_for(str(params.get("backend", "toy")))
+        provider = str(params.get("sim_provider", "python")).strip().lower()
+        if provider == "multiverse_native":
+            self._backend = NativePhysicsBackend(
+                "embodied_point_world", worker_count=int(params.get("sim_workers", 0) or 0)
+            )
+        elif provider == "python":
+            self._backend = _backend_for(str(params.get("backend", "toy")))
+        else:
+            raise ValueError(f"Unknown sim_provider {provider!r}; expected 'python' or 'multiverse_native'")
         self._body = self._backend.reset(seed=self.spec.seed)
         self._t = 0
         self._done = False
@@ -100,6 +114,11 @@ class EmbodiedPointWorldVerse:
         return float((dx * dx + dy * dy) ** 0.5)
 
     def reset(self) -> ResetResult:
+        self._randomization_sample = sample_domain_randomization(self.spec.seed, self._domain_randomization)
+        self._goal_x = self._base_goal_x + self._randomization_sample.goal_offset[0]
+        self._goal_y = self._base_goal_y + self._randomization_sample.goal_offset[1]
+        if isinstance(self._backend, NativePhysicsBackend):
+            self._backend.control_scale = self._randomization_sample.actuator_gain
         self._body = self._backend.reset(seed=self.spec.seed)
         self._t = 0
         self._done = False
@@ -192,10 +211,16 @@ class EmbodiedPointWorldVerse:
         return canvas
 
     def close(self) -> None:
-        return None
+        close = getattr(self._backend, "close", None)
+        if callable(close):
+            close()
 
     def export_state(self) -> Dict[str, JSONValue]:
-        return {"body": dict(self._body), "t": int(self._t), "done": bool(self._done)}
+        return {
+            "body": dict(self._body), "t": int(self._t), "done": bool(self._done),
+            "goal_x": float(self._goal_x), "goal_y": float(self._goal_y),
+            "randomization": self._randomization_sample.to_dict(),
+        }
 
     def import_state(self, state: Dict[str, JSONValue]) -> None:
         body = state.get("body") if isinstance(state.get("body"), dict) else {}
@@ -208,6 +233,19 @@ class EmbodiedPointWorldVerse:
         self._t = int(state.get("t", 0) or 0)
         self._done = bool(state.get("done", False))
         self._trail = [self.position]
+        self._goal_x = float(state.get("goal_x", self._base_goal_x))
+        self._goal_y = float(state.get("goal_y", self._base_goal_y))
+        randomization = state.get("randomization") if isinstance(state.get("randomization"), dict) else {}
+        self._randomization_sample = DomainRandomizationSample(
+            actuator_gain=float(randomization.get("actuator_gain", 1.0)),
+            goal_offset=tuple(float(v) for v in randomization.get("goal_offset", (0.0, 0.0))),
+            visual_tint=tuple(float(v) for v in randomization.get("visual_tint", (1.0, 1.0, 1.0))),
+        )
+        restore = getattr(self._backend, "import_state", None)
+        if callable(restore):
+            restore(self._body)
+        if isinstance(self._backend, NativePhysicsBackend):
+            self._backend.control_scale = self._randomization_sample.actuator_gain
 
 
 class EmbodiedPointWorldFactory:

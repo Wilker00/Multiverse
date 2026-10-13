@@ -1,0 +1,21 @@
+<mujoco model="multiverse_world_3d_terrain">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.01" gravity="0 0 0" integrator="implicitfast"/>
+  <default>
+    <joint damping="0.2" armature="0.03" limited="true" range="-10 10"/>
+    <geom contype="1" conaffinity="1" rgba="0.45 0.5 0.56 1"/>
+    <motor ctrllimited="true" ctrlrange="-2 2" forcelimited="true" forcerange="-2 2"/>
+  </default>
+  <worldbody>
+    <geom name="terrain_ground" type="plane" size="12 12 0.1" rgba="0.25 0.3 0.34 1"/>
+    <body name="terrain_agent" pos="0 0 0.1">
+      <joint name="terrain_x" type="slide" axis="1 0 0"/>
+      <joint name="terrain_z" type="slide" axis="0 1 0"/>
+      <geom name="terrain_agent_visual" type="sphere" size="0.16" mass="1" rgba="0.93 0.68 0.16 1"/>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="terrain_x_motor" joint="terrain_x"/>
+    <motor name="terrain_z_motor" joint="terrain_z"/>
+  </actuator>
+</mujoco>

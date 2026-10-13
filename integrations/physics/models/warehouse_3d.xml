@@ -1,0 +1,28 @@
+<mujoco model="multiverse_warehouse_3d">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.01" gravity="0 0 0" integrator="implicitfast"/>
+  <default>
+    <joint damping="0.25" armature="0.04" limited="true" range="-5.5 5.5"/>
+    <geom contype="1" conaffinity="1" friction="0.9 0.05 0.01"/>
+    <motor ctrllimited="true" ctrlrange="-3 3" forcelimited="true" forcerange="-3 3"/>
+  </default>
+  <worldbody>
+    <geom name="warehouse_floor" type="plane" size="7 7 0.1" rgba="0.25 0.28 0.34 1"/>
+    <body name="crate_blue" pos="-1.6 0.55 0.4"><geom name="crate_blue_visual" type="box" size="0.55 0.55 0.48" mass="0" rgba="0.25 0.44 0.68 1"/></body>
+    <body name="crate_red" pos="-0.35 0.575 1.45"><geom name="crate_red_visual" type="box" size="0.575 0.575 0.525" mass="0" rgba="0.72 0.31 0.26 1"/></body>
+    <body name="crate_gray" pos="0.55 0.875 2.55"><geom name="crate_gray_visual" type="box" size="0.475 0.875 0.475" mass="0" rgba="0.63 0.68 0.7 1"/></body>
+    <body name="crate_brown" pos="1.75 0.725 1.15"><geom name="crate_brown_visual" type="box" size="0.675 0.725 0.6" mass="0" rgba="0.68 0.46 0.27 1"/></body>
+    <body name="warehouse_robot" pos="0 0.45 0">
+      <joint name="robot_x" type="slide" axis="1 0 0"/>
+      <joint name="robot_z" type="slide" axis="0 0 1"/>
+      <joint name="robot_yaw" type="hinge" axis="0 1 0" limited="false"/>
+      <geom name="robot_body_visual" type="box" pos="0 0 0" size="0.475 0.36 0.4" mass="1" rgba="0.68 0.44 0.17 1"/>
+      <geom name="robot_sensor_visual" type="cylinder" pos="0 0.48 0" size="0.18 0.18" mass="0.05" rgba="0.2 0.54 0.66 1"/>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="robot_x_motor" joint="robot_x"/>
+    <motor name="robot_z_motor" joint="robot_z"/>
+    <motor name="robot_yaw_motor" joint="robot_yaw" ctrlrange="-2 2" forcerange="-2 2"/>
+  </actuator>
+</mujoco>

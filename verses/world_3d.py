@@ -79,6 +79,8 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import numpy as np
+
 from core.types import JSONValue, SpaceSpec, VerseSpec
 from core.verse_base import ResetResult, StepResult, Verse
 
@@ -602,7 +604,7 @@ class World3DVerse:
                 print(frame)
             return None
         if mode == "rgb_array":
-            return self._render_rgb()
+            return np.asarray(self._render_rgb(), dtype=np.uint8)
         if mode != "ansi":
             return None
         return self._render_ansi()

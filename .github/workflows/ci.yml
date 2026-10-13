@@ -28,3 +28,66 @@ jobs:
       - name: Run MCTS Regression Tests
         run: |
           python -m pytest -q tests/test_mcts_regression.py tests/test_mcts_search.py tests/test_mcts_value_confidence.py tests/test_mcts_trainer_trace.py tests/test_mcts_trace_filter.py tests/test_safe_executor_mcts.py tests/test_safe_executor_mcts_overrides.py tests/test_meta_transformer_value.py tests/test_mcts_telemetry_dashboard.py tests/test_transfer_challenge.py tests/test_agent_health_monitor.py
+
+  native-runtime:
+    runs-on: ubuntu-latest
+    env:
+      MULTIVERSE_REQUIRE_NATIVE_TESTS: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Native Build Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pytest -r requirements_native.txt
+
+      - name: Build Native Runtime
+        run: |
+          cmake -S native -B build/native -DCMAKE_BUILD_TYPE=Release \
+            -DPython_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
+            -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
+          cmake --build build/native --parallel
+
+      - name: Verify Native Runtime
+        run: python -m pytest -q tests/test_native_physics.py
+
+      - name: Benchmark Native Batches
+        run: python tools/benchmark_native_physics.py --iterations 500 --warmup 50 --output native-benchmark.json
+
+      - name: Upload Native Benchmark Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-physics-benchmark
+          path: native-benchmark.json
+
+  native-runtime-windows:
+    runs-on: windows-latest
+    env:
+      MULTIVERSE_REQUIRE_NATIVE_TESTS: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Native Build Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pytest -r requirements_native.txt
+
+      - name: Build Native Runtime
+        run: |
+          cmake -S native -B build/native -DPython_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
+          cmake --build build/native --config Release --parallel
+
+      - name: Verify Native Runtime
+        run: python -m pytest -q tests/test_native_physics.py

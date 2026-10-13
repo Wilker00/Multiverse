@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -26,10 +27,10 @@ from engine3d.scene import Node, Scene, Transform
 
 CRATES: Tuple[Tuple[str, float, float, float, float, float, Tuple[int, int, int]], ...] = (
     # name, x, z, width, height, depth, color
-    ("blue", -1.6, 0.4, 1.1, 2.3, 0.95, (42, 78, 158)),
-    ("red", -0.35, 1.45, 1.15, 1.15, 1.05, (158, 52, 46)),
-    ("gray", 0.55, 2.55, 0.95, 1.75, 0.95, (148, 150, 156)),
-    ("brown", 1.75, 1.15, 1.35, 1.45, 1.2, (156, 102, 48)),
+    ("blue", -1.6, 0.4, 1.1, 2.3, 0.95, (63, 112, 174)),
+    ("red", -0.35, 1.45, 1.15, 1.15, 1.05, (184, 79, 67)),
+    ("gray", 0.55, 2.55, 0.95, 1.75, 0.95, (168, 178, 180)),
+    ("brown", 1.75, 1.15, 1.35, 1.45, 1.2, (178, 123, 72)),
 )
 
 
@@ -37,7 +38,7 @@ def build_warehouse_scene(
     robot_x: float,
     robot_z: float,
     yaw: float,
-    camera_mode: str = "follow",
+    camera_mode: str = "isometric",
 ) -> Scene:
     """Assemble the warehouse scene graph for the current robot pose."""
     scene = Scene(background_color=(15, 18, 30))
@@ -119,9 +120,13 @@ class Warehouse3DWorldVerse:
         self._move_speed = float(params.get("move_speed", 0.35))
         self._turn_speed = float(params.get("turn_speed", 0.35))
         self._arena = float(params.get("arena", 5.5))
-        self._render_width = max(16, int(params.get("render_width", 320)))
-        self._render_height = max(16, int(params.get("render_height", 240)))
-        self._camera_mode = str(params.get("camera_mode", "follow"))
+        self._render_width = max(16, int(params.get("render_width", 640)))
+        self._render_height = max(16, int(params.get("render_height", 426)))
+        self._camera_mode = str(params.get("camera_mode", "isometric"))
+        self._render_backend = str(params.get("render_backend", "auto")).lower()
+        if self._render_backend not in ("auto", "panda", "panda3d", "software"):
+            raise ValueError("render_backend must be 'auto', 'panda3d', or 'software'")
+        self._panda_unavailable = False
         self._robot_radius = 0.42
         self.x = 1.15
         self.z = -1.8
@@ -230,6 +235,31 @@ class Warehouse3DWorldVerse:
                 f"goal ({self._goal_x:.2f},{self._goal_z:.2f}) dist {self._distance():.2f}"
             )
         if mode == "rgb_array":
+            if self._render_backend != "software" and not self._panda_unavailable:
+                try:
+                    from engine3d.panda_warehouse_renderer import render_warehouse_frame
+
+                    return render_warehouse_frame(
+                        robot_x=self.x,
+                        robot_z=self.z,
+                        yaw=self.yaw,
+                        crates=CRATES,
+                        arena=self._arena,
+                        goal=(self._goal_x, self._goal_z, self._goal_radius),
+                        camera_mode=self._camera_mode,
+                        width=self._render_width,
+                        height=self._render_height,
+                    )
+                except Exception as exc:
+                    if self._render_backend in ("panda", "panda3d"):
+                        raise RuntimeError(f"Panda3D warehouse renderer failed: {exc}") from exc
+                    self._panda_unavailable = True
+                    warnings.warn(
+                        f"Panda3D renderer unavailable; using local software renderer ({exc})",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+
             scene = build_warehouse_scene(self.x, self.z, self.yaw, self._camera_mode)
             scene.add_node(
                 Node(
@@ -242,7 +272,14 @@ class Warehouse3DWorldVerse:
         return None
 
     def close(self) -> None:
-        return None
+        if self._render_backend == "software" or self._panda_unavailable:
+            return
+        try:
+            from engine3d.panda_warehouse_renderer import close_warehouse_renderer
+
+            close_warehouse_renderer()
+        except ImportError:
+            return
 
     def export_state(self) -> Dict[str, JSONValue]:
         return {

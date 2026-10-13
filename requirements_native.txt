@@ -1,0 +1,5 @@
+# Optional dependencies for the Multiverse C++17/MuJoCo runtime.
+# The OpenGL viewport uses a separate optional install: requirements_viewer.txt.
+cmake>=3.28
+pybind11>=2.12
+mujoco>=3.2,<4

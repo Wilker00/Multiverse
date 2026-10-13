@@ -3,3 +3,4 @@
 
 pygame>=2.6.0
 plotext>=5.2.8
+panda3d>=1.10.16,<1.11

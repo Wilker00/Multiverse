@@ -1,0 +1,20 @@
+<mujoco model="multiverse_point_mass">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.01" gravity="0 0 0" integrator="implicitfast"/>
+  <default>
+    <joint damping="0.18" armature="0.02" limited="true" range="-1 1"/>
+    <geom contype="0" conaffinity="0" rgba="0.93 0.68 0.16 1"/>
+    <motor ctrllimited="true" ctrlrange="-1.5 1.5" forcelimited="true" forcerange="-1.5 1.5"/>
+  </default>
+  <worldbody>
+    <body name="point_agent" pos="0 0 0">
+      <joint name="point_x" type="slide" axis="1 0 0"/>
+      <joint name="point_y" type="slide" axis="0 1 0"/>
+      <geom name="point_visual" type="sphere" size="0.06" mass="1"/>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="point_x_motor" joint="point_x"/>
+    <motor name="point_y_motor" joint="point_y"/>
+  </actuator>
+</mujoco>

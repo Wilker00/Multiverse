@@ -67,6 +67,8 @@ This README is intentionally strict. It only describes what is present in code a
 - Environment registry: `verses/registry.py`
 - Agent registry: `agents/registry.py`
 - Trainer: `orchestrator/trainer.py`
+- Optional batched trainer: `orchestrator/vectorized_trainer.py`
+- Optional C++/MuJoCo runtime and custom OpenGL viewer: [native engine guide](docs/NATIVE_ENGINE.md)
 - Rollout loop: `core/rollout.py`
 - Rollout support helpers: `core/rollout_support.py`
 - Safety wrapper: `core/safe_executor.py`

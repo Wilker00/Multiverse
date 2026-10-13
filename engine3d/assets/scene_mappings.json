@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "description": "Stable MuJoCo/Verse body names mapped to visual glTF assets.",
+  "bodies": {
+    "warehouse_robot": {"mujoco_body": "warehouse_robot", "mesh": "gltf/unit_box.gltf"},
+    "crate_blue": {"mujoco_body": "crate_blue", "mesh": "gltf/unit_box.gltf"},
+    "crate_red": {"mujoco_body": "crate_red", "mesh": "gltf/unit_box.gltf"},
+    "crate_gray": {"mujoco_body": "crate_gray", "mesh": "gltf/unit_box.gltf"},
+    "crate_brown": {"mujoco_body": "crate_brown", "mesh": "gltf/unit_box.gltf"},
+    "point_agent": {"mujoco_body": "point_agent", "shape": "sphere"},
+    "terrain_agent": {"mujoco_body": "terrain_agent", "shape": "sphere"},
+    "reacher_base": {"mujoco_body": "reacher_base", "shape": "sphere"},
+    "reacher_link_1": {"mujoco_body": "upper_arm", "shape": "line"},
+    "reacher_link_2": {"mujoco_body": "forearm", "shape": "line"}
+  }
+}

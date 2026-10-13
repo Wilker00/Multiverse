@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from engine3d.rasterizer import Rasterizer
-from verses.warehouse_3d_world import build_warehouse_scene
+from core.types import VerseSpec
+from verses.warehouse_3d_world import Warehouse3DWorldVerse
 
 
 def _write_png(path: Path, frame: np.ndarray) -> None:
@@ -44,17 +44,32 @@ def _write_png_stdlib(path: Path, frame: np.ndarray) -> None:
 def main() -> None:
     out_dir = ROOT / "docs" / "images"
     out_dir.mkdir(parents=True, exist_ok=True)
-    raster = Rasterizer(720, 480)
     views = {
         "warehouse_3d_perspective.png": "follow",
         "warehouse_3d_isometric.png": "isometric",
     }
     for name, mode in views.items():
-        scene = build_warehouse_scene(1.15, -1.8, 0.15, mode)
-        frame = raster.render(scene)
+        verse = Warehouse3DWorldVerse(
+            VerseSpec(
+                spec_version="1",
+                verse_name="warehouse_3d_world",
+                verse_version="1",
+                seed=42,
+                params={
+                    "camera_mode": mode,
+                    "render_width": 720,
+                    "render_height": 480,
+                },
+            )
+        )
+        verse.reset()
+        frame = verse.render(mode="rgb_array")
+        if frame is None:
+            raise RuntimeError(f"Warehouse renderer returned no frame for {mode!r} camera")
         path = out_dir / name
         _write_png(path, frame)
         print(f"wrote {path} {frame.shape}")
+    verse.close()
 
 
 if __name__ == "__main__":
