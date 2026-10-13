@@ -174,10 +174,7 @@ def help_gate() -> None:
         _run([sys.executable, str(p), "--help"], capture_output=True)
 
 
-def ensure_bootstrap_run(*, runs_root: Path) -> None:
-    if _list_runs(runs_root):
-        return
-    runs_root.mkdir(parents=True, exist_ok=True)
+def _bootstrap_train(runs_root: Path, seed: int) -> None:
     _run(
         [
             sys.executable,
@@ -190,10 +187,21 @@ def ensure_bootstrap_run(*, runs_root: Path) -> None:
             "2",
             "--max_steps",
             "5",
+            "--seed",
+            str(seed),
             "--runs_root",
             str(runs_root),
         ]
     )
+
+
+def ensure_bootstrap_run(*, runs_root: Path) -> None:
+    runs_root.mkdir(parents=True, exist_ok=True)
+    # Validation refuses to score a run against its own events. One smoke run
+    # therefore always reports zero coverage.
+    missing = 2 - len(_list_runs(runs_root))
+    for seed in (123, 124)[: max(0, missing)]:
+        _bootstrap_train(runs_root, seed)
 
 
 def model_gate(min_coverage: float, min_action_accuracy: float, *, runs_root: Path, model_out_dir: Path) -> None:
