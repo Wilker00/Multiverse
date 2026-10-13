@@ -58,8 +58,9 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
 try:
     import pygame
 except ImportError:
-    print("pygame not installed. Run: pip install pygame")
-    sys.exit(1)
+    # --help only needs argparse. A missing viewer dependency should not
+    # make the CI help gate fail before usage can be printed.
+    pygame = None  # type: ignore[assignment]
 
 # ── Registries ────────────────────────────────────────────────────────────────
 from verses.registry import register_builtin as _reg_verses, create_verse, list_verses
@@ -1025,6 +1026,10 @@ def main() -> None:
     ap.add_argument("--vparam",   action="append", default=None, metavar="K=V")
     ap.add_argument("--aconfig",  action="append", default=None, metavar="K=V")
     args = ap.parse_args()
+
+    if pygame is None:
+        print("pygame not installed. Run: pip install pygame")
+        sys.exit(1)
 
     if args.verse not in known_verses:
         print(f"Unknown verse '{args.verse}'. Known:\n  {chr(10).join(known_verses)}")
